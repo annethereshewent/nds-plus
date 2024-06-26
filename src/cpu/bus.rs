@@ -1,10 +1,44 @@
-use crate::cpu::{registers::interrupt_enable_register::InterruptEnableRegister, dma::dma_channels::AddressType};
+use std::{cell::Cell, rc::Rc};
 
-use super::CPU;
+use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
+pub struct Bus<const IS_ARM9: bool> {
+  pub bios: Vec<u8>,
+  board_wram: Box<[u8]>,
+  chip_wram: Box<[u8]>,
+  pub dma_channels: Rc<Cell<DmaChannels<IS_ARM9>>>,
+  pub interrupt_enable: InterruptEnableRegister,
+  pub interrupt_request: Rc<Cell<InterruptRequestRegister>>,
+  pub timers: Timers<IS_ARM9>,
+  post_flag: u16,
+  pub key_input: KeyInputRegister,
+  waitcnt: WaitstateControlRegister,
+  pub interrupt_master_enable: bool,
+  pub cycle_luts: CycleLookupTables,
+  pub is_halted: bool,
+}
 
-// @TODO: (Important): refactor this into its own struct instead of using CPU
-impl<const IS_ARM9: bool> CPU<IS_ARM9> {
+impl<const IS_ARM9: bool> Bus<IS_ARM9> {
+  pub fn new() -> Self {
+    let dma_channels = Rc::new(Cell::new(DmaChannels::new()));
+    let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
+
+    Self {
+      bios: Vec::new(),
+      board_wram: vec![0; 256 * 1024].into_boxed_slice(),
+      chip_wram: vec![0; 32 * 1024].into_boxed_slice(),
+      dma_channels,
+      interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+      timers: Timers::new(interrupt_request.clone()),
+      key_input: KeyInputRegister::from_bits_retain(0x3ff),
+      interrupt_request,
+      post_flag: 0,
+      waitcnt: WaitstateControlRegister::new(),
+      interrupt_master_enable: false,
+      cycle_luts: CycleLookupTables::new(),
+      is_halted: false
+    }
+  }
   pub fn mem_read_32(&mut self, address: u32) -> u32 {
     self.mem_read_16(address) as u32 | ((self.mem_read_16(address + 2) as u32) << 16)
   }
@@ -174,9 +208,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       //   }
       // }
       _ => {
-        panic!("not implemented yet")
-        // self.mem_write_8(address, lower);
-        // self.mem_write_8(address + 1, upper);
+        self.mem_write_8(address, lower);
+        self.mem_write_8(address + 1, upper);
       }
     }
   }
@@ -491,6 +524,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         panic!("io register not implemented: {:X}", address)
       }
     }
+  }
+
+  pub fn clear_interrupts(&mut self, value: u16) {
+    let mut interrupt_request = self.interrupt_request.get();
+
+    interrupt_request = InterruptRequestRegister::from_bits_retain(interrupt_request.bits() & !value);
+
+    self.interrupt_request.set(interrupt_request);
   }
 
   pub fn io_write_8(&mut self, address: u32, value: u8) {

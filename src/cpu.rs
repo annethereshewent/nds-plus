@@ -7,7 +7,9 @@
 
 use std::{rc::Rc, cell::Cell};
 
-use self::{cycle_lookup_tables::CycleLookupTables, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, dma::dma_channels::DmaChannels, timers::Timers};
+use bus::Bus;
+
+use self::registers::interrupt_request_register::InterruptRequestRegister;
 
 pub mod arm_instructions;
 pub mod thumb_instructions;
@@ -49,27 +51,15 @@ pub struct CPU<const IS_ARM9: bool> {
   r12_banks: [u32; 2],
   r13_banks: [u32; 6],
   r14_banks: [u32; 6],
-  post_flag: u16,
-  interrupt_master_enable: bool,
   spsr: PSRRegister,
   pub cpsr: PSRRegister,
   spsr_banks: [PSRRegister; 6],
   thumb_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u16) -> Option<MemoryAccess>>,
   arm_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u32) -> Option<MemoryAccess>>,
   pipeline: [u32; 2],
-  bios: Vec<u8>,
-  board_wram: Box<[u8]>,
-  chip_wram: Box<[u8]>,
   next_fetch: MemoryAccess,
-  cycle_luts: CycleLookupTables,
   cycles: u32,
-  interrupt_enable: InterruptEnableRegister,
-  interrupt_request: Rc<Cell<InterruptRequestRegister>>,
-  waitcnt: WaitstateControlRegister,
-  is_halted: bool,
-  dma_channels: Rc<Cell<DmaChannels<IS_ARM9>>>,
-  pub key_input: KeyInputRegister,
-  pub timers: Timers<IS_ARM9>,
+  bus: Bus<IS_ARM9>
 }
 
 
@@ -131,9 +121,6 @@ impl PSRRegister {
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   pub fn new() -> Self {
-    let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
-    let dma_channels = Rc::new(Cell::new(DmaChannels::new()));
-
     let mut cpu = Self {
       r: [0; 15],
       pc: 0,
@@ -150,21 +137,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       thumb_lut: Vec::new(),
       arm_lut: Vec::new(),
       pipeline: [0; 2],
-      bios: Vec::new(),
       next_fetch: MemoryAccess::NonSequential,
-      board_wram: vec![0; 256 * 1024].into_boxed_slice(),
-      chip_wram: vec![0; 32 * 1024].into_boxed_slice(),
-      post_flag: 0,
-      interrupt_request: interrupt_request.clone(),
-      cycle_luts: CycleLookupTables::new(),
       cycles: 0,
-      interrupt_master_enable: false,
-      interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
-      dma_channels,
-      is_halted: false,
-      key_input: KeyInputRegister::from_bits_retain(0x3ff),
-      timers: Timers::new(interrupt_request.clone()),
-      waitcnt: WaitstateControlRegister::new()
+      bus: Bus::new()
     };
 
     cpu.populate_thumb_lut();
@@ -308,10 +283,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn check_interrupts(&mut self) {
-    if self.interrupt_master_enable && (self.interrupt_enable.bits() & self.interrupt_request.get().bits()) != 0 {
+    if self.bus.interrupt_master_enable && (self.bus.interrupt_enable.bits() & self.bus.interrupt_request.get().bits()) != 0 {
       self.trigger_irq();
 
-      self.is_halted = false;
+      self.bus.is_halted = false;
     }
   }
 
@@ -319,11 +294,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // first check interrupts
     self.check_interrupts();
 
-    let mut dma = self.dma_channels.get();
+    let mut dma = self.bus.dma_channels.get();
 
     if dma.has_pending_transfers() {
       let should_trigger_irqs = dma.do_transfers(self);
-      let mut interrupt_request = self.interrupt_request.get();
+      let mut interrupt_request = self.bus.interrupt_request.get();
 
       for i in 0..4 {
         if should_trigger_irqs[i] {
@@ -331,9 +306,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         }
       }
 
-      self.interrupt_request.set(interrupt_request);
-      self.dma_channels.set(dma);
-    } else if !self.is_halted {
+      self.bus.interrupt_request.set(interrupt_request);
+      self.bus.dma_channels.set(dma);
+    } else if !self.bus.is_halted {
       if self.cpsr.contains(PSRRegister::STATE_BIT) {
         self.step_thumb();
       } else {
@@ -341,6 +316,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       }
     } else {
       // just keep cycling until an interrupt is triggered
+      // TOODO: (Important) fix this hacky stuff and add a scheduler
       self.add_cycles(1);
     }
 
@@ -376,44 +352,44 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   pub fn load_32(&mut self, address: u32, access: MemoryAccess) -> u32 {
     self.update_cycles(address, access, MemoryWidth::Width32);
-    self.mem_read_32(address)
+    self.bus.mem_read_32(address)
   }
 
   pub fn load_16(&mut self, address: u32, access: MemoryAccess) -> u16 {
     self.update_cycles(address, access, MemoryWidth::Width16);
-    self.mem_read_16(address)
+    self.bus.mem_read_16(address)
   }
 
   pub fn load_8(&mut self, address: u32, access: MemoryAccess) -> u8 {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.mem_read_8(address)
+    self.bus.mem_read_8(address)
   }
 
   pub fn store_8(&mut self, address: u32, value: u8, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.mem_write_8(address, value);
+    self.bus.mem_write_8(address, value);
   }
 
   pub fn store_16(&mut self, address: u32, value: u16, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.mem_write_16(address, value);
+    self.bus.mem_write_16(address, value);
   }
 
   pub fn store_32(&mut self, address: u32, value: u32, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.mem_write_32(address, value);
+    self.bus.mem_write_32(address, value);
   }
 
   fn update_cycles(&mut self, address: u32,  access: MemoryAccess, width: MemoryWidth) {
     let page = ((address >> 24) & 0xf) as usize;
     let cycles = match width {
       MemoryWidth::Width8 | MemoryWidth::Width16 => match access {
-        MemoryAccess::NonSequential => self.cycle_luts.n_cycles_16[page],
-        MemoryAccess::Sequential => self.cycle_luts.s_cycles_16[page]
+        MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_16[page],
+        MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_16[page]
       }
       MemoryWidth::Width32 => match access {
-        MemoryAccess::NonSequential => self.cycle_luts.n_cycles_32[page],
-        MemoryAccess::Sequential => self.cycle_luts.s_cycles_32[page],
+        MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_32[page],
+        MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_32[page],
       }
     };
 
@@ -425,15 +401,15 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // self.gpu.tick(cycles);
     // self.apu.tick(cycles);
 
-    let mut dma = self.dma_channels.get();
+    let mut dma = self.bus.dma_channels.get();
 
-    self.timers.tick(cycles, &mut dma);
+    self.bus.timers.tick(cycles, &mut dma);
 
     for channel in &mut dma.channels {
       channel.tick(cycles);
     }
 
-    self.dma_channels.set(dma);
+    self.bus.dma_channels.set(dma);
   }
 
   pub fn reload_pipeline16(&mut self) {
@@ -562,15 +538,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn load_bios(&mut self, bytes: Vec<u8>) {
-    self.bios = bytes;
-  }
-
-  fn clear_interrupts(&mut self, value: u16) {
-    let mut interrupt_request = self.interrupt_request.get();
-
-    interrupt_request = InterruptRequestRegister::from_bits_retain(interrupt_request.bits() & !value);
-
-    self.interrupt_request.set(interrupt_request);
+    self.bus.bios = bytes;
   }
 
   pub fn get_multiplier_cycles(&self, operand: u32) -> u32 {
