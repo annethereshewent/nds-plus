@@ -15,16 +15,20 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       CPU::multiply
     } else if upper & 0b11111000 == 0b00001000 && lower == 0b1001 {
       CPU::multiply_long
-    } else if upper & 0b11111001 == 0b00010000 && lower & 1001 == 1000 {
+    } else if upper & 0b11111001 == 0b00010000 && lower & 0b1001 == 0b1000 {
       CPU::signed_halfword_multiply
     } else if upper & 0b11110011 == 0b00010000 && lower == 0b1001 {
       CPU::single_data_swap
-    } else if upper == 0b00010010 && lower & 1101 == 1 {
+    } else if upper == 0b00010010 && lower & 0b1101 == 0b1 {
       CPU::branch_and_exchange
     } else if upper & 0b11100100 == 0 && lower & 0b1001 == 0b1001 {
       CPU::halfword_data_transfer_register
     } else if upper & 0b11100100 == 0b00000100 && lower & 0b1001 == 0b1001 {
       CPU::halfword_data_transfer_immediate
+    } else if upper & 0b11111001 == 0b00010000 && lower == 0b0101 {
+      CPU::qalu_ops
+    } else if upper == 0b00010110 && lower == 0b1 {
+      CPU::count_leading_zeros
     } else if upper & 0b11000000 == 0 {
       // check for psr transfer instructions as they are a subset of data processing
       let s = upper & 0b1;
@@ -41,7 +45,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       } else {
         CPU::data_processing
       }
-
     } else if upper & 0b11100000 == 0b01100000 && lower & 0b1 == 1 {
       // undefined instruction
       CPU::arm_panic
@@ -1023,6 +1026,68 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
 
     self.pc = self.pc.wrapping_add(4);
+
+    Some(MemoryAccess::Sequential)
+  }
+
+  fn count_leading_zeros(&mut self, instr: u32) -> Option<MemoryAccess> {
+    if !IS_ARM9 {
+      panic!("unsupported instruction for arm7: CLZ");
+    }
+
+    let rm = instr & 0xf;
+    let rd = (instr >> 12) & 0xf;
+
+    self.r[rd as usize] = self.r[rm as usize].leading_zeros();
+
+    Some(MemoryAccess::Sequential)
+  }
+
+  fn qalu_ops(&mut self, instr: u32) -> Option<MemoryAccess> {
+    if !IS_ARM9 {
+      panic!("unsupported instruction for arm7: QALU ops");
+    }
+
+    let op_code = (instr >> 20) & 0b11;
+    let doubled = (instr >> 22) & 0b1 == 1;
+
+    let rn = (instr >> 16) & 0xf;
+    let rd = (instr >> 12) & 0xf;
+    let rm = instr & 0xf;
+
+    let mut overflow1 = false;
+    let mut overflow2 = false;
+
+    let value1 = if doubled {
+      let value = self.r[rn as usize].saturating_mul(2);
+
+      (_, overflow1) = self.r[rn as usize].overflowing_mul(2);
+
+      value
+    } else {
+      self.r[rn as usize]
+    };
+
+    let value2 = if op_code == 0 {
+      let value = self.r[rm as usize].saturating_add(value1);
+      (_, overflow2) = self.r[rm as usize].overflowing_add(value1);
+
+      value
+    } else {
+      let value = self.r[rm as usize].saturating_sub(value1);
+      (_, overflow2) = self.r[rm as usize].overflowing_sub(value1);
+
+      value
+    };
+
+
+    if overflow1 || overflow2 {
+      self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
+    }
+
+
+    self.r[rd as usize] = value2;
+
 
     Some(MemoryAccess::Sequential)
   }
