@@ -719,10 +719,29 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let old_base = address;
 
+    // for stores:
+    // armv7, if base is in register list, only store new base if rn is not the first register in the list
+    // armv9 never stores the new base
+
+    // For loads:
+    // armv7, only writeback if rn is not in the list
+    // armv9, rn is the only register, or it's the last register in the list
+
+    let base_is_first = register_list.trailing_zeros() == rn;
+
+    // quick 8 register example
+    // 8 registers 00100000 r5 is the last register, 7 - 2 = 5
+    // can just use leading 31 - leading_zeros() to determine if it's the last
+    let base_is_last = 31 - register_list.leading_zeros() == rn;
+
+    let should_writeback = w == 1 &&
+      (!IS_ARM9 && (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)) ||
+      (l == 1 && (register_list == 1 << rn || base_is_last));
+
     if register_list != 0 && u == 0 {
       address = address.wrapping_sub(num_registers * 4);
 
-      if w == 1 {
+      if w == 1 && should_writeback {
         self.r[rn as usize] = address;
         w = 0;
       }
@@ -798,14 +817,28 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
             // println!("popping {:X} from {:X} to register {i}", value, address);
 
             if i == PC_REGISTER as u32 {
-              self.pc = value & !(0b11);
+              let reload_32 = if value & 0b1 == 1 && IS_ARM9 {
+                self.cpsr.insert(PSRRegister::STATE_BIT);
+                self.pc = value & !(0b1);
+
+                false
+              } else {
+                self.pc = value & !(0b11);
+
+                true
+              };
 
               if psr_transfer {
                 self.transfer_spsr_mode();
               }
 
               should_increment_pc = false;
-              self.reload_pipeline32();
+
+              if reload_32 {
+                self.reload_pipeline32();
+              } else {
+                self.reload_pipeline16();
+              }
 
               result = None;
 
@@ -823,25 +856,33 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       }
     } else {
       // empty rlist edge case
-      if l == 0 {
-        let address = match (u, p) {
-          (0, 0) => address.wrapping_sub(0x3c),
-          (0, 1) => address.wrapping_sub(0x40),
-          (1, 0) => address,
-          (1, 1) => address.wrapping_add(4),
-          _ => unreachable!("shouldn't happen")
-        };
-        self.store_32(address & !(0b11), self.pc + 4, MemoryAccess::NonSequential);
 
-        // println!("stored pc value {:X} at address {:X}", self.pc + 4, address);
-      } else {
-        let val = self.ldr_word(address);
-        self.pc = val & !(0b11);
-        self.reload_pipeline32();
+      // ARMv4 only
+      if !IS_ARM9 {
+        if l == 0 {
 
-        result = None;
+          // so i'm not sure why this was here, i'll leave it in case it breaks something down the line
+          // let address = match (u, p) {
+          //   (0, 0) => address.wrapping_sub(0x3c),
+          //   (0, 1) => address.wrapping_sub(0x40),
+          //   (1, 0) => address,
+          //   (1, 1) => address.wrapping_add(4),
+          //   _ => unreachable!("shouldn't happen")
+          // };
+
+          self.store_32(address & !(0b11), self.pc + 4, MemoryAccess::NonSequential);
+
+          // println!("stored pc value {:X} at address {:X}", self.pc + 4, address);
+        } else {
+          let val = self.ldr_word(address);
+          self.pc = val & !(0b11);
+          self.reload_pipeline32();
+
+          result = None;
+        }
       }
 
+      // ARMv4-ARMv5
       address = if u == 1 {
         address.wrapping_add(0x40)
       } else {
@@ -853,7 +894,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.set_mode(old_mode);
     }
 
-    if w == 1 {
+    if w == 1 && should_writeback {
       self.r[rn as usize] = address;
     }
 
