@@ -371,7 +371,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     if l == 1 {
       if !IS_ARM9 {
-        panic!("invalid instruction");
+        panic!("invalid option for branch and link for arm7 cpu");
       }
 
       self.r[LR_REGISTER] = self.pc.wrapping_sub(4);
