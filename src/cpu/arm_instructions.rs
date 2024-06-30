@@ -1,6 +1,6 @@
 use crate::cpu::{PC_REGISTER, PSRRegister, LR_REGISTER, OperatingMode};
 
-use super::{CPU, MemoryAccess};
+use super::{MemoryAccess, CP15, CPU};
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   pub fn populate_arm_lut(&mut self) {
@@ -27,6 +27,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       CPU::halfword_data_transfer_immediate
     } else if upper & 0b11111001 == 0b00010000 && lower == 0b0101 {
       CPU::qalu_ops
+    } else if upper & 0b11110000 == 0b11100000 && lower & 0b1 == 0b1 {
+      CPU::coprocessor_register_transfer
     } else if upper == 0b00010110 && lower == 0b1 {
       CPU::count_leading_zeros
     } else if upper & 0b11000000 == 0 {
@@ -1088,6 +1090,34 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     self.r[rd as usize] = value2;
 
+
+    Some(MemoryAccess::Sequential)
+  }
+
+  fn coprocessor_register_transfer(&mut self, instr: u32) -> Option<MemoryAccess> {
+    if !IS_ARM9 {
+      panic!("unsupported instructions for arm7: coprocessor register transfer");
+    }
+
+    let cp_opcode = (instr >> 21) & 0x7;
+    let arm_opcode = (instr >> 20) & 0b1;
+
+    let cn = (instr >> 16) & 0xf;
+    let rd = (instr >> 12) & 0xf;
+    let pn = (instr >> 8) & 0xf;
+
+    let cp = (instr >> 5) & 0x7;
+    let cm = instr & 0xf;
+
+    if pn != CP15 as u32 || cp_opcode != 0 {
+      panic!("invalid coprocessor or cp opcode given for coprocessor register transfer: {pn}, {cp_opcode}");
+    }
+
+    if arm_opcode == 0 {
+      // MCR
+    } else {
+      // MRC
+    }
 
     Some(MemoryAccess::Sequential)
   }

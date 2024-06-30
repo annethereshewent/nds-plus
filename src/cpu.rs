@@ -23,6 +23,7 @@ pub mod timers;
 pub const PC_REGISTER: usize = 15;
 pub const LR_REGISTER: usize = 14;
 pub const SP_REGISTER: usize = 13;
+pub const CP15: usize = 15;
 
 pub const SOFTWARE_INTERRUPT_VECTOR: u32 = 0x8;
 pub const IRQ_VECTOR: u32 = 0x18;
