@@ -201,6 +201,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.r[rd_low as usize] = (result & 0xffffffff) as i32 as u32;
     self.r[rd_hi as usize] = (result >> 32) as i32 as u32;
 
+    self.add_cycles(1);
+
     let cycles = self.get_multiplier_cycles(operand2);
 
     self.add_cycles(cycles);
@@ -289,11 +291,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       0b10 => {
         // SMLALxy
         // RdHiLo=RdHiLo+HalfRm*HalfRs
+        self.add_cycles(1);
+
         let rd_high = rd;
         let rd_low = rn;
 
         let operand1 = (self.r[rd_high as usize] as u64) << 32 | (self.r[rd_low as usize] as u64);
-
 
         let value1 = if x == 0 {
           self.r[rm as usize] as u16
