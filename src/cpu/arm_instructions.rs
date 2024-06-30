@@ -15,9 +15,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       CPU::multiply
     } else if upper & 0b11111000 == 0b00001000 && lower == 0b1001 {
       CPU::multiply_long
+    } else if upper & 0b11111001 == 0b00010000 && lower & 1001 == 1000 {
+      CPU::signed_halfword_multiply
     } else if upper & 0b11110011 == 0b00010000 && lower == 0b1001 {
       CPU::single_data_swap
-    } else if upper == 0b00010010 && lower == 1 {
+    } else if upper == 0b00010010 && lower & 1101 == 1 {
       CPU::branch_and_exchange
     } else if upper & 0b11100100 == 0 && lower & 0b1001 == 0b1001 {
       CPU::halfword_data_transfer_register
@@ -242,6 +244,15 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // println!("inside branch and exchange");
 
     let rn = instr & 0xf;
+    let l = (instr >> 5) & 0b1;
+
+    if l == 1 {
+      if !IS_ARM9 {
+        panic!("invalid instruction");
+      }
+
+      self.r[LR_REGISTER] = self.pc.wrapping_sub(4);
+    }
 
     // println!("reading register {rn} with address {:X}", self.r[rn as usize]);
 
@@ -977,5 +988,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       3 => self.ror(shifted_operand, shift as u8, immediate, true, &mut carry),
       _ => unreachable!("can't happen")
     };
+  }
+
+  fn signed_halfword_multiply(&mut self, instr: u32) -> Option<MemoryAccess> {
+    // do stuff
+    if !IS_ARM9 {
+      panic!("unsupported instruction: signed_halfword_multiply");
+    }
+    None
   }
 }
