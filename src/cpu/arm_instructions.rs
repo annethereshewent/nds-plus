@@ -217,15 +217,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn signed_halfword_multiply(&mut self, instr: u32) -> Option<MemoryAccess> {
-    // do stuff
     if !IS_ARM9 {
       panic!("unsupported instruction: signed_halfword_multiply");
     }
     let x = (instr >> 5) & 0b1;
     let y = (instr >> 6) & 0b1;
 
-    let a = (instr >> 21) & 0b1;
-    let s = (instr >> 20) & 0b1;
     let rd = (instr >> 16) & 0xf;
     let rn = (instr >> 12) & 0xf;
     let rs = (instr >> 8) & 0xf;
