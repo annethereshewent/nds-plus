@@ -1,4 +1,6 @@
-use crate::cpu::CPU;
+use std::{cell::{Cell, RefCell}, rc::Rc};
+
+use crate::cpu::{bus::Bus, CPU};
 
 pub struct Nds {
   arm9_cpu: CPU<true>,
@@ -7,9 +9,10 @@ pub struct Nds {
 
 impl Nds {
   pub fn new() -> Self {
+    let bus = Rc::new(RefCell::new(Bus::new()));
     Self {
-      arm9_cpu: CPU::new(),
-      arm7_cpu: CPU::new()
+      arm9_cpu: CPU::new(bus.clone()),
+      arm7_cpu: CPU::new(bus)
     }
   }
 

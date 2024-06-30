@@ -5,7 +5,7 @@
 // R15 are zero and bits [31:2] contain the PC. In THUMB state,
 // bit [0] is zero and bits [31:1] contain the PC.
 
-use std::{rc::Rc, cell::Cell};
+use std::{cell::{Cell, RefCell}, rc::Rc};
 
 use bus::Bus;
 
@@ -61,7 +61,7 @@ pub struct CPU<const IS_ARM9: bool> {
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
   cycles: u32,
-  bus: Bus<IS_ARM9>
+  pub bus: Rc<RefCell<Bus>>
 }
 
 
@@ -123,7 +123,7 @@ impl PSRRegister {
 }
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
-  pub fn new() -> Self {
+  pub fn new(bus: Rc<RefCell<Bus>>) -> Self {
     let mut cpu = Self {
       r: [0; 15],
       pc: 0,
@@ -142,7 +142,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       pipeline: [0; 2],
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
-      bus: Bus::new()
+      bus
     };
 
     cpu.populate_thumb_lut();
@@ -286,32 +286,33 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn check_interrupts(&mut self) {
-    if self.bus.interrupt_master_enable && (self.bus.interrupt_enable.bits() & self.bus.interrupt_request.get().bits()) != 0 {
-      self.trigger_irq();
+    // if self.bus.get_mut().interrupt_master_enable && (self.bus.interrupt_enable.bits() & self.bus.interrupt_request.get().bits()) != 0 {
+    //   self.trigger_irq();
 
-      self.bus.is_halted = false;
-    }
+    //   self.bus.is_halted = false;
+    // }
   }
 
   pub fn step(&mut self) -> u32 {
     // first check interrupts
     self.check_interrupts();
 
-    let mut dma = self.bus.dma_channels.get();
+    // let mut dma = self.bus.dma_channels.get();
 
-    if dma.has_pending_transfers() {
-      let should_trigger_irqs = dma.do_transfers(self);
-      let mut interrupt_request = self.bus.interrupt_request.get();
+    // if dma.has_pending_transfers() {
+    //   let should_trigger_irqs = dma.do_transfers(self);
+    //   let mut interrupt_request = self.bus.interrupt_request.get();
 
-      for i in 0..4 {
-        if should_trigger_irqs[i] {
-          interrupt_request.request_dma(i);
-        }
-      }
+    //   for i in 0..4 {
+    //     if should_trigger_irqs[i] {
+    //       interrupt_request.request_dma(i);
+    //     }
+    //   }
 
-      self.bus.interrupt_request.set(interrupt_request);
-      self.bus.dma_channels.set(dma);
-    } else if !self.bus.is_halted {
+    //   self.bus.interrupt_request.set(interrupt_request);
+    //   self.bus.dma_channels.set(dma);
+    // }
+    if !self.bus.borrow_mut().is_halted {
       if self.cpsr.contains(PSRRegister::STATE_BIT) {
         self.step_thumb();
       } else {
@@ -355,48 +356,54 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   pub fn load_32(&mut self, address: u32, access: MemoryAccess) -> u32 {
     self.update_cycles(address, access, MemoryWidth::Width32);
-    self.bus.mem_read_32(address)
+    self.bus.borrow_mut().mem_read_32(address)
   }
 
   pub fn load_16(&mut self, address: u32, access: MemoryAccess) -> u16 {
     self.update_cycles(address, access, MemoryWidth::Width16);
-    self.bus.mem_read_16(address)
+    self.bus.borrow_mut().mem_read_16(address)
   }
 
   pub fn load_8(&mut self, address: u32, access: MemoryAccess) -> u8 {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.bus.mem_read_8(address)
+    self.bus.borrow_mut().mem_read_8(address)
   }
 
   pub fn store_8(&mut self, address: u32, value: u8, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.bus.mem_write_8(address, value);
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.mem_write_8(address, value);
   }
 
   pub fn store_16(&mut self, address: u32, value: u16, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.bus.mem_write_16(address, value);
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.mem_write_16(address, value);
   }
 
   pub fn store_32(&mut self, address: u32, value: u32, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.bus.mem_write_32(address, value);
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.mem_write_32(address, value);
   }
 
   fn update_cycles(&mut self, address: u32,  access: MemoryAccess, width: MemoryWidth) {
-    let page = ((address >> 24) & 0xf) as usize;
-    let cycles = match width {
-      MemoryWidth::Width8 | MemoryWidth::Width16 => match access {
-        MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_16[page],
-        MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_16[page]
-      }
-      MemoryWidth::Width32 => match access {
-        MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_32[page],
-        MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_32[page],
-      }
-    };
+    // let page = ((address >> 24) & 0xf) as usize;
+    // let cycles = match width {
+    //   MemoryWidth::Width8 | MemoryWidth::Width16 => match access {
+    //     MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_16[page],
+    //     MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_16[page]
+    //   }
+    //   MemoryWidth::Width32 => match access {
+    //     MemoryAccess::NonSequential => self.bus.cycle_luts.n_cycles_32[page],
+    //     MemoryAccess::Sequential => self.bus.cycle_luts.s_cycles_32[page],
+    //   }
+    // };
 
-    self.add_cycles(cycles);
+    // self.add_cycles(cycles);
   }
 
   fn add_cycles(&mut self, cycles: u32) {
@@ -404,15 +411,17 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // self.gpu.tick(cycles);
     // self.apu.tick(cycles);
 
-    let mut dma = self.bus.dma_channels.get();
+    // let bus = self.bus.get_mut();
 
-    self.bus.timers.tick(cycles, &mut dma);
+    // let mut dma = bus.dma_channels.get();
 
-    for channel in &mut dma.channels {
-      channel.tick(cycles);
-    }
+    // self.bus.get_mut().timers.tick(cycles, &mut dma);
 
-    self.bus.dma_channels.set(dma);
+    // for channel in &mut dma.channels {
+    //   channel.tick(cycles);
+    // }
+
+    // self.bus.get_mut().dma_channels.set(dma);
   }
 
   pub fn reload_pipeline16(&mut self) {
@@ -541,7 +550,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn load_bios(&mut self, bytes: Vec<u8>) {
-    self.bus.bios = bytes;
+    let ref mut bus = *self.bus.borrow_mut();
+
+    // todo
   }
 
   pub fn get_multiplier_cycles(&self, operand: u32) -> u32 {
