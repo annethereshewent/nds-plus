@@ -313,6 +313,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let u = (instr >> 23) & 0b1;
     let p = (instr >> 24) & 0b1;
 
+    let mut should_writeback = (l == 0 || rd != rn) && (w == 1 || p == 0);
+
     // println!("using register r{rn} for the base address");
 
     let mut address = self.get_register(rn as usize);
@@ -343,10 +345,53 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         self.r[rd as usize]
       };
 
-      if sh == 1 {
-        self.store_16(address & !(0b1), value as u16, MemoryAccess::NonSequential);
-      } else {
-        panic!("invalid option for storing half words");
+      // if sh == 1 {
+      //   self.store_16(address & !(0b1), value as u16, MemoryAccess::NonSequential);
+      // } else {
+      //   panic!("invalid option for storing half words");
+      // }
+
+      match sh {
+        1 => {
+          self.store_16(address & !(0b1), value as u16, MemoryAccess::NonSequential);
+        },
+        2 => {
+          if !IS_ARM9 {
+            panic!("invalid option given for halfword transfer for arm7 cpu");
+          }
+
+          if rd & 1 == 1 {
+            panic!("invalid odd number register given for halfword transfer");
+          }
+
+          // despite l being 0, which means this should be a store, this is actually a load! wow!
+          // this is load double word
+
+          should_writeback = rn != rd && rn != rd + 1 && (w == 1 || p == 0);
+
+          // r[rd] = a, r[rd+1] = a + 4
+          let value1 = self.load_32(address, MemoryAccess::NonSequential);
+          let value2 = self.load_32(address + 4, MemoryAccess::Sequential);
+
+          self.r[rd as usize] = value1;
+          self.r[(rd + 1) as usize] = value2;
+
+          // since rd + 1 is also being set
+          if rd == 14 {
+            self.reload_pipeline32();
+          }
+        },
+        3 => {
+          if !IS_ARM9 {
+            panic!("invalid option given for halfword transfer for arm7 cpu");
+          }
+
+          // store doubleword
+          self.store_32(address, self.r[rd as usize], MemoryAccess::NonSequential);
+          self.store_32(address + 4, self.r[(rd + 1) as usize], MemoryAccess::Sequential);
+
+        } ,
+        _ => panic!("shouldn't happen")
       }
     } else {
       // load
@@ -374,7 +419,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.add_cycles(1);
     }
 
-    if (l == 0 || rd != rn) && (w == 1 || p == 0) {
+    if should_writeback {
       self.r[rn as usize] = effective_address;
     }
 
