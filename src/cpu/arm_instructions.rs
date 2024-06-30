@@ -739,7 +739,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     // quick 8 register example
     // 8 registers 00100000 r5 is the last register, 7 - 2 = 5
-    // can just use leading 31 - leading_zeros() to determine if it's the last
+    // can just use leading 15 - leading_zeros() to determine if it's the last
     let base_is_last = 15 - register_list.leading_zeros() == rn;
 
     let should_writeback = w == 1 &&
