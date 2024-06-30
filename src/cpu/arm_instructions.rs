@@ -388,17 +388,23 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
           // store doubleword
           self.store_32(address, self.r[rd as usize], MemoryAccess::NonSequential);
-          self.store_32(address + 4, self.r[(rd + 1) as usize], MemoryAccess::Sequential);
+          self.store_32(address + 4, self.r[(rd + 1) as usize], MemoryAccess::NonSequential);
 
         } ,
         _ => panic!("shouldn't happen")
       }
     } else {
+      let access = if rd == PC_REGISTER as u32 {
+        MemoryAccess::NonSequential
+      } else {
+        MemoryAccess::Sequential
+      };
+
       // load
       let value = match sh {
-        1 => self.ldr_halfword(address) as u32, // unsigned halfwords
-        2 => self.load_8(address, MemoryAccess::NonSequential) as i8 as i32 as u32, // signed byte
-        3 => self.ldr_signed_halfword(address) as i32 as u32, // signed halfwords,
+        1 => self.ldr_halfword(address, access) as u32, // unsigned halfwords
+        2 => self.load_8(address, access) as i8 as i32 as u32, // signed byte
+        3 => self.ldr_signed_halfword(address, access) as i32 as u32, // signed halfwords,
         _ => panic!("shouldn't happen")
       };
 

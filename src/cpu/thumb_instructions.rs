@@ -301,7 +301,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         self.store_16(address & !(0b1), value, MemoryAccess::NonSequential);
       }
       (0, 1) => {
-        let value = self.ldr_halfword(address);
+        let value = self.ldr_halfword(address, MemoryAccess::NonSequential);
 
         self.r[rd as usize] = value as u32;
 
@@ -373,7 +373,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       result = Some(MemoryAccess::NonSequential);
     } else {
-      let value = self.ldr_halfword(address) as u32;
+      let value = self.ldr_halfword(address, MemoryAccess::NonSequential) as u32;
 
       // println!("loaded value {value} to register r{rd}");
 

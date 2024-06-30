@@ -494,11 +494,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     val
   }
 
-  pub fn ldr_halfword(&mut self, address: u32) -> u32 {
+  pub fn ldr_halfword(&mut self, address: u32, access: MemoryAccess) -> u32 {
     if address & 0b1 != 0 {
       let rotation = (address & 0b1) << 3;
 
-      let value = self.load_16(address & !(0b1), MemoryAccess::NonSequential);
+      let value = self.load_16(address & !(0b1), access);
 
       let mut carry = self.cpsr.contains(PSRRegister::CARRY);
       let return_val = self.ror(value as u32, rotation as u8, false, false, &mut carry);
@@ -507,7 +507,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       return_val
     } else {
-      self.load_16(address, MemoryAccess::NonSequential) as u32
+      self.load_16(address, access) as u32
     }
   }
 
@@ -529,11 +529,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
-  fn ldr_signed_halfword(&mut self, address: u32) -> u32 {
+  fn ldr_signed_halfword(&mut self, address: u32, access: MemoryAccess) -> u32 {
     if address & 0b1 != 0 {
-      self.load_8(address, MemoryAccess::NonSequential) as i8 as i32 as u32
+      self.load_8(address, access) as i8 as i32 as u32
     } else {
-      self.load_16(address, MemoryAccess::NonSequential) as i16 as i32 as u32
+      self.load_16(address, access) as i16 as i32 as u32
     }
   }
 
