@@ -19,6 +19,7 @@ pub mod rotations_shifts;
 pub mod registers;
 pub mod dma;
 pub mod timers;
+pub mod cp15;
 
 pub const PC_REGISTER: usize = 15;
 pub const LR_REGISTER: usize = 14;

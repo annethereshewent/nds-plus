@@ -695,7 +695,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     // println!("rn = r{rn} = {:X}", self.r[rn as usize]);
 
-    let register_list = instr & 0xffff;
+    let register_list = instr as u16;
 
     let mut should_increment_pc = true;
 
@@ -740,7 +740,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // quick 8 register example
     // 8 registers 00100000 r5 is the last register, 7 - 2 = 5
     // can just use leading 31 - leading_zeros() to determine if it's the last
-    let base_is_last = 31 - register_list.leading_zeros() == rn;
+    let base_is_last = 15 - register_list.leading_zeros() == rn;
 
     let should_writeback = w == 1 &&
       (!IS_ARM9 && (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)) ||
