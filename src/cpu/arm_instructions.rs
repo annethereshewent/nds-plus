@@ -494,13 +494,20 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // println!("setting register {rd} to {data} from address {:X}", address);
 
       if rd == PC_REGISTER as u32 {
-        self.pc = data & !(0b11);
-
         result = None;
-
         should_update_pc = false;
 
-        self.reload_pipeline32();
+        if IS_ARM9 && self.r[PC_REGISTER] & 0b1 == 1 {
+          self.cpsr.insert(PSRRegister::STATE_BIT);
+          self.pc = data & !(0b1);
+
+          self.reload_pipeline16();
+        } else {
+          self.pc = data & !(0b11);
+
+          self.reload_pipeline32();
+        }
+
       } else {
         self.r[rd as usize] = data;
       }
