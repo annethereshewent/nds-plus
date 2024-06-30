@@ -356,38 +356,63 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   pub fn load_32(&mut self, address: u32, access: MemoryAccess) -> u32 {
     self.update_cycles(address, access, MemoryWidth::Width32);
-    self.bus.borrow_mut().mem_read_32(address)
+    if !IS_ARM9 {
+      self.bus.borrow_mut().arm7_mem_read_32(address)
+    } else {
+      self.bus.borrow_mut().arm9_mem_read_32(address)
+    }
   }
 
   pub fn load_16(&mut self, address: u32, access: MemoryAccess) -> u16 {
     self.update_cycles(address, access, MemoryWidth::Width16);
-    self.bus.borrow_mut().mem_read_16(address)
+    if !IS_ARM9 {
+      self.bus.borrow_mut().arm7_mem_read_16(address)
+    } else {
+      self.bus.borrow_mut().arm9_mem_read_16(address)
+    }
   }
 
   pub fn load_8(&mut self, address: u32, access: MemoryAccess) -> u8 {
     self.update_cycles(address, access, MemoryWidth::Width8);
-    self.bus.borrow_mut().mem_read_8(address)
+    if !IS_ARM9 {
+      self.bus.borrow_mut().arm7_mem_read_8(address)
+    } else {
+      self.bus.borrow_mut().arm9_mem_read_8(address)
+    }
   }
 
   pub fn store_8(&mut self, address: u32, value: u8, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
     let ref mut bus = *self.bus.borrow_mut();
 
-    bus.mem_write_8(address, value);
+    if !IS_ARM9 {
+      bus.arm7_mem_write_8(address, value);
+    } else {
+      bus.arm9_mem_write_8(address, value);
+    }
   }
 
   pub fn store_16(&mut self, address: u32, value: u16, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
     let ref mut bus = *self.bus.borrow_mut();
 
-    bus.mem_write_16(address, value);
+    if !IS_ARM9 {
+      bus.arm7_mem_write_16(address, value);
+    } else {
+      bus.arm9_mem_write_16(address, value);
+    }
   }
 
   pub fn store_32(&mut self, address: u32, value: u32, access: MemoryAccess) {
     self.update_cycles(address, access, MemoryWidth::Width8);
     let ref mut bus = *self.bus.borrow_mut();
 
-    bus.mem_write_32(address, value);
+
+    if !IS_ARM9 {
+      bus.arm7_mem_write_32(address, value);
+    } else {
+      bus.arm9_mem_write_32(address, value);
+    }
   }
 
   fn update_cycles(&mut self, address: u32,  access: MemoryAccess, width: MemoryWidth) {
