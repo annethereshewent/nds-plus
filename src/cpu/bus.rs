@@ -1,4 +1,4 @@
-use std::{cell::Cell, rc::Rc};
+use std::{cell::{Cell, RefCell}, rc::Rc};
 
 use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
@@ -11,7 +11,7 @@ const SHARED_WRAM_SIZE: usize = 0x8000;
 
 pub struct Arm9Bus {
   timers: Timers<true>,
-  dma_channels: Rc<Cell<DmaChannels<true>>>,
+  dma_channels: Rc<RefCell<DmaChannels<true>>>,
   bios9: Vec<u8>
   // TODO: add interrupt controllers
 }
@@ -21,7 +21,7 @@ impl Arm9Bus {
 }
 pub struct Arm7Bus {
   timers: Timers<false>,
-  dma_channels: Rc<Cell<DmaChannels<false>>>,
+  dma_channels: Rc<RefCell<DmaChannels<false>>>,
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>
   // TODO: interrupt controllers
@@ -43,8 +43,8 @@ pub struct Bus {
 
 impl Bus {
   pub fn new() -> Self {
-    let dma_channels7 = Rc::new(Cell::new(DmaChannels::new()));
-    let dma_channels9 = Rc::new(Cell::new(DmaChannels::new()));
+    let dma_channels7 = Rc::new(RefCell::new(DmaChannels::new()));
+    let dma_channels9 = Rc::new(RefCell::new(DmaChannels::new()));
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
 
     Self {
