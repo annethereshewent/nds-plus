@@ -93,6 +93,7 @@ bitflags! {
     const STATE_BIT = 0b1 << 5;
     const FIQ_DISABLE = 0b1 << 6;
     const IRQ_DISABLE = 0b1 << 7;
+    const STICKY_OVERFLOW = 0b1 << 27;
     const OVERFLOW = 0b1 << 28;
     const CARRY = 0b1 << 29;
     const ZERO = 0b1 << 30;

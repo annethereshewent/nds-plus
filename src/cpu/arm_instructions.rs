@@ -216,6 +216,132 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     Some(MemoryAccess::Sequential)
   }
 
+  fn signed_halfword_multiply(&mut self, instr: u32) -> Option<MemoryAccess> {
+    // do stuff
+    if !IS_ARM9 {
+      panic!("unsupported instruction: signed_halfword_multiply");
+    }
+    let x = (instr >> 5) & 0b1;
+    let y = (instr >> 6) & 0b1;
+
+    let a = (instr >> 21) & 0b1;
+    let s = (instr >> 20) & 0b1;
+    let rd = (instr >> 16) & 0xf;
+    let rn = (instr >> 12) & 0xf;
+    let rs = (instr >> 8) & 0xf;
+    let rm = instr & 0xf;
+
+    let opcode = (instr >> 21) & 0b11;
+
+    match opcode {
+      0b00 => {
+        // SMLAxy
+        // Rd=HalfRm*HalfRs+Rn
+
+        let value1 = if x == 1 {
+          (self.r[rm as usize] >> 16) as u16
+        } else {
+          self.r[rm as usize] as u16
+        };
+
+        let value2 = if y == 1 {
+          (self.r[rs as usize] >> 16) as u16
+        } else {
+          self.r[rs as usize] as u16
+        };
+
+
+        let value = ((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) as u32;
+
+        let (value, overflow) = value.overflowing_add(self.r[rn as usize]);
+
+        if overflow {
+          // set the q flag
+          self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
+        }
+
+        self.r[rd as usize] = value;
+      }
+      0b01 => {
+
+        let value1 = self.r[rm as usize];
+        let value2 = if y == 1 {
+          (self.r[rs as usize] >> 16) as u16
+        } else {
+          self.r[rs as usize] as u16
+        };
+
+        // so this op code has two different commands that are dependent on x. if x == 1, SMULW, if x == 0, SMLAW
+        if x == 0 {
+          // Rd=(Rm*HalfRs)/10000h+Rn SMLAW
+          let value = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16) as u32;
+
+          let (value, overflow) = value.overflowing_add(self.r[rn as usize]);
+
+          if overflow {
+            self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
+          }
+
+          self.r[rd as usize] = value;
+        } else {
+          // Rd=(Rm*HalfRs)/10000h SMULW
+
+          self.r[rd as usize] = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16) as u32;
+        }
+      }
+      0b10 => {
+        // SMLALxy
+        // RdHiLo=RdHiLo+HalfRm*HalfRs
+        let rd_high = rd;
+        let rd_low = rn;
+
+        let operand1 = (self.r[rd_high as usize] as u64) << 32 | (self.r[rd_low as usize] as u64);
+
+
+        let value1 = if x == 0 {
+          self.r[rm as usize] as u16
+        } else {
+          (self.r[rm as usize] >> 16) as u16
+        };
+
+        let value2 = if y == 0 {
+          self.r[rs as usize] as u16
+        } else {
+          (self.r[rs as usize] >> 16) as u16
+        };
+
+        let operand2 = ((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) as u64;
+
+        let result = operand1.wrapping_add(operand2);
+
+        self.r[rd_low as usize] = result as u32;
+        self.r[rd_high as usize] = (result >> 32) as u32;
+      }
+      0b11 => {
+        // SMULxy
+        // Rd=HalfRm*HalfRs
+
+        let value1 = if x == 0 {
+          self.r[rm as usize] as u16
+        } else {
+          (self.r[rm as usize] >> 16) as u16
+        };
+
+        let value2 = if y == 0 {
+          self.r[rs as usize] as u16
+        } else {
+          (self.r[rs as usize] >> 16) as u16
+        };
+
+
+        self.r[rd as usize] = ((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) as u32;
+      }
+      _ => panic!("unreachable")
+    }
+
+    Some(MemoryAccess::Sequential)
+  }
+
   fn single_data_swap(&mut self, instr: u32) -> Option<MemoryAccess> {
     // println!("inside single data swap");
 
@@ -1046,13 +1172,5 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       3 => self.ror(shifted_operand, shift as u8, immediate, true, &mut carry),
       _ => unreachable!("can't happen")
     };
-  }
-
-  fn signed_halfword_multiply(&mut self, instr: u32) -> Option<MemoryAccess> {
-    // do stuff
-    if !IS_ARM9 {
-      panic!("unsupported instruction: signed_halfword_multiply");
-    }
-    None
   }
 }
