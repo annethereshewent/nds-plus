@@ -1,12 +1,15 @@
 use std::{cell::{Cell, RefCell}, rc::Rc};
 
+use cp15::CP15;
+
 use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
 pub mod arm7;
 pub mod arm9;
+pub mod cp15;
 
-const ITCM_SIZE: usize = 0x8000;
-const DTCM_SIZE: usize = 0x4000;
+pub const ITCM_SIZE: usize = 0x8000;
+pub const DTCM_SIZE: usize = 0x4000;
 const MAIN_MEMORY_SIZE: usize = 0x4_0000;
 const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
@@ -14,7 +17,8 @@ const SHARED_WRAM_SIZE: usize = 0x8000;
 pub struct Arm9Bus {
   timers: Timers<true>,
   dma_channels: Rc<RefCell<DmaChannels<true>>>,
-  bios9: Vec<u8>
+  bios9: Vec<u8>,
+  pub cp15: CP15
   // TODO: add interrupt controllers
 }
 
@@ -59,7 +63,8 @@ impl Bus {
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios9: Vec::new(),
-        dma_channels: dma_channels9.clone()
+        dma_channels: dma_channels9.clone(),
+        cp15: CP15::new()
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),

@@ -1,6 +1,6 @@
 use crate::cpu::{PC_REGISTER, PSRRegister, LR_REGISTER, OperatingMode};
 
-use super::{MemoryAccess, CP15, CPU};
+use super::{bus::cp15::{CP15, CP15_INDEX}, MemoryAccess, CPU};
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   pub fn populate_arm_lut(&mut self) {
@@ -1109,14 +1109,18 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let cp = (instr >> 5) & 0x7;
     let cm = instr & 0xf;
 
-    if pn != CP15 as u32 || cp_opcode != 0 {
+    if pn != CP15_INDEX as u32 || cp_opcode != 0 {
       panic!("invalid coprocessor or cp opcode given for coprocessor register transfer: {pn}, {cp_opcode}");
     }
 
     if arm_opcode == 0 {
       // MCR
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.arm9.cp15.write(cn, cm, cp, self.r[rd as usize]);
     } else {
       // MRC
+      self.r[rd as usize] = self.bus.borrow_mut().arm9.cp15.read(cn, cm, cp);
     }
 
     Some(MemoryAccess::Sequential)
