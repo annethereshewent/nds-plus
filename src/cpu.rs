@@ -579,12 +579,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
-  pub fn load_bios(&mut self, bytes: Vec<u8>) {
-    let ref mut bus = *self.bus.borrow_mut();
-
-    // todo
-  }
-
   pub fn get_multiplier_cycles(&self, operand: u32) -> u32 {
     if operand & 0xff == operand {
       1

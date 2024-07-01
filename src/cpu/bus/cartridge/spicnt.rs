@@ -10,6 +10,12 @@ impl SPICNT {
   }
 
   pub fn write(&mut self, val: u32, mask: u32) {
+    self.val &= mask;
 
+    self.val |= val;
+  }
+
+  pub fn read(&self) -> u32 {
+    self.val
   }
 }

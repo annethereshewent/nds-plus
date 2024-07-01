@@ -1,23 +1,77 @@
 use cartridge_control_register::CartridgeControlRegister;
 use spicnt::SPICNT;
 
+use crate::util;
+
 pub mod cartridge_control_register;
 pub mod spicnt;
 
+pub const CHIP_ID: u32 = 0x1fc2;
+
+
+#[derive(Debug)]
+pub struct Header {
+  game_title: String,
+  game_code: String,
+  maker_code: String,
+  unit_code: u8,
+  encryption_seed_select: u8,
+  device_capacity: u8,
+  region: u8,
+  rom_version: u8,
+  autostart: u8,
+  arm9_rom_offset: u32,
+  arm9_entry_address: u32,
+  arm9_ram_address: u32,
+  arm9_size: u32,
+  arm7_rom_offset: u32,
+  arm7_entry_address: u32,
+  arm7_ram_address: u32,
+  arm7_size: u32
+}
+
+impl Header {
+  pub fn new(rom: &Vec<u8>) -> Self {
+    let header = Self {
+      game_title: std::str::from_utf8(&rom[0..0xc]).unwrap().to_string(),
+      game_code: std::str::from_utf8(&rom[0xc..0x10]).unwrap().to_string(),
+      maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap().to_string(),
+      unit_code: rom[0x12],
+      encryption_seed_select: rom[0x13],
+      device_capacity: rom[0x14],
+      region: rom[0x1d],
+      rom_version: rom[0x1e],
+      autostart: rom[0x1f],
+      arm9_rom_offset: util::read_word(rom, 0x20),
+      arm9_entry_address: util::read_word(rom, 0x24),
+      arm9_ram_address: util::read_word(rom, 0x28),
+      arm9_size: util::read_word(rom, 0x2c),
+      arm7_rom_offset: util::read_word(rom, 0x30),
+      arm7_entry_address: util::read_word(rom, 0x34),
+      arm7_ram_address: util::read_word(rom, 0x38),
+      arm7_size: util::read_word(rom, 0x3c)
+    };
+
+    println!("{:?}", header);
+
+    header
+  }
+}
+
 pub struct Cartridge {
   rom: Vec<u8>,
-  chip_id: u32,
   pub control: CartridgeControlRegister,
-  pub spicnt: SPICNT
+  pub spicnt: SPICNT,
+  pub header: Header
 }
 
 impl Cartridge {
   pub fn new(rom: Vec<u8>) -> Self {
     Self {
-      rom,
-      chip_id: 0,
       control: CartridgeControlRegister::new(),
-      spicnt: SPICNT::new()
+      spicnt: SPICNT::new(),
+      header: Header::new(&rom),
+      rom
     }
   }
 }
