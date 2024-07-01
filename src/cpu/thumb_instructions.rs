@@ -304,28 +304,24 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     match (s, h) {
       (0, 0) => {
         let value = (self.r[rd as usize] & 0xffff) as u16;
-        self.store_16(address & !(0b1), value, MemoryAccess::NonSequential);
+        self.store_16(address & !(0b1), value, MemoryAccess::Sequential);
       }
       (0, 1) => {
-        let value = self.ldr_halfword(address, MemoryAccess::NonSequential);
+        let value = self.ldr_halfword(address, MemoryAccess::Sequential);
 
         self.r[rd as usize] = value as u32;
 
         self.add_cycles(1);
       }
       (1, 0) => {
-        let value = self.load_8(address, MemoryAccess::NonSequential) as i8 as i32;
+        let value = self.load_8(address, MemoryAccess::Sequential) as i8 as i32;
 
         self.r[rd as usize] = value as u32;
 
         self.add_cycles(1);
       }
       (1,1) => {
-        self.r[rd as usize] = if address & 0b1 != 0 {
-          self.load_8(address, MemoryAccess::NonSequential) as i8 as i32 as u32
-        } else {
-          self.load_16(address, MemoryAccess::NonSequential) as i16 as i32 as u32
-        };
+        self.r[rd as usize] = self.ldr_signed_halfword(address, MemoryAccess::Sequential)
 
         self.add_cycles(1);
       }

@@ -536,7 +536,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn ldr_halfword(&mut self, address: u32, access: MemoryAccess) -> u32 {
-    if address & 0b1 != 0 {
+    if address & 0b1 != 0 && !IS_ARM9 {
       let rotation = (address & 0b1) << 3;
 
       let value = self.load_16(address & !(0b1), access);
@@ -571,7 +571,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn ldr_signed_halfword(&mut self, address: u32, access: MemoryAccess) -> u32 {
-    if address & 0b1 != 0 {
+    if address & 0b1 != 0 && !IS_ARM9 {
       self.load_8(address, access) as i8 as i32 as u32
     } else {
       self.load_16(address, access) as i16 as i32 as u32
