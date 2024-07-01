@@ -1,6 +1,6 @@
 use std::{cell::{Cell, RefCell}, rc::Rc};
 
-use cartridge::Cartridge;
+use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
 use spi::SPI;
 
@@ -61,25 +61,25 @@ pub struct Bus {
 }
 
 impl Bus {
-  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>) -> Self {
+  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool) -> Self {
     let dma_channels7 = Rc::new(RefCell::new(DmaChannels::new()));
     let dma_channels9 = Rc::new(RefCell::new(DmaChannels::new()));
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
 
-    Self {
+    let mut bus = Self {
       arm7: Arm7Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios7: bios7_bytes,
         dma_channels: dma_channels7.clone(),
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
-        postflg: false,
+        postflg: skip_bios
       },
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios9: bios9_bytes,
         dma_channels: dma_channels9.clone(),
         cp15: CP15::new(),
-        postflg: false
+        postflg: skip_bios
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
@@ -88,10 +88,66 @@ impl Bus {
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes)
+    };
+
+    if skip_bios {
+      bus.skip_bios();
     }
+
+    bus
   }
 
   pub fn clear_interrupts(&mut self, value: u16) {
 
+  }
+
+  fn skip_bios(&mut self) {
+    // load header into RAM starting at address 0x27ffe00 (per the docs)
+    let address = 0x27ffe00 & (MAIN_MEMORY_SIZE - 1);
+
+    self.main_memory[address..address + 0x170].copy_from_slice(&self.cartridge.rom[0..0x170]);
+
+    let arm9_rom_address = self.cartridge.header.arm9_rom_offset;
+    let arm9_ram_address = self.cartridge.header.arm9_ram_address;
+    let arm9_size = self.cartridge.header.arm9_size;
+
+    // load rom into memory
+    self.load_rom_into_memory(arm9_rom_address, arm9_ram_address, arm9_size, true);
+
+    let arm7_rom_address = self.cartridge.header.arm7_rom_offset;
+    let arm7_ram_address = self.cartridge.header.arm7_ram_address;
+    let arm7_size = self.cartridge.header.arm7_size;
+
+    self.load_rom_into_memory(arm7_rom_address, arm7_ram_address, arm7_size, false);
+
+    // set hardcoded values (required for games to boot)
+    self.write_mirrored_values(0x27ff800);
+    self.write_mirrored_values(0x27ffc00);
+
+    // write the rest of the hardcoded values
+    self.arm9_mem_write_16(0x027ff850, 0x5835);
+    self.arm9_mem_write_16(0x027ffc10, 0x5835);
+    self.arm9_mem_write_16(0x027ffc30, 0xffff);
+    self.arm9_mem_write_16(0x027ffc40, 0x1);
+
+    self.arm9_mem_write_8(0x23FFC80, 0x5);
+
+  }
+
+  fn write_mirrored_values(&mut self, base_address: u32) {
+    self.arm9_mem_write_32(base_address, CHIP_ID);
+    self.arm9_mem_write_32(base_address + 0x4, CHIP_ID);
+    self.arm9_mem_write_16(base_address + 0x8, self.cartridge.rom[0x15e] as u16 | (self.cartridge.rom[0x15f] as u16) << 8);
+    self.arm9_mem_write_16(base_address + 0xa, self.cartridge.rom[0x6c] as u16 | (self.cartridge.rom[0x6d] as u16) << 8);
+  }
+
+  fn load_rom_into_memory(&mut self, rom_address: u32, ram_address: u32, size: u32, is_arm9: bool) {
+    for i in 0..size {
+      if is_arm9 {
+        self.arm9_mem_write_8(ram_address+i, self.cartridge.rom[(rom_address + i) as usize]);
+      } else {
+        self.arm7_mem_write_8(ram_address+i, self.cartridge.rom[(rom_address + i) as usize])
+      }
+    }
   }
 }

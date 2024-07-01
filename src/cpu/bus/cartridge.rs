@@ -20,14 +20,14 @@ pub struct Header {
   region: u8,
   rom_version: u8,
   autostart: u8,
-  arm9_rom_offset: u32,
-  arm9_entry_address: u32,
-  arm9_ram_address: u32,
-  arm9_size: u32,
-  arm7_rom_offset: u32,
-  arm7_entry_address: u32,
-  arm7_ram_address: u32,
-  arm7_size: u32
+  pub arm9_rom_offset: u32,
+  pub arm9_entry_address: u32,
+  pub arm9_ram_address: u32,
+  pub arm9_size: u32,
+  pub arm7_rom_offset: u32,
+  pub arm7_entry_address: u32,
+  pub arm7_ram_address: u32,
+  pub arm7_size: u32
 }
 
 impl Header {
@@ -59,7 +59,7 @@ impl Header {
 }
 
 pub struct Cartridge {
-  rom: Vec<u8>,
+  pub rom: Vec<u8>,
   pub control: CartridgeControlRegister,
   pub spicnt: SPICNT,
   pub header: Header

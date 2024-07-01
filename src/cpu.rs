@@ -121,7 +121,7 @@ impl PSRRegister {
 }
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
-  pub fn new(bus: Rc<RefCell<Bus>>) -> Self {
+  pub fn new(bus: Rc<RefCell<Bus>>, skip_bios: bool) -> Self {
     let mut cpu = Self {
       r: [0; 15],
       pc: 0,
@@ -142,6 +142,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       cycles: 0,
       bus
     };
+
+    if skip_bios {
+      cpu.skip_bios();
+    }
 
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();
@@ -214,22 +218,26 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn skip_bios(&mut self) {
-    self.r13_banks[0] = 0x0300_7f00; // USR/SYS
-    self.r13_banks[1] = 0x0300_7f00; // FIQ
-    self.r13_banks[2] = 0x0300_7fa0; // IRQ
-    self.r13_banks[3] = 0x0300_7fe0; // SVC
-    self.r13_banks[4] = 0x0300_7f00; // ABT
-    self.r13_banks[5] = 0x0300_7f00; // UND
-    self.r[13] = 0x0300_7f00;
-    self.pc = 0x0800_0000;
-    self.cpsr = PSRRegister::from_bits_retain(0x5f);
+    let pc = if IS_ARM9 {
+      self.bus.borrow_mut().cartridge.header.arm9_entry_address
+    } else {
+      self.bus.borrow_mut().cartridge.header.arm7_entry_address
+    };
 
-    // for bg_prop in &mut self.gpu.bg_props {
-    //   bg_prop.dx = 0x100;
-    //   bg_prop.dmx = 0;
-    //   bg_prop.dy = 0;
-    //   bg_prop.dmy = 0x100;
-    // }
+    self.pc = pc;
+    self.r[12] = pc;
+    self.r[1] = pc;
+    self.cpsr = PSRRegister::from_bits_retain(0xd3);
+
+    if IS_ARM9 {
+      self.r[13] = 0x03002f7c;
+      self.r13_banks[2] = 0x03003f80;
+      self.r13_banks[3] = 0x03003fc0;
+    } else {
+      self.r[13] = 0x0380fd80;
+      self.r13_banks[2] = 0x0380ff80;
+      self.r13_banks[3] = 0x0380ffc0;
+    }
   }
 
   pub fn execute_thumb(&mut self, instr: u16) -> Option<MemoryAccess> {

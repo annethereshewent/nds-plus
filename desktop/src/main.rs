@@ -7,8 +7,14 @@ extern crate ds_emulator;
 fn main() {
   let args: Vec<String> = env::args().collect();
 
-  if args.len() != 2 {
+  if args.len() < 2 {
     panic!("please specify a rom file.");
+  }
+
+  let mut skip_bios = true;
+
+  if args.len() == 3 && args[2] == "--start-bios" {
+    skip_bios = false;
   }
 
   let bios7_file = "../bios7.bin";
@@ -20,7 +26,7 @@ fn main() {
   let rom_bytes = fs::read(&args[1]).unwrap();
   let firmware_bytes = fs::read(firmware_file).unwrap();
 
-  let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes);
+  let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes, skip_bios);
 
   loop {
     nds.step();

@@ -1,4 +1,4 @@
-use super::Bus;
+use super::{Bus, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
@@ -19,6 +19,7 @@ impl Bus {
     }
 
     match address {
+      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x700_0000..=0x7ff_ffff => 0,
       0x800_0000..=0xdff_ffff => {
@@ -78,6 +79,7 @@ impl Bus {
 
   pub fn arm9_mem_write_8(&mut self, address: u32, val: u8) {
     match address {
+      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm9_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
       _ => {
