@@ -146,8 +146,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();
 
-    cpu.r[15] = if IS_ARM9 {
-      0xFFFF_0000
+    cpu.pc = if IS_ARM9 {
+      0xffff_0000
     } else {
       0
     };
@@ -285,7 +285,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       12 => !self.cpsr.contains(PSRRegister::ZERO) && self.cpsr.contains(PSRRegister::NEGATIVE) == self.cpsr.contains(PSRRegister::OVERFLOW),
       13 => self.cpsr.contains(PSRRegister::ZERO) || self.cpsr.contains(PSRRegister::NEGATIVE) != self.cpsr.contains(PSRRegister::OVERFLOW),
       14 => true,
-      _ => panic!("shouldn't happen")
+      15 => true,
+      _ => unreachable!("shouldn't happen")
     }
   }
 

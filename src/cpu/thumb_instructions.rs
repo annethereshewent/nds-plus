@@ -321,7 +321,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         self.add_cycles(1);
       }
       (1,1) => {
-        self.r[rd as usize] = self.ldr_signed_halfword(address, MemoryAccess::Sequential)
+        self.r[rd as usize] = self.ldr_signed_halfword(address, MemoryAccess::Sequential);
 
         self.add_cycles(1);
       }

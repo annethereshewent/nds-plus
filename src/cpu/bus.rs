@@ -1,5 +1,6 @@
 use std::{cell::{Cell, RefCell}, rc::Rc};
 
+use cartridge::Cartridge;
 use cp15::CP15;
 use spi::SPI;
 
@@ -10,6 +11,7 @@ pub mod arm9;
 pub mod cp15;
 pub mod spi;
 pub mod flash;
+pub mod cartridge;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -22,6 +24,7 @@ pub struct Arm9Bus {
   dma_channels: Rc<RefCell<DmaChannels<true>>>,
   bios9: Vec<u8>,
   pub cp15: CP15,
+  pub postflg: bool
   // TODO: add interrupt controllers
 }
 
@@ -34,7 +37,8 @@ pub struct Arm7Bus {
   timers: Timers<false>,
   dma_channels: Rc<RefCell<DmaChannels<false>>>,
   pub bios7: Vec<u8>,
-  pub wram: Box<[u8]>
+  pub wram: Box<[u8]>,
+  pub postflg: bool
   // TODO: interrupt controllers
 }
 
@@ -52,11 +56,12 @@ pub struct Bus {
   dtcm: Box<[u8]>,
   main_memory: Box<[u8]>,
   shared_wram: Box<[u8]>,
-  pub spi: SPI
+  pub spi: SPI,
+  pub cartridge: Cartridge
 }
 
 impl Bus {
-  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>) -> Self {
+  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>) -> Self {
     let dma_channels7 = Rc::new(RefCell::new(DmaChannels::new()));
     let dma_channels9 = Rc::new(RefCell::new(DmaChannels::new()));
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
@@ -66,20 +71,23 @@ impl Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios7: bios7_bytes,
         dma_channels: dma_channels7.clone(),
-        wram: vec![0; WRAM_SIZE].into_boxed_slice()
+        wram: vec![0; WRAM_SIZE].into_boxed_slice(),
+        postflg: false,
       },
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios9: bios9_bytes,
         dma_channels: dma_channels9.clone(),
-        cp15: CP15::new()
+        cp15: CP15::new(),
+        postflg: false
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(firmware_bytes)
+      spi: SPI::new(firmware_bytes),
+      cartridge: Cartridge::new(rom_bytes)
     }
   }
 

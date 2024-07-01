@@ -13,6 +13,12 @@ impl Bus {
   }
 
   pub fn arm7_mem_read_8(&mut self, address: u32) -> u8 {
+    let bios_len = self.arm7.bios7.len() as u32;
+
+    if (0..bios_len).contains(&address) {
+      return self.arm7.bios7[address as usize];
+    }
+
     match address {
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_8(address),
       0x700_0000..=0x7ff_ffff => 0,
@@ -33,6 +39,7 @@ impl Bus {
     };
 
     match address {
+      0x400_0300 => self.arm7.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
       }

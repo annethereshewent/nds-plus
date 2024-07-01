@@ -13,6 +13,11 @@ impl Bus {
   }
 
   pub fn arm9_mem_read_8(&mut self, address: u32) -> u8 {
+
+    if address >= 0xffff_0000 {
+      return self.arm9.bios9[(address - 0xffff_0000) as usize];
+    }
+
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x700_0000..=0x7ff_ffff => 0,
@@ -33,6 +38,7 @@ impl Bus {
     };
 
     match address {
+      0x400_0300 => self.arm9.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -88,6 +94,10 @@ impl Bus {
     };
 
     match address {
+      0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
+      0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
+      0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
+      0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
       0x400_0006 => (),
       _ => {
         panic!("io register not implemented: {:X}", address)

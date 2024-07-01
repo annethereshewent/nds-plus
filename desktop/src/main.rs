@@ -20,7 +20,7 @@ fn main() {
   let rom_bytes = fs::read(&args[1]).unwrap();
   let firmware_bytes = fs::read(firmware_file).unwrap();
 
-  let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes);
+  let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes);
 
   loop {
     nds.step();
