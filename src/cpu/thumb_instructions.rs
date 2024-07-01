@@ -36,6 +36,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       CPU::thumb_software_interrupt
     } else if format & 0b11110000 == 0b11010000 {
       CPU::conditional_branch
+    } else if format & 0b11111000 == 0b11101 {
+      CPU::long_branch_link_exchange
     } else if format & 0b11111000 == 0b11100000 {
       CPU::unconditional_branch
     } else if format & 0b11110000 == 0b11110000 {
@@ -237,6 +239,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         }
       }
       3 => {
+        if h1 == 1 && IS_ARM9 {
+          self.r[LR_REGISTER] = (self.pc - 2) | 1;
+        }
+
         self.bx(operand2);
         should_update_pc = false;
         return_result = None;
@@ -650,6 +656,28 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       None
     }
+  }
+
+  fn long_branch_link_exchange(&mut self, instr: u16) -> Option<MemoryAccess> {
+    if !IS_ARM9 {
+      panic!("invalid instruction received for arm7: long branch link exchange");
+    }
+
+    let offset = (instr & 0x7ff) as i32;
+
+    let address = (offset << 1) as i32;
+    let lr_result = (self.pc - 2) | 0b1;
+
+    self.pc = ((self.r[LR_REGISTER] & !1) as i32).wrapping_add(address) as u32;
+
+    self.r[LR_REGISTER] = lr_result;
+
+    self.pc &= !0x3;
+    self.cpsr.remove(PSRRegister::STATE_BIT);
+
+    self.reload_pipeline32();
+
+    None
   }
 
   fn mov(&mut self, rd: u16, val: u32, set_flags: bool) {
