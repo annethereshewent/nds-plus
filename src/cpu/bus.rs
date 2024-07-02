@@ -5,6 +5,8 @@ use cp15::CP15;
 use spi::SPI;
 use wram_control_register::WRAMControlRegister;
 
+use crate::gpu::GPU;
+
 use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
 pub mod arm7;
@@ -52,6 +54,7 @@ pub struct Bus {
   pub arm9: Arm9Bus,
   pub arm7: Arm7Bus,
   pub is_halted: bool,
+  pub gpu: GPU,
   itcm: Box<[u8]>,
   dtcm: Box<[u8]>,
   main_memory: Box<[u8]>,
@@ -91,7 +94,8 @@ impl Bus {
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes),
-      wramcnt: WRAMControlRegister::new()
+      wramcnt: WRAMControlRegister::new(),
+      gpu: GPU::new()
     };
 
     if skip_bios {

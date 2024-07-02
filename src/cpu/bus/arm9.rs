@@ -4,10 +4,17 @@ impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
     match address {
       // TODO: possibly make io_read_32 method to handle this
-      0x400_0208 => self.arm9.interrupt_master_enable as u32,
+      0x400_0000..=0x4ff_ffff => self.arm9_io_read_32(address),
       _ => self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
     }
 
+  }
+
+  pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
+    match address {
+      0x400_0208 => self.arm9.interrupt_master_enable as u32,
+      _ => panic!("unsupported io address received: {:X}", address)
+    }
   }
 
   pub fn arm9_mem_read_16(&mut self, address: u32) -> u16 {
@@ -37,11 +44,12 @@ impl Bus {
   }
 
   fn arm9_io_read_16(&mut self, address: u32) -> u16 {
-    let address = if address & 0xfffe == 0x8000 {
-      0x400_0800
-    } else {
-      address
-    };
+    // not sure if this is needed for the ds....
+    // let address = if address & 0xfffe == 0x8000 {
+    //   0x400_0800
+    // } else {
+    //   address
+    // };
 
     match address {
       0x400_0300 => self.arm9.postflg as u16,
@@ -66,7 +74,7 @@ impl Bus {
     let lower = (val & 0xffff) as u16;
 
     match address {
-      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
+      0x400_0000..=0x4ff_ffff => self.arm9_io_write_32(address, val),
       _ => {
         self.arm9_mem_write_16(address, lower);
         self.arm9_mem_write_16(address + 2, upper);
@@ -98,12 +106,21 @@ impl Bus {
     }
   }
 
+  pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
+    match address {
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      _ => panic!("write to unsupported io address: {:X}", address)
+    }
+  }
+
   pub fn arm9_io_write_16(&mut self, address: u32, value: u16) {
-    let address = if address & 0xfffe == 0x8000 {
-      0x400_0800
-    } else {
-      address
-    };
+    // not sure if this is needed for the ds....
+    // let address = if address & 0xfffe == 0x8000 {
+    //   0x400_0800
+    // } else {
+    //   address
+    // };
 
     match address {
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
