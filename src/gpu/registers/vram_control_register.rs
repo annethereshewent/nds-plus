@@ -19,6 +19,8 @@ impl VramControlRegister {
   }
 
   pub fn write(&mut self, val: u8) {
+    self.val = val;
+
     let abhi_registers: [usize; 4] = [0, 1, 7, 8];
     let ehi_registers: [usize; 3] = [4, 7, 8];
 
@@ -34,5 +36,9 @@ impl VramControlRegister {
     }
 
     self.vram_enable = (val >> 7) & 0b1 == 1;
+  }
+
+  pub fn read(&self) -> u8 {
+    self.val
   }
 }
