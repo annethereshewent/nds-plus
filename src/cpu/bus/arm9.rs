@@ -31,7 +31,7 @@ impl Bus {
     if dtcm_ranges.contains(&address) {
       let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
-      return self.dtcm[actual_addr as usize];;
+      return self.dtcm[actual_addr as usize];
     } else if itcm_ranges.contains(&address) {
       let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
 
