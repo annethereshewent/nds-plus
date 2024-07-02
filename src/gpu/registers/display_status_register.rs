@@ -36,8 +36,6 @@ impl DisplayStatusRegister {
 
     let val = self.flags.bits() | (vcount_msb << 7) | (vcount_lsbs << 8);
 
-    println!("reading value {:X} from dispcnt", val);
-
     val
   }
 }

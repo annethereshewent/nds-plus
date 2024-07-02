@@ -263,7 +263,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+    // println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
 
     if self.arm_condition_met(condition) {
       if let Some(access) = self.execute_arm(instruction) {

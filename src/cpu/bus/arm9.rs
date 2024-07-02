@@ -45,10 +45,10 @@ impl Bus {
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
-      0x700_0000..=0x7ff_ffff => 0,
-      0x800_0000..=0xdff_ffff => {
-        0
-      }
+      // 0x700_0000..=0x7ff_ffff => 0,
+      // 0x800_0000..=0xdff_ffff => {
+      //   0
+      // }
       _ => {
         panic!("reading from unsupported address: {:X}", address);
       }
@@ -130,6 +130,9 @@ impl Bus {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm9_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
+      0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
+      0x700_0000..=0x700_3fff => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
+      0x700_4000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }
@@ -159,7 +162,7 @@ impl Bus {
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
-      0x400_0006 => (),
+      // 0x400_0006 => (),
       _ => {
         panic!("io register not implemented: {:X}", address)
       }
@@ -180,10 +183,10 @@ impl Bus {
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 
-        self.gpu.vramcnt[offset as usize].write(value);
+        self.gpu.write_vramcnt(offset, value);
       }
-      0x400_0248 => self.gpu.vramcnt[7].write(value),
-      0x400_0249 => self.gpu.vramcnt[8].write(value),
+      0x400_0248 => self.gpu.write_vramcnt(7, value),
+      0x400_0249 => self.gpu.write_vramcnt(8, value),
       _ => {
         let mut temp = self.arm9_mem_read_16(address & !(0b1));
 

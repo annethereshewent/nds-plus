@@ -41,24 +41,15 @@ impl Nds {
     let ref mut scheduler = *self.scheduler.borrow_mut();
 
     if let Some((event_type, cycles)) = scheduler.get_next_event() {
-      println!("cycling for {cycles} cycles");
       self.arm9_cpu.step(cycles * 2);
       self.arm7_cpu.step(cycles);
 
       // finally handle any events
 
       let ref mut bus = *self.bus.borrow_mut();
-
-      println!("found event {:?}", event_type);
       match event_type {
-        EventType::HBLANK => {
-          println!("handling hblank!");
-          bus.gpu.handle_hblank(scheduler);
-        }
-        EventType::NEXT_LINE => {
-          println!("handling next line!");
-          bus.gpu.start_next_line(scheduler);
-        }
+        EventType::HBLANK => bus.gpu.handle_hblank(scheduler),
+        EventType::NEXT_LINE => bus.gpu.start_next_line(scheduler)
       }
 
       scheduler.update_cycles(cycles);

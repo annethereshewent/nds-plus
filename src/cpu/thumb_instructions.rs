@@ -59,14 +59,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn move_shifted_register(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside move shifted register");
+    // println!("inside move shifted register");
     let op_code = ((instr >> 11) & 0x3) as u8;
     let offset5 = ((instr >> 6) & 0x1f) as u8;
     let rs = ((instr >> 3) & 0x7) as u8;
     let rd = (instr & 0x7) as u8;
 
-    println!("rs = {rs}, rd = {rd}, offset = {offset5}, op_code = {op_code}");
-    println!("rs value = {:X}, rd value = {:X}", self.r[rs as usize], self.r[rd as usize]);
+    // println!("rs = {rs}, rd = {rd}, offset = {offset5}, op_code = {op_code}");
+    // println!("rs value = {:X}, rd value = {:X}", self.r[rs as usize], self.r[rd as usize]);
 
     match op_code {
       0 => self.lsl_offset(offset5, rs, rd),
@@ -81,7 +81,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn add_subtract(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside add subtract");
+    // println!("inside add subtract");
     let op_code = (instr >> 9) & 0b1;
     let rn_offset = (instr >> 6) & 0x7;
     let is_immediate = (instr >> 10) & 0b1 == 1;
@@ -92,13 +92,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let operand1 = self.r[rs as usize];
     let operand2 = if is_immediate { rn_offset as u32 } else { self.r[rn_offset as usize] };
 
-    println!("rs = {rs}, rd = {rd}");
+    // println!("rs = {rs}, rd = {rd}");
 
     self.r[rd as usize] = if op_code == 0 {
-      println!("adding {operand1} and {operand2}");
+      // println!("adding {operand1} and {operand2}");
       self.add(operand1, operand2)
     } else {
-      println!("subtracting {operand1} and {operand2}");
+      // println!("subtracting {operand1} and {operand2}");
       self.subtract(operand1, operand2)
     };
 
@@ -108,12 +108,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn move_compare_add_sub_imm(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside move compare add sub imm");
+    // println!("inside move compare add sub imm");
     let op_code = (instr >> 11) & 0b11;
     let rd = (instr >> 8) & 0x7;
     let offset = instr & 0xff;
 
-    println!("r{rd} = {}", self.r[rd as usize]);
+    // println!("r{rd} = {}", self.r[rd as usize]);
 
     let op_name = self.get_move_compare_op_name(op_code);
 
@@ -125,7 +125,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       _ => unreachable!("impossible")
     }
 
-    println!("{op_name} r{rd} {offset}");
+    // println!("{op_name} r{rd} {offset}");
 
     self.pc = self.pc.wrapping_add(2);
 
@@ -133,13 +133,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn alu_operations(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside alu ops");
+    // println!("inside alu ops");
     let op_code = (instr >> 6) & 0xf;
     let rs = (instr >> 3) & 0x7;
     let rd = instr & 0x7;
 
-    println!("rs = {rs} rd = {rd} op code = {op_code}");
-    println!("r{rs} = {:X}, r{rd} = {:X}", self.r[rs as usize], self.r[rd as usize]);
+    // println!("rs = {rs} rd = {rd} op code = {op_code}");
+    // println!("r{rs} = {:X}, r{rd} = {:X}", self.r[rs as usize], self.r[rd as usize]);
 
     match op_code {
       0 => self.r[rd as usize] = self.and(self.r[rs as usize], self.r[rd as usize]),
@@ -179,7 +179,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn hi_register_ops(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside hi register ops");
+    // println!("inside hi register ops");
     let op_code = (instr >> 8) & 0x3;
     let h1 = (instr >> 7) & 0b1;
     let h2 = (instr >> 6) & 0b1;
@@ -194,7 +194,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       source += 8;
     }
 
-    println!("reading from register {source} and destination {destination}, op code is {op_code}");
+    // println!("reading from register {source} and destination {destination}, op code is {op_code}");
 
     let operand1 = if destination == PC_REGISTER as u16 {
       self.pc
@@ -208,9 +208,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.r[source as usize]
     };
 
-    println!("r{source} = {operand2}");
+    // println!("r{source} = {operand2}");
 
-    println!("operand1 = {operand1}, operand2 = {operand2}");
+    // println!("operand1 = {operand1}, operand2 = {operand2}");
 
     let mut should_update_pc = true;
 
@@ -258,7 +258,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn pc_relative_load(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside pc relative load");
+    // println!("inside pc relative load");
     let rd = (instr >> 8) & 0x7;
 
     let immediate = (instr & 0xff) << 2;
@@ -267,7 +267,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     self.r[rd as usize] = self.load_32(address, MemoryAccess::NonSequential);
 
-    println!("loaded {:X} into register {rd}", self.r[rd as usize]);
+    // println!("loaded {:X} into register {rd}", self.r[rd as usize]);
 
     self.pc = self.pc.wrapping_add(2);
 
@@ -277,7 +277,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn load_store_reg_offset(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside load store reg offset");
+    // println!("inside load store reg offset");
     let rb = (instr >> 3) & 0x7;
     let ro = (instr >> 6) & 0x7;
 
@@ -289,7 +289,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn load_store_signed_byte_halfword(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside load store signed byte halfword");
+    // println!("inside load store signed byte halfword");
     let h = (instr >> 11) & 0b1;
     let s = (instr >> 10) & 0b1;
 
@@ -297,7 +297,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let rb = (instr >> 3) & 0x7;
     let rd = instr & 0x7;
 
-    println!("r{ro} = {:X}, r{rb} = {:X}", self.r[ro as usize], self.r[rb as usize]);
+    // println!("r{ro} = {:X}, r{rb} = {:X}", self.r[ro as usize], self.r[rb as usize]);
 
     let address = self.r[ro as usize].wrapping_add(self.r[rb as usize]);
 
@@ -334,7 +334,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn load_store_immediate_offset(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside load store immediate offset");
+    // println!("inside load store immediate offset");
 
     let b = (instr >> 12) & 0b1;
 
@@ -344,7 +344,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       ((instr >> 6) & 0x1f) << 2
     };
 
-    println!("offset is {offset}");
+    // println!("offset is {offset}");
 
     let rb = (instr >> 3) & 0x7;
 
@@ -354,7 +354,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn load_store_halfword(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside load store halfword");
+    // println!("inside load store halfword");
     let l = (instr >> 11) & 0b1;
     let offset = (((instr >> 6) & 0x1f) << 1) as i32;
     let rb = (instr >> 3) & 0x7;
@@ -362,7 +362,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let address = (self.r[rb as usize] as i32).wrapping_add(offset) as u32;
 
-    println!("rd = {rd} and rb = {rb}, address = {:X} and offset = {offset}", address);
+    // println!("rd = {rd} and rb = {rb}, address = {:X} and offset = {offset}", address);
 
     let mut result = Some(MemoryAccess::Sequential);
 
@@ -371,13 +371,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       self.store_16(address & !(0b1), value, MemoryAccess::NonSequential);
 
-      println!("stored {:X} at address {:X}", value, address & !(0b1));
+      // println!("stored {:X} at address {:X}", value, address & !(0b1));
 
       result = Some(MemoryAccess::NonSequential);
     } else {
       let value = self.ldr_halfword(address, MemoryAccess::NonSequential) as u32;
 
-      println!("loaded value {value} to register r{rd}");
+      // println!("loaded value {value} to register r{rd}");
 
       self.add_cycles(1);
 
@@ -390,7 +390,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn sp_relative_load_store(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside sp relative load store");
+    // println!("inside sp relative load store");
     let l = (instr >> 11) & 0b1;
     let rd = (instr >> 8) & 0x7;
     let word8 = (instr & 0xff) << 2;
@@ -417,7 +417,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn load_address(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside load address");
+    // println!("inside load address");
     let sp = (instr >> 11) & 0b1;
     let rd = (instr >> 8) & 0x7;
     let word8 = (instr & 0xff) << 2;
@@ -435,7 +435,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn add_offset_to_sp(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside add offset to sp");
+    // println!("inside add offset to sp");
     let s = (instr >> 7) & 0b1;
     let sword7 = ((instr & 0x7f) << 2) as i32;
 
@@ -453,7 +453,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn push_pop_registers(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside push pop registers");
+    // println!("inside push pop registers");
     let l = (instr >> 11) & 0b1;
     let r = (instr >> 8) & 0b1;
     let register_list = instr & 0xff;
@@ -467,12 +467,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if l == 0 {
       if r == 1 {
         // push LR to the stack
-        println!("pushing register 14 to the stack");
+        // println!("pushing register 14 to the stack");
         self.push(self.r[LR_REGISTER], access);
       }
       for i in (0..8).rev() {
         if (register_list >> i) & 0b1 == 1 {
-          println!("pushing register {i} to the stack");
+          // println!("pushing register {i} to the stack");
           self.push(self.r[i], access);
           access = MemoryAccess::Sequential;
         }
@@ -481,14 +481,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // pop
       for i in 0..8 {
         if (register_list >> i) & 0b1 == 1 {
-          println!("popping register {i} from the stack");
+          // println!("popping register {i} from the stack");
           self.r[i] = self.pop(access);
           access = MemoryAccess::Sequential;
         }
       }
       if r == 1 {
         // pop PC off the stack
-        println!("popping the pc off the stack");
+        // println!("popping the pc off the stack");
         self.pc = self.pop(MemoryAccess::Sequential);
         self.pc &= !(1);
 
@@ -510,7 +510,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn multiple_load_store(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside multiple load store");
+    // println!("inside multiple load store");
     let l = (instr >> 11) & 0b1;
     let rb = (instr >> 8) & 0x7;
     let rlist = instr & 0xff;
@@ -598,18 +598,18 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn conditional_branch(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside conditional branch");
+    // println!("inside conditional branch");
     let cond = (instr >> 8) & 0xf;
 
     let signed_offset = ((((instr & 0xff) as u32) << 24) as i32) >> 23;
 
-    println!("condition = {cond}");
+    // println!("condition = {cond}");
 
     self.branch_if(self.arm_condition_met(cond as u8), signed_offset)
   }
 
   fn thumb_software_interrupt(&mut self, _instr: u16) -> Option<MemoryAccess> {
-    println!("inside software interrupt");
+    // println!("inside software interrupt");
 
     self.software_interrupt();
 
@@ -617,7 +617,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn unconditional_branch(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside unconditional branch");
+    // println!("inside unconditional branch");
     let address = ((((instr & 0x7ff) as i32) << 21)) >> 20;
 
     self.pc = (self.pc as i32).wrapping_add((address) as i32) as u32;
@@ -628,7 +628,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn long_branch_link(&mut self, instr: u16) -> Option<MemoryAccess> {
-    println!("inside long branch link");
+    // println!("inside long branch link");
     let h = (instr >> 11) & 0b1;
     let offset = (instr & 0x7ff) as i32;
 
@@ -882,7 +882,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // reload the pipeline here
       self.reload_pipeline16();
     } else {
-      println!("switching to ARM");
+      // println!("switching to ARM");
       // if ARM mode
       let address = source & !(0b11);
 
@@ -897,7 +897,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   fn branch_if(&mut self, cond: bool, offset: i32) -> Option<MemoryAccess> {
     if cond {
-      println!("branching");
+      // println!("branching");
       self.pc = (self.pc as i32).wrapping_add(offset) as u32;
 
       // reload pipeline
@@ -906,7 +906,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       return None
     }
 
-    println!("not branching");
+    // println!("not branching");
 
     self.pc = self.pc.wrapping_add(2);
 
@@ -918,9 +918,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let rd = instr & 0x7;
 
     if l == 0 {
-      println!("writing to address {:X} value {:X}", address, self.r[rd as usize]);
+      // println!("writing to address {:X} value {:X}", address, self.r[rd as usize]);
     } else {
-      println!("reading from address {:X}", address);
+      // println!("reading from address {:X}", address);
     }
 
     let mut result = Some(MemoryAccess::Sequential);
@@ -932,7 +932,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         result = Some(MemoryAccess::NonSequential);
       }
       (0, 1) => {
-        println!("storing byte {:X} from r{rd}", self.r[rd as usize] as u8);
+        // println!("storing byte {:X} from r{rd}", self.r[rd as usize] as u8);
         self.store_8(address, self.r[rd as usize] as u8, MemoryAccess::NonSequential);
 
         result = Some(MemoryAccess::NonSequential);
@@ -940,7 +940,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       (1, 0) => {
         let value = self.ldr_word(address);
 
-        println!("loaded value {:X} to register r{rd}", value);
+        // println!("loaded value {:X} to register r{rd}", value);
 
         self.r[rd as usize] = value;
 
@@ -948,7 +948,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       }
       (1, 1) => {
         let value = self.load_8(address, MemoryAccess::NonSequential) as u32;
-        println!("loading byte {:X} into r{rd}", value);
+        // println!("loading byte {:X} into r{rd}", value);
 
         self.r[rd as usize] = value;
 
