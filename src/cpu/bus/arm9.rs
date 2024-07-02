@@ -1,4 +1,6 @@
-use super::{Bus, MAIN_MEMORY_SIZE};
+use crate::gpu::registers::power_control_register1::PowerControlRegister1;
+
+use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
@@ -52,6 +54,7 @@ impl Bus {
     // };
 
     match address {
+      0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0300 => self.arm9.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
@@ -96,6 +99,23 @@ impl Bus {
   }
 
   pub fn arm9_mem_write_8(&mut self, address: u32, val: u8) {
+    let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
+    let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
+
+    if dtcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+
+      self.dtcm[actual_addr as usize] = val;
+
+      return;
+    } else if itcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+
+      self.itcm[actual_addr as usize] = val;
+
+      return;
+    }
+
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
@@ -108,8 +128,9 @@ impl Bus {
 
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
-      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
       _ => panic!("write to unsupported io address: {:X}", address)
     }
   }
@@ -136,15 +157,23 @@ impl Bus {
   }
 
   pub fn arm9_io_write_8(&mut self, address: u32, value: u8) {
-    let address = if address & 0xffff == 0x8000 {
-      0x400_0800
-    } else {
-      address
-    };
+    // not sure if needed and so on
+    // let address = if address & 0xffff == 0x8000 {
+    //   0x400_0800
+    // } else {
+    //   address
+    // };
 
     // println!("im being called with address {:X}", address);
 
     match address {
+      0x400_0240..=0x400_0246 => {
+        let offset = address - 0x400_0240;
+
+        self.gpu.vramcnt[offset as usize].write(value);
+      }
+      0x400_0248 => self.gpu.vramcnt[7].write(value),
+      0x400_0249 => self.gpu.vramcnt[8].write(value),
       _ => {
         let mut temp = self.arm9_mem_read_16(address & !(0b1));
 

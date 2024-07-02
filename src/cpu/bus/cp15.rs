@@ -12,8 +12,8 @@ pub mod tcm_control_register;
 
 pub struct CP15 {
   pub control: CP15ControlRegister,
-  itcm_control: TCMControlRegister,
-  dtcm_control: TCMControlRegister,
+  pub itcm_control: TCMControlRegister,
+  pub dtcm_control: TCMControlRegister,
   pub arm9_halted: bool
 }
 

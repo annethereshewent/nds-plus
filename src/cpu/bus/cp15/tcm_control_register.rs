@@ -1,3 +1,4 @@
+use core::ops::Range;
 
 pub struct TCMControlRegister {
   val: u32
@@ -8,6 +9,11 @@ impl TCMControlRegister {
     Self {
       val
     }
+  }
+
+  pub fn get_ranges(&self) -> Range<u32> {
+    let base = self.base_address();
+    base..base + self.virtual_size()
   }
 
   pub fn read(&self) -> u32 {
