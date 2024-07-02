@@ -5,7 +5,6 @@ use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
     match address {
-      // TODO: possibly make io_read_32 method to handle this
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_32(address),
       _ => self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
     }
