@@ -11,8 +11,7 @@ bitflags! {
 
 pub struct DisplayStatusRegister {
   pub flags: DispStatFlags,
-  pub vcount_setting: u16,
-  val: u16
+  pub vcount_setting: u16
 }
 
 impl DisplayStatusRegister {
@@ -20,19 +19,25 @@ impl DisplayStatusRegister {
     Self {
       flags: DispStatFlags::from_bits_retain(0),
       vcount_setting: 0,
-      val: 0
     }
   }
 
   pub fn write(&mut self, val: u16) {
-    self.val = val;
-
     self.flags = DispStatFlags::from_bits_retain(val);
 
-    self.vcount_setting = val >> 7;
+    self.vcount_setting = val >> 8;
+
+    self.vcount_setting |= ((val >> 7) & 0b1) << 8;
   }
 
   pub fn read(&self) -> u16 {
-    self.val
+    let vcount_msb = (self.vcount_setting >> 8) & 0b1;
+    let vcount_lsbs = (self.vcount_setting) & 0xff;
+
+    let val = self.flags.bits() | (vcount_msb << 7) | (vcount_lsbs << 8);
+
+    println!("reading value {:X} from dispcnt", val);
+
+    val
   }
 }

@@ -157,7 +157,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let cycles = self.get_multiplier_cycles(operand2);
 
-    self.add_cycles(cycles);
+    self.add_cycles(cycles as usize);
 
     if s == 1 {
       // update flags
@@ -210,7 +210,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let cycles = self.get_multiplier_cycles(operand2);
 
-    self.add_cycles(cycles);
+    self.add_cycles(cycles as usize);
 
     if s == 1 {
       self.cpsr.set(PSRRegister::NEGATIVE, result >> 63 & 0b1 == 1);

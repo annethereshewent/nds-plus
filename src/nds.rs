@@ -1,18 +1,34 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, cmp::Reverse, rc::Rc};
 
-use crate::cpu::{bus::Bus, CPU};
+use crate::{cpu::{bus::Bus, CPU}, scheduler::{EventType, Scheduler}};
 
 pub struct Nds {
   arm9_cpu: CPU<true>,
-  arm7_cpu: CPU<false>
+  arm7_cpu: CPU<false>,
+  scheduler: Rc<RefCell<Scheduler>>,
+  bus: Rc<RefCell<Bus>>
 }
 
 impl Nds {
   pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool) -> Self {
-    let bus = Rc::new(RefCell::new(Bus::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes, skip_bios)));
+    let scheduler = Rc::new(RefCell::new(Scheduler::new()));
+    let bus = Rc::new(
+      RefCell::new(
+        Bus::new(
+          firmware_bytes,
+          bios7_bytes,
+          bios9_bytes,
+          rom_bytes,
+          skip_bios,
+          scheduler.clone()
+        )
+      )
+    );
     let mut nds = Self {
       arm9_cpu: CPU::new(bus.clone(), skip_bios),
-      arm7_cpu: CPU::new(bus, skip_bios),
+      arm7_cpu: CPU::new(bus.clone(), skip_bios),
+      scheduler,
+      bus
     };
 
     nds.arm7_cpu.reload_pipeline32();
@@ -22,9 +38,32 @@ impl Nds {
   }
 
   pub fn step(&mut self) {
-    self.arm9_cpu.step();
-    self.arm9_cpu.step();
+    let ref mut scheduler = *self.scheduler.borrow_mut();
 
-    self.arm7_cpu.step();
+    if let Some((event_type, cycles)) = scheduler.get_next_event() {
+      println!("cycling for {cycles} cycles");
+      self.arm9_cpu.step(cycles * 2);
+      self.arm7_cpu.step(cycles);
+
+      // finally handle any events
+
+      let ref mut bus = *self.bus.borrow_mut();
+
+      println!("found event {:?}", event_type);
+      match event_type {
+        EventType::HBLANK => {
+          println!("handling hblank!");
+          bus.gpu.handle_hblank(scheduler);
+        }
+        EventType::NEXT_LINE => {
+          println!("handling next line!");
+          bus.gpu.start_next_line(scheduler);
+        }
+      }
+
+      scheduler.update_cycles(cycles);
+    } else {
+      panic!("there are no events left to process! something probably went wrong");
+    }
   }
 }

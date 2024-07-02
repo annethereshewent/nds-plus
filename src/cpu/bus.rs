@@ -5,7 +5,7 @@ use cp15::CP15;
 use spi::SPI;
 use wram_control_register::WRAMControlRegister;
 
-use crate::gpu::GPU;
+use crate::{gpu::GPU, scheduler::Scheduler};
 
 use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
@@ -61,11 +61,19 @@ pub struct Bus {
   shared_wram: Box<[u8]>,
   pub spi: SPI,
   pub cartridge: Cartridge,
-  pub wramcnt: WRAMControlRegister
+  pub wramcnt: WRAMControlRegister,
+  scheduler: Rc<RefCell<Scheduler>>
 }
 
 impl Bus {
-  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool) -> Self {
+  pub fn new(
+     firmware_bytes: Vec<u8>,
+     bios7_bytes: Vec<u8>,
+     bios9_bytes: Vec<u8>,
+     rom_bytes: Vec<u8>,
+     skip_bios: bool,
+     scheduler: Rc<RefCell<Scheduler>>) -> Self
+  {
     let dma_channels7 = Rc::new(RefCell::new(DmaChannels::new()));
     let dma_channels9 = Rc::new(RefCell::new(DmaChannels::new()));
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
@@ -95,7 +103,8 @@ impl Bus {
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
-      gpu: GPU::new()
+      gpu: GPU::new(scheduler.clone()),
+      scheduler
     };
 
     if skip_bios {

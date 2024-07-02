@@ -832,7 +832,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let cycles = self.get_multiplier_cycles(operand2);
 
-    self.add_cycles(cycles);
+    self.add_cycles(cycles as usize);
 
 
     self.cpsr.set(PSRRegister::OVERFLOW, false);

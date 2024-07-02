@@ -58,7 +58,7 @@ pub struct CPU<const IS_ARM9: bool> {
   arm_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u32) -> Option<MemoryAccess>>,
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
-  cycles: u32,
+  cycles: usize,
   pub bus: Rc<RefCell<Bus>>
 }
 
@@ -306,7 +306,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // }
   }
 
-  pub fn step(&mut self) -> u32 {
+  pub fn step(&mut self, cycles: usize) {
     // first check interrupts
     self.check_interrupts();
 
@@ -325,22 +325,20 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     //   self.bus.interrupt_request.set(interrupt_request);
     //   self.bus.dma_channels.set(dma);
     // }
-    if !self.bus.borrow_mut().is_halted {
-      if self.cpsr.contains(PSRRegister::STATE_BIT) {
-        self.step_thumb();
+
+    while self.cycles < cycles {
+      if !self.bus.borrow_mut().is_halted {
+        if self.cpsr.contains(PSRRegister::STATE_BIT) {
+          self.step_thumb();
+        } else {
+          self.step_arm();
+        }
       } else {
-        self.step_arm();
+        // just fast forward to the next event
+        self.cycles = cycles;
+        return;
       }
-    } else {
-      // just keep cycling until an interrupt is triggered
-      // TOODO: (Important) fix this hacky stuff and add a scheduler
-      self.add_cycles(1);
     }
-
-    let return_cycles = self.cycles;
-    self.cycles = 0;
-
-    return_cycles
   }
 
   fn step_thumb(&mut self) {
@@ -441,10 +439,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     //   }
     // };
 
-    // self.add_cycles(cycles);
+    self.add_cycles(1);
   }
 
-  fn add_cycles(&mut self, cycles: u32) {
+  fn add_cycles(&mut self, cycles: usize) {
     self.cycles += cycles;
     // self.gpu.tick(cycles);
     // self.apu.tick(cycles);

@@ -8,7 +8,6 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_32(address),
       _ => self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
     }
-
   }
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
@@ -26,6 +25,18 @@ impl Bus {
   }
 
   pub fn arm9_mem_read_8(&mut self, address: u32) -> u8 {
+    let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
+    let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
+
+    if dtcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+
+      return self.dtcm[actual_addr as usize];;
+    } else if itcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+
+      return self.itcm[actual_addr as usize];
+    }
 
     if address >= 0xffff_0000 {
       return self.arm9.bios9[(address - 0xffff_0000) as usize];
