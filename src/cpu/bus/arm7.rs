@@ -2,7 +2,11 @@ use super::{Bus, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm7_mem_read_32(&mut self, address: u32) -> u32 {
-    self.arm7_mem_read_16(address) as u32 | ((self.arm7_mem_read_16(address + 2) as u32) << 16)
+    match address {
+      0x400_0208 => self.arm7.interrupt_master_enable as u32,
+      _ => self.arm7_mem_read_16(address) as u32 | ((self.arm7_mem_read_16(address + 2) as u32) << 16)
+    }
+
   }
 
   pub fn arm7_mem_read_16(&mut self, address: u32) -> u16 {
@@ -20,6 +24,16 @@ impl Bus {
     }
 
     match address {
+      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
+      0x300_0000..=0x3ff_ffff => {
+        if self.wramcnt.arm7_size == 0 {
+          panic!("reading from shared ram when region is inaccessible!");
+        }
+
+        let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
+
+        self.shared_wram[actual_addr as usize]
+      }
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_8(address),
       0x700_0000..=0x7ff_ffff => 0,
       0x800_0000..=0xdff_ffff => {
@@ -60,8 +74,13 @@ impl Bus {
     let upper = (val >> 16) as u16;
     let lower = (val & 0xffff) as u16;
 
-    self.arm7_mem_write_16(address, lower);
-    self.arm7_mem_write_16(address + 2, upper);
+    match address {
+      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
+      _ => {
+        self.arm7_mem_write_16(address, lower);
+        self.arm7_mem_write_16(address + 2, upper);
+      }
+    }
   }
 
   pub fn arm7_mem_write_16(&mut self, address: u32, val: u16) {
@@ -80,6 +99,15 @@ impl Bus {
   pub fn arm7_mem_write_8(&mut self, address: u32, val: u8) {
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
+      0x300_0000..=0x3ff_ffff => {
+        if self.wramcnt.arm7_size == 0 {
+          panic!("accessing shared ram when bank is currently inaccessable");
+        }
+
+        let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
+
+        self.shared_wram[actual_addr as usize] = val;
+      }
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
       _ => {
@@ -97,6 +125,7 @@ impl Bus {
 
     match address {
       0x400_0006 => (),
+      0x400_0208 => self.arm7.interrupt_master_enable = value & 0b1 == 1,
       _ => {
         panic!("io register not implemented: {:X}", address)
       }

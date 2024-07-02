@@ -2,7 +2,12 @@ use super::{Bus, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
-    self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
+    match address {
+      // TODO: possibly make io_read_32 method to handle this
+      0x400_0208 => self.arm9.interrupt_master_enable as u32,
+      _ => self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
+    }
+
   }
 
   pub fn arm9_mem_read_16(&mut self, address: u32) -> u16 {
@@ -60,8 +65,13 @@ impl Bus {
     let upper = (val >> 16) as u16;
     let lower = (val & 0xffff) as u16;
 
-    self.arm9_mem_write_16(address, lower);
-    self.arm9_mem_write_16(address + 2, upper);
+    match address {
+      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
+      _ => {
+        self.arm9_mem_write_16(address, lower);
+        self.arm9_mem_write_16(address + 2, upper);
+      }
+    }
   }
 
   pub fn arm9_mem_write_16(&mut self, address: u32, val: u16) {
@@ -100,6 +110,7 @@ impl Bus {
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
       0x400_0006 => (),
       _ => {
         panic!("io register not implemented: {:X}", address)

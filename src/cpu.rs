@@ -143,18 +143,18 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       bus
     };
 
+    cpu.pc = if IS_ARM9 {
+      0xffff_0000
+    } else {
+      0
+    };
+
     if skip_bios {
       cpu.skip_bios();
     }
 
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();
-
-    cpu.pc = if IS_ARM9 {
-      0xffff_0000
-    } else {
-      0
-    };
 
     cpu
   }
@@ -263,7 +263,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    // println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+    println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
 
     if self.arm_condition_met(condition) {
       if let Some(access) = self.execute_arm(instruction) {
