@@ -28,7 +28,7 @@ impl CP15 {
   }
 
   pub fn read(&self, cn: u32, cm: u32, cp: u32) -> u32 {
-    // hardcoded values gotten from another emulator that's fairly accurate, so hopefully these should be ok
+    // hardcoded values gotten from another emulator that's fairly accurate, so hopefully these should be ok lmao
     match (cn, cm, cp) {
       (0, 0, 0) => 0x41059461, // Main ID
       (0, 0, 1) => 0x0F0D2112, // Cache type
