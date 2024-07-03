@@ -1,7 +1,7 @@
-use std::{env, fs};
+use std::{collections::HashMap, env, fs};
 
-use ds_emulator::{gpu::{HEIGHT, WIDTH}, nds::Nds};
-use sdl2::{event::Event, pixels::PixelFormatEnum};
+use ds_emulator::{cpu::registers::key_input_register::KeyInputRegister, gpu::{HEIGHT, WIDTH}, nds::Nds};
+use sdl2::{event::Event, keyboard::Keycode, pixels::PixelFormatEnum};
 
 extern crate ds_emulator;
 
@@ -48,6 +48,25 @@ fn main() {
     .create_texture_target(PixelFormatEnum::RGB24, WIDTH as u32, HEIGHT as u32)
     .unwrap();
 
+    let mut key_map = HashMap::new();
+
+  key_map.insert(Keycode::W, KeyInputRegister::Up);
+  key_map.insert(Keycode::S, KeyInputRegister::Down);
+  key_map.insert(Keycode::D, KeyInputRegister::Right);
+  key_map.insert(Keycode::A, KeyInputRegister::Left);
+
+  key_map.insert(Keycode::Space, KeyInputRegister::ButtonA);
+  key_map.insert(Keycode::K, KeyInputRegister::ButtonA);
+
+  key_map.insert(Keycode::LShift, KeyInputRegister::ButtonB);
+  key_map.insert(Keycode::J, KeyInputRegister::ButtonB);
+
+  key_map.insert(Keycode::C, KeyInputRegister::ButtonL);
+  key_map.insert(Keycode::V, KeyInputRegister::ButtonR);
+
+  key_map.insert(Keycode::Return, KeyInputRegister::Start);
+  key_map.insert(Keycode::Tab, KeyInputRegister::Select);
+
   let mut frame_finished = false;
 
   loop {
@@ -70,6 +89,16 @@ fn main() {
     for event in event_pump.poll_iter() {
       match event {
         Event::Quit { .. } => std::process::exit(0),
+        Event::KeyDown { keycode, .. } => {
+          if let Some(button) = key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            bus.key_input_register.set(*button, false);
+          }
+        }
+        Event::KeyUp { keycode, .. } => {
+          if let Some(button) = key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            bus.key_input_register.set(*button, true);
+          }
+        }
         _ => ()
       }
     }

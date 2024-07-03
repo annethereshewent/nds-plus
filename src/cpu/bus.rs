@@ -62,7 +62,8 @@ pub struct Bus {
   pub spi: SPI,
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
-  scheduler: Rc<RefCell<Scheduler>>
+  scheduler: Rc<RefCell<Scheduler>>,
+  pub key_input_register: KeyInputRegister
 }
 
 impl Bus {
@@ -104,7 +105,8 @@ impl Bus {
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(scheduler.clone()),
-      scheduler
+      scheduler,
+      key_input_register: KeyInputRegister::from_bits_retain(0xffff)
     };
 
     if skip_bios {
