@@ -754,7 +754,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if !IS_ARM9 {
         l == 0 && !base_is_first
       } else {
-        l == 1 && (register_list == 1 << rn || !base_is_last)
+        // the documentation says write back old base on stores, but the armwrestler tests fail if it's done that way.
+        // somehow they seem to pass if you *always* writeback on stores. will have to investigate into this further
+        // or maybe i'm misunderstanding something
+        l == 1 && (register_list == 1 << rn || !base_is_last)  || l == 0
       }
     } else {
       true
@@ -827,7 +830,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         // load
         for i in 0..16 {
           if (register_list >> i) & 0b1 == 1 {
-
             if p == 1 {
               address += 4;
             }
