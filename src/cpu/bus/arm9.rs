@@ -47,6 +47,7 @@ impl Bus {
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
+      0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       // 0x700_0000..=0x7ff_ffff => 0,
       // 0x800_0000..=0xdff_ffff => {
       //   0
@@ -140,6 +141,7 @@ impl Bus {
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
       0x700_0000..=0x700_3fff => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
       0x700_4000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
+      0x800_0000..=0x8ff_ffff => (), // todo: fix this
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }

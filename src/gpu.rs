@@ -120,15 +120,30 @@ impl GPU {
 
   pub fn write_lcdc(&mut self, address: u32, val: u8) {
     match address {
-      0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val, 0x1_ffff),
-      0x682_0000..=0x683_ffff => self.vram.write_lcdc_bank(Bank::BankB, address, val, 0x1_ffff),
-      0x684_0000..=0x685_ffff => self.vram.write_lcdc_bank(Bank::BankC, address, val, 0x1_ffff),
-      0x686_0000..=0x687_ffff => self.vram.write_lcdc_bank(Bank::BankD, address, val, 0x1_ffff),
-      0x688_0000..=0x688_ffff => self.vram.write_lcdc_bank(Bank::BankE, address, val, 0xffff),
-      0x689_0000..=0x689_3fff => self.vram.write_lcdc_bank(Bank::BankF, address, val, 0x3fff),
-      0x689_4000..=0x689_7fff => self.vram.write_lcdc_bank(Bank::BankG, address, val, 0x3fff),
-      0x689_8000..=0x689_ffff => self.vram.write_lcdc_bank(Bank::BankH, address, val, 0x7fff),
-      0x68a_0000..=0x68a_3fff => self.vram.write_lcdc_bank(Bank::BankI, address, val, 0x3fff),
+      0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val),
+      0x682_0000..=0x683_ffff => self.vram.write_lcdc_bank(Bank::BankB, address, val),
+      0x684_0000..=0x685_ffff => self.vram.write_lcdc_bank(Bank::BankC, address, val),
+      0x686_0000..=0x687_ffff => self.vram.write_lcdc_bank(Bank::BankD, address, val),
+      0x688_0000..=0x688_ffff => self.vram.write_lcdc_bank(Bank::BankE, address, val),
+      0x689_0000..=0x689_3fff => self.vram.write_lcdc_bank(Bank::BankF, address, val),
+      0x689_4000..=0x689_7fff => self.vram.write_lcdc_bank(Bank::BankG, address, val),
+      0x689_8000..=0x689_ffff => self.vram.write_lcdc_bank(Bank::BankH, address, val),
+      0x68a_0000..=0x68a_3fff => self.vram.write_lcdc_bank(Bank::BankI, address, val),
+      _ => unreachable!("received address: {:X}", address)
+    }
+  }
+
+  pub fn read_lcdc(&mut self, address: u32) -> u8 {
+    match address {
+      0x680_0000..=0x681_ffff => self.vram.read_lcdc_bank(Bank::BankA, address),
+      0x682_0000..=0x683_ffff => self.vram.read_lcdc_bank(Bank::BankB, address),
+      0x684_0000..=0x685_ffff => self.vram.read_lcdc_bank(Bank::BankC, address),
+      0x686_0000..=0x687_ffff => self.vram.read_lcdc_bank(Bank::BankD, address),
+      0x688_0000..=0x688_ffff => self.vram.read_lcdc_bank(Bank::BankE, address),
+      0x689_0000..=0x689_3fff => self.vram.read_lcdc_bank(Bank::BankF, address),
+      0x689_4000..=0x689_7fff => self.vram.read_lcdc_bank(Bank::BankG, address),
+      0x689_8000..=0x689_ffff => self.vram.read_lcdc_bank(Bank::BankH, address),
+      0x68a_0000..=0x68a_3fff => self.vram.read_lcdc_bank(Bank::BankI, address),
       _ => unreachable!("received address: {:X}", address)
     }
   }

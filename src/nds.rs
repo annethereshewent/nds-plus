@@ -3,8 +3,8 @@ use std::{cell::RefCell, cmp::Reverse, rc::Rc};
 use crate::{cpu::{bus::Bus, CPU}, scheduler::{EventType, Scheduler}};
 
 pub struct Nds {
-  arm9_cpu: CPU<true>,
-  arm7_cpu: CPU<false>,
+  pub arm9_cpu: CPU<true>,
+  pub arm7_cpu: CPU<false>,
   scheduler: Rc<RefCell<Scheduler>>,
   pub bus: Rc<RefCell<Bus>>
 }

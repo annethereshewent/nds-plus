@@ -124,6 +124,7 @@ impl Bus {
       }
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
+      0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }

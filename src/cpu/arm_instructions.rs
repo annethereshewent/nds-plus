@@ -944,6 +944,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.r[LR_REGISTER] = self.pc.wrapping_sub(4) & !(0b1);
 
       self.pc = ((self.pc as i32).wrapping_add(offset) as u32).wrapping_add(l * 2);
+      self.pc &= !0b1;
       self.cpsr.insert(PSRRegister::STATE_BIT);
 
       self.reload_pipeline16();

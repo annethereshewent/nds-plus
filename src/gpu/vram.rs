@@ -46,11 +46,25 @@ impl VRam {
     }
   }
 
-  pub fn write_lcdc_bank(&mut self, bank: Bank, address: u32, value: u8, mask: u32) {
-    if self.lcdc.contains(&bank) {
-      self.banks[bank as usize][(address & mask) as usize] = value;
+  pub fn write_lcdc_bank(&mut self, bank_enum: Bank, address: u32, value: u8) {
+    if self.lcdc.contains(&bank_enum) {
+      let bank = &mut self.banks[bank_enum as usize];
+      let bank_len = bank.len();
+
+      bank[(address as usize) & (bank_len - 1)] = value;
     } else {
-      println!("[WARN] bank {:?} not enabled for lcdc", bank);
+      println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
+    }
+  }
+
+  pub fn read_lcdc_bank(&mut self, bank_enum: Bank, address: u32) -> u8 {
+    if self.lcdc.contains(&bank_enum) {
+      let bank = &mut self.banks[bank_enum as usize];
+
+      bank[(address as usize) & (bank.len() - 1)]
+    } else {
+      println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
+      0
     }
   }
 

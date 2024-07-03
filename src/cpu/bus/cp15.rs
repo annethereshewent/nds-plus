@@ -1,9 +1,6 @@
 use cp15_control_register::CP15ControlRegister;
 use tcm_control_register::TCMControlRegister;
 
-use super::{DTCM_SIZE, ITCM_SIZE};
-
-
 pub const CP15_INDEX: usize = 15;
 
 pub mod cp15_control_register;

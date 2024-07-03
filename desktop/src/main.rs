@@ -92,6 +92,9 @@ fn main() {
         Event::KeyDown { keycode, .. } => {
           if let Some(button) = key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, false);
+          } else if keycode.unwrap_or(Keycode::G) == Keycode::G {
+            nds.arm9_cpu.debug_on = !nds.arm9_cpu.debug_on;
+            nds.arm7_cpu.debug_on = !nds.arm7_cpu.debug_on;
           }
         }
         Event::KeyUp { keycode, .. } => {

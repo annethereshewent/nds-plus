@@ -36,7 +36,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       CPU::thumb_software_interrupt
     } else if format & 0b11110000 == 0b11010000 {
       CPU::conditional_branch
-    } else if format & 0b11111000 == 0b11101 {
+    } else if format & 0b11111000 == 0b11101000 {
       CPU::long_branch_link_exchange
     } else if format & 0b11111000 == 0b11100000 {
       CPU::unconditional_branch
