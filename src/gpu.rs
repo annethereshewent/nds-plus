@@ -18,8 +18,8 @@ const DOTS_PER_LINE: usize = 355;
 
 const NUM_LINES: u16 = 263;
 
-const HEIGHT: u16 = 192;
-const WIDTH: u16 = 256;
+pub const HEIGHT: u16 = 192;
+pub const WIDTH: u16 = 256;
 
 const BANK_A: u32 = Bank::BankA as u32;
 const BANK_B: u32 = Bank::BankB as u32;
