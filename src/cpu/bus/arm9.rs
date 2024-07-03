@@ -66,6 +66,7 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0300 => self.arm9.postflg as u16,
+      0x400_0130 => 0xffff, // controller, hardcoded for now. TODO!
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
