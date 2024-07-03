@@ -181,7 +181,7 @@ impl GPU {
 
   fn render_line(&mut self) {
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
-      self.engine_a.render_line(self.vcount,&mut self.vram);
+      self.engine_a.render_line(self.vcount, &mut self.vram);
     }
   }
 }

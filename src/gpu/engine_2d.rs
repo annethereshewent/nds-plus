@@ -34,7 +34,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     Self {
       dispcnt: DisplayControlRegister::new(),
       oam: [0; 0x400],
-      pixels: [0; 3* (WIDTH * HEIGHT) as usize]
+      pixels: [0; 3 * (WIDTH * HEIGHT) as usize]
     }
   }
 
@@ -43,12 +43,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       DisplayMode::Mode0 => println!("in mode 0"),
       DisplayMode::Mode1 => println!("in mode 1"),
       DisplayMode::Mode2 => {
-
         for x in 0..WIDTH {
-          let index = y * WIDTH + x;
+          let index = 2 * (y as usize * WIDTH as usize + x as usize);
           let bank = vram.get_lcdc_bank(self.dispcnt.vram_block);
 
-          let color = bank[(index * 2) as usize] as u16 | (bank[((index * 2) + 1) as usize] as u16) << 8;
+          let color = bank[index] as u16 | (bank[(index + 1) as usize] as u16) << 8;
 
           let color = Color::from(color);
 
