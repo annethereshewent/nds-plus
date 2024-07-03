@@ -32,10 +32,12 @@ pub struct Header {
 
 impl Header {
   pub fn new(rom: &Vec<u8>) -> Self {
+    let default_str: &str = "";
+
     let header = Self {
-      game_title: std::str::from_utf8(&rom[0..0xc]).unwrap().to_string(),
-      game_code: std::str::from_utf8(&rom[0xc..0x10]).unwrap().to_string(),
-      maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap().to_string(),
+      game_title: std::str::from_utf8(&rom[0..0xc]).unwrap_or_default().to_string(),
+      game_code: std::str::from_utf8(&rom[0xc..0x10]).unwrap_or_default().to_string(),
+      maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap_or_default().to_string(),
       unit_code: rom[0x12],
       encryption_seed_select: rom[0x13],
       device_capacity: rom[0x14],

@@ -255,17 +255,18 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
           self.r[rs as usize] as u16
         };
 
+        let accumulate = self.r[rn as usize] as i32;
 
-        let value = ((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) as u32;
+        let value = ((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32);
 
-        let (value, overflow) = value.overflowing_add(self.r[rn as usize]);
+        let (result, overflow) = value.overflowing_add(accumulate);
 
         if overflow {
           // set the q flag
           self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
         }
 
-        self.r[rd as usize] = value;
+        self.r[rd as usize] = result as u32;
       }
       0b01 => {
 
@@ -279,15 +280,19 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         // so this op code has two different commands that are dependent on x. if x == 1, SMULW, if x == 0, SMLAW
         if x == 0 {
           // Rd=(Rm*HalfRs)/10000h+Rn SMLAW
-          let value = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16) as u32;
 
-          let (value, overflow) = value.overflowing_add(self.r[rn as usize]);
+          let accumulate = self.r[rn as usize] as i32;
+
+          let value = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16);
+
+          // let overflow = value.checked_add(self.r[rn as usize]).is_none();
+          let (result, overflow) = value.overflowing_add(accumulate);
 
           if overflow {
             self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
           }
 
-          self.r[rd as usize] = value;
+          self.r[rd as usize] = result as u32;
         } else {
           // Rd=(Rm*HalfRs)/10000h SMULW
 
@@ -1089,35 +1094,36 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let mut overflow1 = false;
     let mut overflow2 = false;
 
-    let value1 = if doubled {
-      let value = self.r[rn as usize].saturating_mul(2);
+    let operand2 = self.r[rn as usize] as i32;
+    let operand1 = self.r[rm as usize] as i32;
 
-      (_, overflow1) = self.r[rn as usize].overflowing_mul(2);
+    let value1 = if doubled {
+      let value = operand2.saturating_mul(2);
+
+      overflow1 = operand2.checked_mul(2).is_none();
 
       value
     } else {
-      self.r[rn as usize]
+      operand2
     };
 
     let value2 = if op_code == 0 {
-      let value = self.r[rm as usize].saturating_add(value1);
-      (_, overflow2) = self.r[rm as usize].overflowing_add(value1);
+      let value = operand1.saturating_add(value1);
+      overflow2 = operand1.checked_add(value1).is_none();
 
       value
     } else {
-      let value = self.r[rm as usize].saturating_sub(value1);
-      (_, overflow2) = self.r[rm as usize].overflowing_sub(value1);
+      let value = operand1.saturating_sub(value1);
+      overflow2 = operand1.checked_sub(value1).is_none();
 
       value
     };
-
 
     if overflow1 || overflow2 {
       self.cpsr.insert(PSRRegister::STICKY_OVERFLOW);
     }
 
-
-    self.r[rd as usize] = value2;
+    self.r[rd as usize] = value2 as u32;
 
     self.pc = self.pc.wrapping_add(4);
 
