@@ -11,9 +11,13 @@ pub struct Color {
 
 impl Color {
   pub fn from(val: u16) -> Self {
-    let r = (val & 0x1f) as u8;
-    let g = ((val >> 5) & 0x1f) as u8;
-    let b = ((val >> 10) & 0x1f) as u8;
+    let mut r = (val & 0x1f) as u8;
+    let mut g = ((val >> 5) & 0x1f) as u8;
+    let mut b = ((val >> 10) & 0x1f) as u8;
+
+    r = (r << 3) | (r >> 2);
+    g = (g << 3) | (g >> 2);
+    b = (b << 3) | (b >> 2);
 
     Self {
       r,
