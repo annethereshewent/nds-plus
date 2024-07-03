@@ -67,6 +67,10 @@ impl Bus {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
+      0x400_0180 => self.arm9.ipcsync.read() as u16,
+      0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
+      0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
+      0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -158,6 +162,8 @@ impl Bus {
     // };
 
     match address {
+      0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, value),
+      0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),

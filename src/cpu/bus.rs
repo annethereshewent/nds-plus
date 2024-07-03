@@ -7,7 +7,7 @@ use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
+use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::IPCFifoControlRegister, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
 
 pub mod arm7;
 pub mod arm9;
@@ -30,7 +30,9 @@ pub struct Arm9Bus {
   bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
-  pub interrupt_master_enable: bool
+  pub interrupt_master_enable: bool,
+  pub ipcsync: IPCSyncRegister,
+  pub ipcfifocnt: IPCFifoControlRegister
   // TODO: add interrupt controllers
 }
 
@@ -40,7 +42,9 @@ pub struct Arm7Bus {
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
   pub postflg: bool,
-  pub interrupt_master_enable: bool
+  pub interrupt_master_enable: bool,
+  pub ipcsync: IPCSyncRegister,
+  pub ipcfifocnt: IPCFifoControlRegister
   // TODO: interrupt controllers
 }
 
@@ -62,8 +66,7 @@ pub struct Bus {
   pub spi: SPI,
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
-  scheduler: Rc<RefCell<Scheduler>>,
-  pub key_input_register: KeyInputRegister
+  pub key_input_register: KeyInputRegister,
 }
 
 impl Bus {
@@ -86,7 +89,9 @@ impl Bus {
         dma_channels: dma_channels7.clone(),
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
         postflg: skip_bios,
-        interrupt_master_enable: false
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new()
       },
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
@@ -94,7 +99,9 @@ impl Bus {
         dma_channels: dma_channels9.clone(),
         cp15: CP15::new(),
         postflg: skip_bios,
-        interrupt_master_enable: false
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new()
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
@@ -105,8 +112,8 @@ impl Bus {
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(scheduler.clone()),
-      scheduler,
-      key_input_register: KeyInputRegister::from_bits_retain(0xffff)
+      key_input_register: KeyInputRegister::from_bits_retain(0xffff),
+
     };
 
     if skip_bios {
