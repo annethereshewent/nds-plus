@@ -29,6 +29,14 @@ fn main() {
   let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes, skip_bios);
 
   loop {
-    nds.step();
+    let frame_finished = nds.step();
+
+    if frame_finished {
+      let ref mut bus = *nds.bus.borrow_mut();
+
+      bus.gpu.frame_finished = true;
+      // render stuff
+
+    }
   }
 }

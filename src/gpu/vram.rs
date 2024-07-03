@@ -54,6 +54,10 @@ impl VRam {
     }
   }
 
+  pub fn get_lcdc_bank(&mut self, block_num: u32) -> &Vec<u8> {
+    &self.banks[block_num as usize]
+  }
+
   pub fn map_bank(&mut self, bank: Bank, mst: u8) {
     match mst {
       0 => self.lcdc.push(bank),

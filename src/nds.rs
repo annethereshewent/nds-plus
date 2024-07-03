@@ -6,7 +6,7 @@ pub struct Nds {
   arm9_cpu: CPU<true>,
   arm7_cpu: CPU<false>,
   scheduler: Rc<RefCell<Scheduler>>,
-  bus: Rc<RefCell<Bus>>
+  pub bus: Rc<RefCell<Bus>>
 }
 
 impl Nds {
@@ -37,24 +37,36 @@ impl Nds {
     nds
   }
 
-  pub fn step(&mut self) {
+  pub fn step(&mut self) -> bool {
     let ref mut scheduler = *self.scheduler.borrow_mut();
+
+    let mut frame_finished = false;
 
     if let Some((event_type, cycles)) = scheduler.get_next_event() {
       self.arm9_cpu.step(cycles * 2);
       self.arm7_cpu.step(cycles);
 
       // finally handle any events
-
       let ref mut bus = *self.bus.borrow_mut();
+
       match event_type {
         EventType::HBLANK => bus.gpu.handle_hblank(scheduler),
         EventType::NEXT_LINE => bus.gpu.start_next_line(scheduler)
       }
 
       scheduler.update_cycles(cycles);
+
+      frame_finished = bus.gpu.frame_finished;
     } else {
       panic!("there are no events left to process! something probably went wrong");
     }
+
+    frame_finished
+  }
+
+  pub fn start_new_frame(&mut self) {
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.gpu.frame_finished = false;
   }
 }

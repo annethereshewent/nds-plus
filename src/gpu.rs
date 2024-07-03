@@ -117,16 +117,7 @@ impl GPU {
 
     // TODO: check for vcounter interrupt here
   }
-  /**
-   *
-   *   C       128K  0    -     6840000h-685FFFFh
-  D       128K  0    -     6860000h-687FFFFh
-  E       64K   0    -     6880000h-688FFFFh
-  F       16K   0    -     6890000h-6893FFFh
-  G       16K   0    -     6894000h-6897FFFh
-  H       32K   0    -     6898000h-689FFFFh
-  I       16K   0    -     68A0000h-68A3FFFh
-   */
+
   pub fn write_lcdc(&mut self, address: u32, val: u8) {
     match address {
       0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val, 0x1_ffff),
@@ -189,6 +180,8 @@ impl GPU {
   }
 
   fn render_line(&mut self) {
-
+    if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
+      self.engine_a.render_line(self.vcount,&mut self.vram);
+    }
   }
 }
