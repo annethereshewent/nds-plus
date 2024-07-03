@@ -745,15 +745,29 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // can just use leading 15 - leading_zeros() to determine if it's the last
     let base_is_last = 15 - register_list.leading_zeros() == rn;
 
-    let should_writeback = w == 1 &&
-      (!IS_ARM9 && (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)) ||
-      (l == 1 && (register_list == 1 << rn || base_is_last));
+    // let should_writeback = w == 1 &&
+    //   (!IS_ARM9 && (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)) ||
+    //   (l == 1 && (register_list == 1 << rn || base_is_last));
+    let should_writeback = if register_list >> rn & 0b1 == 1 {
+      if !IS_ARM9 {
+        (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)
+      } else {
+        l == 1 && (register_list == 1 << rn || base_is_last)
+      }
+    } else {
+      true
+    };
 
     if register_list != 0 && u == 0 {
       address = address.wrapping_sub(num_registers * 4);
 
       if w == 1 && should_writeback {
         self.r[rn as usize] = address;
+
+        if self.pc.wrapping_sub(8) == 0x2004bf4 {
+          println!("wrote back {:X} to register {rn}", address);
+        }
+
         w = 0;
       }
       if p == 0 {
@@ -907,6 +921,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     if w == 1 && should_writeback {
       self.r[rn as usize] = address;
+
+      if self.pc.wrapping_sub(8) == 0x2004bf4 {
+        println!("wrote back {:X} to register {rn}", address);
+      }
     }
 
     if should_increment_pc {
