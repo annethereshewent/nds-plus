@@ -1,9 +1,11 @@
+use crate::cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister};
+
 use super::{Bus, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm7_mem_read_32(&mut self, address: u32) -> u32 {
     match address {
-      0x400_0208 => self.arm7.interrupt_master_enable as u32,
+      0x400_0000..=0x4ff_ffff => self.arm7_io_read_32(address),
       _ => self.arm7_mem_read_16(address) as u32 | ((self.arm7_mem_read_16(address + 2) as u32) << 16)
     }
 
@@ -45,6 +47,16 @@ impl Bus {
     }
   }
 
+  fn arm7_io_read_32(&mut self, address: u32) -> u32 {
+    match address {
+      0x400_0180 => self.arm7.ipcsync.read(),
+      0x400_0208 => self.arm7.interrupt_master_enable as u32,
+      0x400_0210 => self.arm7.interrupt_enable.bits(),
+      0x400_0214 => self.arm7.interrupt_request.bits(),
+      _ => panic!("unhandled io read to address {:x}", address)
+    }
+  }
+
   fn arm7_io_read_16(&mut self, address: u32) -> u16 {
     let address = if address & 0xfffe == 0x8000 {
       0x400_0800
@@ -53,6 +65,8 @@ impl Bus {
     };
 
     match address {
+      0x400_0180 => self.arm7.ipcsync.read() as u16,
+      0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_0300 => self.arm7.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
@@ -125,7 +139,37 @@ impl Bus {
 
     match address {
       0x400_0006 => (),
+      0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, value),
+      0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm9.ipcfifocnt.fifo, value),
       0x400_0208 => self.arm7.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0210 => {
+        let mut value = self.arm7.interrupt_enable.bits() & 0xffff0000;
+
+        value |= value as u32;
+
+        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
+      }
+      0x400_0212 => {
+        let mut value = self.arm7.interrupt_enable.bits() & 0xffff;
+
+        value |= (value as u32) << 16;
+
+        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
+      }
+      0x400_0214 => {
+        let mut value = self.arm7.interrupt_request.bits() & 0xffff0000;
+
+        value |= value as u32;
+
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(value);
+      }
+      0x400_0216 => {
+        let mut value = self.arm7.interrupt_request.bits() & 0xffff;
+
+        value |= (value as u32) << 16;
+
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(value);
+      }
       _ => {
         panic!("io register not implemented: {:X}", address)
       }

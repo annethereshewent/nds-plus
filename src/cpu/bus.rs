@@ -7,7 +7,7 @@ use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{cycle_lookup_tables::CycleLookupTables, dma::dma_channels::{AddressType, DmaChannels}, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::IPCFifoControlRegister, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, waitstate_control_register::WaitstateControlRegister}, timers::Timers};
+use super::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::IPCFifoControlRegister, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister}, timers::Timers};
 
 pub mod arm7;
 pub mod arm9;
@@ -32,8 +32,9 @@ pub struct Arm9Bus {
   pub postflg: bool,
   pub interrupt_master_enable: bool,
   pub ipcsync: IPCSyncRegister,
-  pub ipcfifocnt: IPCFifoControlRegister
-  // TODO: add interrupt controllers
+  pub ipcfifocnt: IPCFifoControlRegister,
+  pub interrupt_request: InterruptRequestRegister,
+  pub interrupt_enable: InterruptEnableRegister
 }
 
 pub struct Arm7Bus {
@@ -44,8 +45,9 @@ pub struct Arm7Bus {
   pub postflg: bool,
   pub interrupt_master_enable: bool,
   pub ipcsync: IPCSyncRegister,
-  pub ipcfifocnt: IPCFifoControlRegister
-  // TODO: interrupt controllers
+  pub ipcfifocnt: IPCFifoControlRegister,
+  pub interrupt_request: InterruptRequestRegister,
+  pub interrupt_enable: InterruptEnableRegister
 }
 
 impl Arm7Bus {
@@ -91,7 +93,9 @@ impl Bus {
         postflg: skip_bios,
         interrupt_master_enable: false,
         ipcsync: IPCSyncRegister::new(),
-        ipcfifocnt: IPCFifoControlRegister::new()
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0)
       },
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
@@ -101,7 +105,9 @@ impl Bus {
         postflg: skip_bios,
         interrupt_master_enable: false,
         ipcsync: IPCSyncRegister::new(),
-        ipcfifocnt: IPCFifoControlRegister::new()
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0)
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),

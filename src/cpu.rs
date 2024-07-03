@@ -159,12 +159,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     cpu
   }
 
-  pub fn trigger_interrupt(interrupt_request_ref: &Rc<Cell<InterruptRequestRegister>>, flags: u16) {
-    let mut interrupt_request = interrupt_request_ref.get();
+  pub fn trigger_interrupt(&mut self, flags: u32) {
+    let ref mut bus = *self.bus.borrow_mut();
 
-    interrupt_request = InterruptRequestRegister::from_bits_retain(interrupt_request.bits() | flags);
-
-    interrupt_request_ref.set(interrupt_request);
+    if IS_ARM9 {
+      bus.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(bus.arm9.interrupt_request.bits() | flags);
+    } else {
+      bus.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(bus.arm7.interrupt_request.bits() | flags)
+    }
   }
 
   pub fn set_mode(&mut self, new_mode: OperatingMode) {

@@ -636,7 +636,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         result = None;
         should_update_pc = false;
 
-        if IS_ARM9 && self.r[PC_REGISTER] & 0b1 == 1 {
+        if IS_ARM9 && self.pc & 0b1 == 1 {
           self.cpsr.insert(PSRRegister::STATE_BIT);
           self.pc = data & !(0b1);
 

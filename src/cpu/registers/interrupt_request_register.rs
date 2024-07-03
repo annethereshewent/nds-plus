@@ -1,6 +1,6 @@
 bitflags! {
   #[derive(Copy, Clone)]
-  pub struct InterruptRequestRegister: u16 {
+  pub struct InterruptRequestRegister: u32 {
     const VBLANK = 0b1;
     const HBLANK = 0b1 << 1;
     const VCOUNTER_MATCH = 0b1 << 2;
@@ -8,13 +8,19 @@ bitflags! {
     const TIMER_1_OVERFLOW = 0b1 << 4;
     const TIMER_2_OVERFLOW = 0b1 << 5;
     const TIMER_3_OVERFLOW = 0b1 << 6;
-    const SERIAL_COMM = 0b1 << 7;
+    const SIO_RTC = 0b1 << 7;
     const DMA0 = 0b1 << 8;
     const DMA1 = 0b1 << 9;
     const DMA2 = 0b1 << 10;
     const DMA3 = 0b1 << 11;
     const KEYPAD = 0b1 << 12;
     const GAMEPACK = 0b1 << 13;
+    const IPC_SEND = 0b1 << 16;
+    const IPC_SEND_FIFO_EMPTY = 0b1 << 17;
+    const IPC_RECV_FIFO_EMPTY = 0b1 << 18;
+    const GAME_CARD_TRANSFER_COMPLETE = 0b1 << 19;
+    const GAME_CARD_IREQ_MC = 0b1 << 20;
+    const GEOMETRY_COMMAND = 0b1 << 21;
   }
 }
 

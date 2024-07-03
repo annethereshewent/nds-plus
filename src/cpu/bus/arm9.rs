@@ -1,4 +1,4 @@
-use crate::gpu::registers::power_control_register1::PowerControlRegister1;
+use crate::{cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register1::PowerControlRegister1};
 
 use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
@@ -13,6 +13,8 @@ impl Bus {
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
     match address {
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
+      0x400_0210 => self.arm9.interrupt_enable.bits(),
+      0x400_0214 => self.arm9.interrupt_request.bits(),
       _ => panic!("unsupported io address received: {:X}", address)
     }
   }
@@ -148,6 +150,8 @@ impl Bus {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
+      0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(value),
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
       _ => panic!("write to unsupported io address: {:X}", address)
     }
