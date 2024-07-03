@@ -754,11 +754,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if !IS_ARM9 {
         l == 0 && !base_is_first
       } else {
-        l == 1 && (register_list == 1 << rn || base_is_last)
+        l == 1 && (register_list == 1 << rn || !base_is_last)
       }
     } else {
       true
     };
+
+    let mut wrote_back = false;
 
     if register_list != 0 && u == 0 {
       address = address.wrapping_sub(num_registers * 4);
@@ -766,6 +768,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if w == 1 && should_writeback {
         self.r[rn as usize] = address;
         w = 0;
+        wrote_back = true;
       }
       if p == 0 {
         p = 1;
@@ -824,9 +827,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         // load
         for i in 0..16 {
           if (register_list >> i) & 0b1 == 1 {
-            if i == rn {
-              w = 0;
-            }
 
             if p == 1 {
               address += 4;
@@ -864,7 +864,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
               result = None;
 
-            } else {
+            } else if !wrote_back || i != rn {
               self.r[i as usize] = value;
             }
 
