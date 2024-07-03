@@ -745,12 +745,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // can just use leading 15 - leading_zeros() to determine if it's the last
     let base_is_last = 15 - register_list.leading_zeros() == rn;
 
-    // let should_writeback = w == 1 &&
-    //   (!IS_ARM9 && (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)) ||
-    //   (l == 1 && (register_list == 1 << rn || base_is_last));
+    /*
+      Per the docs, if the base register is in the register list, only write back if:
+      for armv4, on stores, only if the base register is not first. loads will never write back
+      for armv5, only store on loads if the base is the only register in the list or it's the last register.
+     */
     let should_writeback = if register_list >> rn & 0b1 == 1 {
       if !IS_ARM9 {
-        (l == 0 && !base_is_first) || (l == 1 && (register_list >> rn) & 0b1 == 0)
+        l == 0 && !base_is_first
       } else {
         l == 1 && (register_list == 1 << rn || base_is_last)
       }
@@ -763,11 +765,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       if w == 1 && should_writeback {
         self.r[rn as usize] = address;
-
-        if self.pc.wrapping_sub(8) == 0x2004bf4 {
-          println!("wrote back {:X} to register {rn}", address);
-        }
-
         w = 0;
       }
       if p == 0 {
@@ -921,10 +918,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     if w == 1 && should_writeback {
       self.r[rn as usize] = address;
-
-      if self.pc.wrapping_sub(8) == 0x2004bf4 {
-        println!("wrote back {:X} to register {rn}", address);
-      }
     }
 
     if should_increment_pc {
