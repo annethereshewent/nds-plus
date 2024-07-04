@@ -10,8 +10,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
-  // 11100101100111111111000010110100
-
   fn decode_arm(&mut self, upper: u16, lower: u16) -> fn(&mut CPU<IS_ARM9>, instr: u32) -> Option<MemoryAccess> {
     if upper & 0b11111100 == 0 && lower == 0b1001 {
       CPU::multiply
@@ -98,12 +96,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if rd == PC_REGISTER as u32 && s == 1 {
       self.transfer_spsr_mode();
       s = 0;
-    }
-
-    if self.debug_on && self.pc.wrapping_sub(8) == 0x2002ccc {
-      println!("operand1 = {operand1} operand2 = {operand2}");
-      println!("rn = {rn} rd = {rd}");
-      println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
     }
 
     // finally do the operation on the two operands and store in rd
@@ -634,10 +626,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
         self.ldr_word(address)
       };
-
-      if self.debug_on && self.pc.wrapping_sub(8) == 0x200788C {
-        println!("data = {:x}", data);
-      }
 
       // println!("setting register {rd} to {data} from address {:X}", address);
 
