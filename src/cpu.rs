@@ -267,9 +267,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    if self.debug_on {
-      // println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
-    }
+    // if self.debug_on {
+    //   println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+    // }
 
     if self.arm_condition_met(condition) {
       if let Some(access) = self.execute_arm(instruction) {
@@ -433,6 +433,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn update_cycles(&mut self, address: u32,  access: MemoryAccess, width: MemoryWidth) {
+    // TODO: fix this
     // let page = ((address >> 24) & 0xf) as usize;
     // let cycles = match width {
     //   MemoryWidth::Width8 | MemoryWidth::Width16 => match access {
@@ -450,20 +451,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   fn add_cycles(&mut self, cycles: usize) {
     self.cycles += cycles;
-    // self.gpu.tick(cycles);
-    // self.apu.tick(cycles);
-
-    // let bus = self.bus.get_mut();
-
-    // let mut dma = bus.dma_channels.get();
-
-    // self.bus.get_mut().timers.tick(cycles, &mut dma);
-
-    // for channel in &mut dma.channels {
-    //   channel.tick(cycles);
-    // }
-
-    // self.bus.get_mut().dma_channels.set(dma);
   }
 
   pub fn reload_pipeline16(&mut self) {

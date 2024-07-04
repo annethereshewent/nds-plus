@@ -489,12 +489,20 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if r == 1 {
         // pop PC off the stack
         // println!("popping the pc off the stack");
+
+
         self.pc = self.pop(MemoryAccess::Sequential);
-        self.pc &= !(1);
 
-        // reload the pipeline
-        self.reload_pipeline16();
+        if !IS_ARM9 || self.pc & 0b1 == 1 {
+          self.pc &= !(1);
 
+          self.reload_pipeline16();
+        } else {
+          self.cpsr.remove(PSRRegister::STATE_BIT);
+          self.pc &= !0x3;
+
+          self.reload_pipeline32();
+        }
         should_update_pc = false;
         result = None;
       }
@@ -916,12 +924,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   fn load_store_offset(&mut self, address: u32, b: u16, instr: u16) -> Option<MemoryAccess> {
     let l = (instr >> 11) & 0b1;
     let rd = instr & 0x7;
-
-    if l == 0 {
-      // println!("writing to address {:X} value {:X}", address, self.r[rd as usize]);
-    } else {
-      // println!("reading from address {:X}", address);
-    }
 
     let mut result = Some(MemoryAccess::Sequential);
 

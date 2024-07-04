@@ -10,6 +10,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
+  // 11100101100111111111000010110100
+
   fn decode_arm(&mut self, upper: u16, lower: u16) -> fn(&mut CPU<IS_ARM9>, instr: u32) -> Option<MemoryAccess> {
     if upper & 0b11111100 == 0 && lower == 0b1001 {
       CPU::multiply
@@ -98,9 +100,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       s = 0;
     }
 
-    // println!("operand1 = {operand1} operand2 = {operand2}");
-    // println!("rn = {rn} rd = {rd}");
-    // println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
+    if self.debug_on && self.pc.wrapping_sub(8) == 0x2002ccc {
+      println!("operand1 = {operand1} operand2 = {operand2}");
+      println!("rn = {rn} rd = {rd}");
+      println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
+    }
 
     // finally do the operation on the two operands and store in rd
     let (result, should_update) = self.execute_alu_op(op_code, operand1, operand2, &mut carry, &mut overflow);
@@ -627,8 +631,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       let data = if b == 1 {
         self.load_8(address, MemoryAccess::NonSequential) as u32
       } else {
+
         self.ldr_word(address)
       };
+
+      if self.debug_on && self.pc.wrapping_sub(8) == 0x200788C {
+        println!("data = {:x}", data);
+      }
 
       // println!("setting register {rd} to {data} from address {:X}", address);
 
@@ -636,7 +645,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         result = None;
         should_update_pc = false;
 
-        if IS_ARM9 && self.pc & 0b1 == 1 {
+        if IS_ARM9 && data & 0b1 == 1 {
           self.cpsr.insert(PSRRegister::STATE_BIT);
           self.pc = data & !(0b1);
 
