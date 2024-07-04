@@ -44,7 +44,7 @@ bitflags! {
     const GAMEPACK = 0b1 << 13;
     const IPC_SEND = 0b1 << 16;
     const IPC_SEND_FIFO_EMPTY = 0b1 << 17;
-    const IPC_RECV_FIFO_EMPTY = 0b1 << 18;
+    const IPC_RECV_FIFO_NOT_EMPTY = 0b1 << 18;
     const GAME_CARD_TRANSFER_COMPLETE = 0b1 << 19;
     const GAME_CARD_IREQ_MC = 0b1 << 20;
     const GEOMETRY_COMMAND = 0b1 << 21;
@@ -68,7 +68,7 @@ pub const FLAG_KEYPAD: u32 = 0b1 << 12;
 pub const FLAG_GAMEPACK: u32 = 0b1 << 13;
 pub const FLAG_IPC_SEND: u32 = 0b1 << 16;
 pub const FLAG_IPC_SEND_FIFO_EMPTY: u32 = 0b1 << 17;
-pub const FLAG_IPC_RECV_FIFO_EMPTY: u32 = 0b1 << 18;
+pub const FLAG_IPC_RECV_FIFO_NOT_EMPTY: u32 = 0b1 << 18;
 pub const FLAG_GAME_CARD_TRANSFER_COMPLETE: u32 = 0b1 << 19;
 pub const FLAG_GAME_CARD_IREQ_MC: u32 = 0b1 << 20;
 pub const FLAG_GEOMETRY_COMMAND: u32 = 0b1 << 21;

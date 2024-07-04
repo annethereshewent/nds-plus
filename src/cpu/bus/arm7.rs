@@ -1,4 +1,4 @@
-use crate::cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister};
+use crate::cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY};
 
 use super::{Bus, MAIN_MEMORY_SIZE};
 
@@ -8,7 +8,33 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_32(address),
       _ => self.arm7_mem_read_16(address) as u32 | ((self.arm7_mem_read_16(address + 2) as u32) << 16)
     }
+  }
 
+  pub fn arm7_io_write_32(&mut self, address: u32, val: u32) {
+    match address {
+      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
+      0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
+      0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(val),
+      0x400_0188 => {
+        let receive_control = &mut self.arm9.ipcfifocnt;
+        let send_control = &mut self.arm7.ipcfifocnt;
+
+        let receive_fifo = &mut send_control.fifo;
+
+        if send_control.enabled {
+          if receive_control.enabled && receive_control.receive_not_empty_irq && !receive_fifo.is_empty() {
+            self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY)
+          }
+
+          if receive_fifo.len() == FIFO_CAPACITY {
+            send_control.error = true;
+          } else {
+            receive_fifo.push_back(val);
+          }
+        }
+      }
+      _ => panic!("write to unsupported address: {:X}", address)
+    }
   }
 
   pub fn arm7_mem_read_16(&mut self, address: u32) -> u16 {
@@ -53,6 +79,7 @@ impl Bus {
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
+      0x410_0000 => self.receive_from_fifo(false),
       _ => panic!("unhandled io read to address {:x}", address)
     }
   }
@@ -89,7 +116,7 @@ impl Bus {
     let lower = (val & 0xffff) as u16;
 
     match address {
-      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
+      0x400_0000..=0x4ff_ffff => self.arm7_io_write_32(address, val),
       _ => {
         self.arm7_mem_write_16(address, lower);
         self.arm7_mem_write_16(address + 2, upper);
@@ -199,7 +226,7 @@ impl Bus {
         self.arm7_mem_write_16(address & !(0b1), temp);
       }
     }
-
     // todo: implement sound
   }
+
 }

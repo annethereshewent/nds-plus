@@ -17,7 +17,7 @@ bitflags! {
     const GAMEPACK = 0b1 << 13;
     const IPC_SEND = 0b1 << 16;
     const IPC_SEND_FIFO_EMPTY = 0b1 << 17;
-    const IPC_RECV_FIFO_EMPTY = 0b1 << 18;
+    const IPC_RECV_FIFO_NOT_EMPTY = 0b1 << 18;
     const GAME_CARD_TRANSFER_COMPLETE = 0b1 << 19;
     const GAME_CARD_IREQ_MC = 0b1 << 20;
     const GEOMETRY_COMMAND = 0b1 << 21;

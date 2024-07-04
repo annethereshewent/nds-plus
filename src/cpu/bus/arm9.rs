@@ -15,6 +15,7 @@ impl Bus {
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
+      0x410_0000 => self.receive_from_fifo(true),
       _ => panic!("unsupported io address received: {:X}", address)
     }
   }

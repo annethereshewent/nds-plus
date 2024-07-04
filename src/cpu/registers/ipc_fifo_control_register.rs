@@ -7,7 +7,9 @@ pub struct IPCFifoControlRegister {
   pub receive_not_empty_irq: bool,
 
   pub error: bool,
-  pub enabled: bool
+  pub enabled: bool,
+
+  pub previous_value: u32
 }
 
 pub const FIFO_CAPACITY: usize = 16;
@@ -19,7 +21,8 @@ impl IPCFifoControlRegister {
       receive_not_empty_irq: false,
       error: false,
       enabled: false,
-      fifo: VecDeque::with_capacity(FIFO_CAPACITY)
+      fifo: VecDeque::with_capacity(FIFO_CAPACITY),
+      previous_value: 0
     }
   }
   /*
