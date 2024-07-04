@@ -25,7 +25,6 @@ impl IPCSyncRegister {
     self.data_output = ((value >> 8) & 0xf) as u32;
     other.data_input = self.data_output;
 
-
     self.send_irq = (value >> 13) & 0b1 == 1;
     self.irq_enable = (value >> 14) & 0b1 == 1;
 

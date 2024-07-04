@@ -184,15 +184,15 @@ impl Bus {
   }
 
   pub fn send_to_fifo(&mut self, is_arm9: bool, val: u32) {
-    let (receive_control, send_control) = if is_arm9 {
-      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt)
+    let (receive_control, send_control, interrupt_request) = if is_arm9 {
+      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm9.interrupt_request)
     } else {
-      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt)
+      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm7.interrupt_request)
     };
 
     if send_control.enabled {
       if receive_control.enabled && receive_control.receive_not_empty_irq && !send_control.fifo.is_empty() {
-        self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY)
+        interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY)
       }
 
       if send_control.fifo.len() == FIFO_CAPACITY {
@@ -204,19 +204,20 @@ impl Bus {
   }
 
   pub fn receive_from_fifo(&mut self, is_arm9: bool) -> u32 {
-    let (receive_control, send_control) = if is_arm9 {
-      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt)
+    let (receive_control, send_control, interrupt_request) = if is_arm9 {
+      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm9.interrupt_request)
     } else {
-      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt)
+      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm7.interrupt_request)
     };
 
     let previous_value = &mut send_control.previous_value;
 
     if receive_control.enabled {
       if let Some(value) = send_control.fifo.pop_front() {
+
         *previous_value = value;
         if send_control.enabled && send_control.send_empty_irq && send_control.fifo.is_empty() {
-          self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
+          interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
         }
         value
       } else {

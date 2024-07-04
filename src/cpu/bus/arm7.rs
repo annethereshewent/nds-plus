@@ -15,24 +15,7 @@ impl Bus {
       0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 == 1,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(val),
-      0x400_0188 => {
-        let receive_control = &mut self.arm9.ipcfifocnt;
-        let send_control = &mut self.arm7.ipcfifocnt;
-
-        let receive_fifo = &mut send_control.fifo;
-
-        if send_control.enabled {
-          if receive_control.enabled && receive_control.receive_not_empty_irq && !receive_fifo.is_empty() {
-            self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY)
-          }
-
-          if receive_fifo.len() == FIFO_CAPACITY {
-            send_control.error = true;
-          } else {
-            receive_fifo.push_back(val);
-          }
-        }
-      }
+      0x400_0188 => self.send_to_fifo(false, val),
       _ => panic!("write to unsupported address: {:X}", address)
     }
   }
@@ -168,7 +151,7 @@ impl Bus {
     match address {
       0x400_0006 => (),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm7.interrupt_request, value),
-      0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm9.ipcfifocnt.fifo, value),
+      0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm9.ipcfifocnt.fifo, &mut self.arm9.ipcfifocnt.previous_value, value),
       0x400_0208 => self.arm7.interrupt_master_enable = value & 0b1 == 1,
       0x400_0210 => {
         let mut value = self.arm7.interrupt_enable.bits() & 0xffff0000;

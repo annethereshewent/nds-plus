@@ -51,7 +51,7 @@ impl IPCFifoControlRegister {
       (self.enabled as u32) << 15
   }
 
-  pub fn write(&mut self, send_fifo: &mut VecDeque<u32>, val: u16) {
+  pub fn write(&mut self, send_fifo: &mut VecDeque<u32>, previous_fifo_val: &mut u32, val: u16) {
     self.send_empty_irq = val >> 2 & 0b1 == 1;
 
     let send_fifo_clear = val >> 3 & 0b1 == 1;
@@ -62,6 +62,7 @@ impl IPCFifoControlRegister {
 
     if send_fifo_clear {
       send_fifo.clear();
+      *previous_fifo_val = 0;
     }
   }
 }

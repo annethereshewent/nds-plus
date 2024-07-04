@@ -152,6 +152,7 @@ impl Bus {
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(value),
@@ -170,7 +171,7 @@ impl Bus {
 
     match address {
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
-      0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm7.ipcfifocnt.fifo, value),
+      0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm7.ipcfifocnt.fifo, &mut self.arm7.ipcfifocnt.previous_value, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
