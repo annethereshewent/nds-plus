@@ -270,11 +270,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       }
       0b01 => {
 
-        let value1 = self.r[rm as usize];
+        let value1 = self.r[rm as usize] as i32;
         let value2 = if y == 1 {
-          (self.r[rs as usize] >> 16) as u16
+          (self.r[rs as usize] >> 16) as u16 as i16
         } else {
-          self.r[rs as usize] as u16
+          self.r[rs as usize] as u16 as i16
         };
 
         // so this op code has two different commands that are dependent on x. if x == 1, SMULW, if x == 0, SMLAW
@@ -283,7 +283,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
           let accumulate = self.r[rn as usize] as i32;
 
-          let value = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16);
+          let value = ((value2 as i32 as u64).wrapping_mul(value1 as u64) >> 16) as i32;
 
           // let overflow = value.checked_add(self.r[rn as usize]).is_none();
           let (result, overflow) = value.overflowing_add(accumulate);
@@ -296,7 +296,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         } else {
           // Rd=(Rm*HalfRs)/10000h SMULW
 
-          self.r[rd as usize] = (((value1 as i16) as i32).wrapping_mul((value2 as i16) as i32) >> 16) as u32;
+          self.r[rd as usize] = ((((value1 as i16) as i32 as u64).wrapping_mul((value2 as i16) as i32 as u64)) >> 16) as u32;
         }
       }
       0b10 => {
