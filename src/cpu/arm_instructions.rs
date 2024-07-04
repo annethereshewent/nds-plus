@@ -709,6 +709,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let rn = (instr >> 16) & 0xf;
 
     // println!("rn = r{rn} = {:X}", self.r[rn as usize]);
+    let mut address = self.r[rn as usize];
 
     let register_list = instr as u16;
 
@@ -730,15 +731,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let old_mode = self.cpsr.mode();
 
-    if user_banks_transferred {
-      self.set_mode(OperatingMode::User);
-    }
-
     let psr_transfer = s == 1 && l == 1 && (register_list << 15) & 0b1 == 1;
 
     let num_registers = register_list.count_ones();
-
-    let mut address = self.r[rn as usize];
 
     let old_base = address;
 
@@ -790,6 +785,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       } else {
         p = 0;
       }
+    }
+
+    if user_banks_transferred {
+      self.set_mode(OperatingMode::User);
     }
 
     let mut access = MemoryAccess::Sequential;
@@ -853,6 +852,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
             // println!("popping {:X} from {:X} to register {i}", value, address);
 
             if i == PC_REGISTER as u32 {
+              if psr_transfer {
+                self.transfer_spsr_mode();
+              }
               let reload_32 = if value & 0b1 == 1 && IS_ARM9 {
                 self.cpsr.insert(PSRRegister::STATE_BIT);
                 self.pc = value & !(0b1);
@@ -863,10 +865,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
                 true
               };
-
-              if psr_transfer {
-                self.transfer_spsr_mode();
-              }
 
               should_increment_pc = false;
 
