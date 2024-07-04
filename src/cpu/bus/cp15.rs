@@ -11,7 +11,8 @@ pub struct CP15 {
   pub control: CP15ControlRegister,
   pub itcm_control: TCMControlRegister,
   pub dtcm_control: TCMControlRegister,
-  pub arm9_halted: bool
+  pub arm9_halted: bool,
+  pub irq_base: u32
 }
 
 impl CP15 {
@@ -20,7 +21,8 @@ impl CP15 {
       control: CP15ControlRegister::from_bits_retain(0x52078),
       itcm_control: TCMControlRegister::new(0x0300000A),
       dtcm_control: TCMControlRegister::new(0x00000020),
-      arm9_halted: false
+      arm9_halted: false,
+      irq_base: 0
     }
   }
 
@@ -30,8 +32,8 @@ impl CP15 {
       (0, 0, 0) => 0x41059461, // Main ID
       (0, 0, 1) => 0x0F0D2112, // Cache type
       (1, 0, 0) => self.control.bits(),
-      (9, 1, 0) => self.itcm_control.read(),
-      (9, 1, 1) => self.dtcm_control.read(),
+      (9, 1, 0) => self.dtcm_control.read(),
+      (9, 1, 1) => self.itcm_control.read(),
       _ => 0
     }
   }
@@ -39,7 +41,15 @@ impl CP15 {
   pub fn write(&mut self, cn: u32, cm: u32, cp: u32, val: u32) {
     match (cn, cm, cp) {
       // control write
-      (1, 0, 0) => self.control = CP15ControlRegister::from_bits_retain(val),
+      (1, 0, 0) => {
+        self.control = CP15ControlRegister::from_bits_retain(val);
+
+        self.irq_base = if self.control.contains(CP15ControlRegister::EXCEPTION_VECTOR) {
+          0xffff_0000
+        } else {
+          0
+        };
+      }
       // write cache commands
       (7, 0, 4) if val == 0 => self.arm9_halted = true,
       // write to tcm control registers

@@ -1,11 +1,12 @@
 bitflags! {
+  #[derive(Copy, Clone)]
   pub struct DispStatFlags: u16 {
     const VBLANK = 1;
     const HBLANK = 1 << 1;
     const VCOUNTER = 1 << 2;
     const VBLANK_IRQ_ENABLE = 1 << 3;
     const HBLANK_IRQ_ENABLE = 1 << 4;
-    const VCOUNTER_IRQ_ENALBE = 1 << 5;
+    const VCOUNTER_IRQ_ENABLE = 1 << 5;
   }
 }
 

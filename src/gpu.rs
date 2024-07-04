@@ -5,7 +5,7 @@ use engine_3d::Engine3d;
 use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam};
 
-use crate::scheduler::{EventType, Scheduler};
+use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
 
 pub mod registers;
 pub mod engine_2d;
@@ -78,7 +78,7 @@ impl GPU {
     scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
   }
 
-  pub fn handle_hblank(&mut self, scheduler: &mut Scheduler) {
+  pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
     self.schedule_next_line(scheduler);
 
     for dispstat in &mut self.dispstat {
@@ -89,10 +89,21 @@ impl GPU {
       self.render_line();
     }
 
-    // TODO: check for hblank interrupt
+    self.check_interrupts(DispStatFlags::HBLANK_IRQ_ENABLE, InterruptRequestRegister::HBLANK, interrupt_requests);
   }
 
-  pub fn start_next_line(&mut self, scheduler: &mut Scheduler) {
+  pub fn check_interrupts(&mut self, dispstat_flag: DispStatFlags, interrupt_flag: InterruptRequestRegister, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
+    for i in 0..2 {
+      let dispstat = &mut self.dispstat[i];
+      let interrupt_request = &mut interrupt_requests[i];
+
+      if dispstat.flags.contains(dispstat_flag) {
+        interrupt_request.insert(interrupt_flag);
+      }
+    }
+  }
+
+  pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
     scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
 
     self.vcount += 1;
@@ -103,19 +114,26 @@ impl GPU {
 
     if self.vcount == 0 {
       // TODO: dispcapcnt register stuff
+
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
-
-
       }
     } else if self.vcount == HEIGHT {
       self.trigger_vblank();
 
       self.frame_finished = true;
-      // TODO: check for vblank interrupt here
+      self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
     }
 
-    // TODO: check for vcounter interrupt here
+    for i in 0..2 {
+      let dispstat = &mut self.dispstat[i];
+      let interrupt_request = &mut interrupt_requests[i];
+
+      if dispstat.flags.contains(DispStatFlags::VCOUNTER_IRQ_ENABLE) && self.vcount == dispstat.vcount_setting {
+        interrupt_request.insert(InterruptRequestRegister::VCOUNTER_MATCH);
+      }
+    }
+
   }
 
   pub fn write_lcdc(&mut self, address: u32, val: u8) {

@@ -1,3 +1,5 @@
+use super::interrupt_request_register::InterruptRequestRegister;
+
 pub struct IPCSyncRegister {
   pub data_output: u32,
   pub data_input: u32,
@@ -19,7 +21,7 @@ impl IPCSyncRegister {
     self.data_input | (self.data_output) << 8 | (self.irq_enable as u32) << 14
   }
 
-  pub fn write(&mut self, other: &mut IPCSyncRegister, value: u16) {
+  pub fn write(&mut self, other: &mut IPCSyncRegister, interrupt_request: &mut InterruptRequestRegister, value: u16) {
     self.data_output = ((value >> 8) & 0xf) as u32;
     other.data_input = self.data_output;
 
@@ -28,7 +30,7 @@ impl IPCSyncRegister {
     self.irq_enable = (value >> 14) & 0b1 == 1;
 
     if other.irq_enable && self.send_irq {
-      // send IRQ here TODO
+      interrupt_request.insert(InterruptRequestRegister::IPC_SEND);
     }
   }
 }

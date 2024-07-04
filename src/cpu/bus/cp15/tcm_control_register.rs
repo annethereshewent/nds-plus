@@ -1,4 +1,4 @@
-use core::ops::Range;
+use std::ops::RangeInclusive;
 
 pub struct TCMControlRegister {
   val: u32
@@ -11,9 +11,9 @@ impl TCMControlRegister {
     }
   }
 
-  pub fn get_ranges(&self) -> Range<u32> {
+  pub fn get_ranges(&self) -> RangeInclusive<u32> {
     let base = self.base_address();
-    base..base + self.virtual_size()
+    base..=base + self.virtual_size()
   }
 
   pub fn read(&self) -> u32 {

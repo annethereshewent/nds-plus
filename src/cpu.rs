@@ -305,11 +305,21 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn check_interrupts(&mut self) {
-    // if self.bus.get_mut().interrupt_master_enable && (self.bus.interrupt_enable.bits() & self.bus.interrupt_request.get().bits()) != 0 {
-    //   self.trigger_irq();
+    // TODO: fix this hacky shit. rust complains about borrowing and ownership if i don't do it like this. probably because
+    // i'm not doing something right lmao
+    let (interrupt_master_enable, interrupt_request, interrupt_enable) = if IS_ARM9 {
+      (self.bus.borrow().arm9.interrupt_master_enable, self.bus.borrow().arm9.interrupt_request, self.bus.borrow().arm9.interrupt_enable)
+    } else {
+      (self.bus.borrow().arm7.interrupt_master_enable, self.bus.borrow().arm7.interrupt_request, self.bus.borrow().arm7.interrupt_enable)
+    };
 
-    //   self.bus.is_halted = false;
-    // }
+    if interrupt_master_enable && (interrupt_request.bits() & interrupt_enable.bits()) != 0 {
+      self.trigger_irq();
+
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.is_halted = false;
+    }
   }
 
   pub fn step(&mut self, cycles: usize) {
@@ -476,10 +486,16 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
+    let irq_base: u32 = if IS_ARM9 {
+      let ref mut bus = *self.bus.borrow_mut();
+      bus.arm9.cp15.irq_base
+    } else {
+      0
+    };
+
     if !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
-      // println!("finally triggering irq!");
       let lr = self.get_irq_return_address();
-      self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
+      self.interrupt(OperatingMode::IRQ, irq_base | IRQ_VECTOR, lr);
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
     }

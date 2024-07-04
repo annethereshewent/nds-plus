@@ -49,9 +49,11 @@ impl Nds {
       // finally handle any events
       let ref mut bus = *self.bus.borrow_mut();
 
+      let mut interrupt_requests = [&mut bus.arm7.interrupt_request, &mut bus.arm9.interrupt_request];
+
       match event_type {
-        EventType::HBLANK => bus.gpu.handle_hblank(scheduler),
-        EventType::NEXT_LINE => bus.gpu.start_next_line(scheduler)
+        EventType::HBLANK => bus.gpu.handle_hblank(scheduler, &mut interrupt_requests),
+        EventType::NEXT_LINE => bus.gpu.start_next_line(scheduler, &mut interrupt_requests)
       }
 
       scheduler.update_cycles(cycles);

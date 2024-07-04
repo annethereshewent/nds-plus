@@ -168,7 +168,7 @@ impl Bus {
     // };
 
     match address {
-      0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, value),
+      0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),

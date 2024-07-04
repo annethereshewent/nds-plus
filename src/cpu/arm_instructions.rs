@@ -85,11 +85,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let operand2 = if i == 1 {
       let immediate = instr & 0xff;
-      let rotate = (2 * ((instr >> 8) & 0xf)) as u8;
+      let amount = (2 * ((instr >> 8) & 0xf)) as u8;
 
-      self.ror(immediate, rotate, false, true, &mut carry)
+      self.ror(immediate, amount, false, true, &mut carry)
     } else {
-      // println!("using register for 2nd operand");
+      // if (0xffff_0278..=0xffff_0284).contains(&self.pc.wrapping_sub(8)) {
+      //   println!("using register for 2nd operand from register r{} with value {:X}", instr & 0xf, self.r[(instr & 0xf) as usize]);
+      // }
       self.get_data_processing_register_operand(instr, rn, &mut operand1, &mut carry)
     };
 
@@ -97,6 +99,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.transfer_spsr_mode();
       s = 0;
     }
+
+    // if (0xffff_0278..=0xffff_0284).contains(&self.pc.wrapping_sub(8)) {
+    //   println!("operand1 = {operand1} operand2 = {operand2}");
+    //   println!("rn = {rn} rd = {rd}");
+    //   println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
+    // }
+
 
     // finally do the operation on the two operands and store in rd
     let (result, should_update) = self.execute_alu_op(op_code, operand1, operand2, &mut carry, &mut overflow);
@@ -224,6 +233,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if !IS_ARM9 {
       panic!("unsupported instruction: signed_halfword_multiply");
     }
+
     let x = (instr >> 5) & 0b1;
     let y = (instr >> 6) & 0b1;
 

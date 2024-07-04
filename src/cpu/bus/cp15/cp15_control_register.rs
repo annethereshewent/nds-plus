@@ -1,5 +1,5 @@
 
-/**
+/*
   0  MMU/PU Enable         (0=Disable, 1=Enable) (Fixed 0 if none)
   1  Alignment Fault Check (0=Disable, 1=Enable) (Fixed 0/1 if none/always on)
   2  Data/Unified Cache    (0=Disable, 1=Enable) (Fixed 0/1 if none/always on)
