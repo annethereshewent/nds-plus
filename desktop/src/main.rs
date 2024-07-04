@@ -1,7 +1,7 @@
 use std::{collections::HashMap, env, fs};
 
 use ds_emulator::{cpu::registers::key_input_register::KeyInputRegister, gpu::{HEIGHT, WIDTH}, nds::Nds};
-use sdl2::{event::Event, keyboard::Keycode, pixels::PixelFormatEnum};
+use sdl2::{event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect};
 
 extern crate ds_emulator;
 
@@ -33,7 +33,7 @@ fn main() {
   let video_subsystem = sdl_context.video().unwrap();
 
   let window = video_subsystem
-    .window("DS Emulator", (WIDTH * 3) as u32, (HEIGHT * 3) as u32)
+    .window("DS Emulator", (WIDTH * 3) as u32, (HEIGHT * 3 * 2) as u32)
     .position_centered()
     .build()
     .unwrap();
@@ -44,11 +44,15 @@ fn main() {
   let mut event_pump = sdl_context.event_pump().unwrap();
 
   let creator = canvas.texture_creator();
-  let mut texture = creator
+  let mut texture_a = creator
     .create_texture_target(PixelFormatEnum::RGB24, WIDTH as u32, HEIGHT as u32)
     .unwrap();
 
-    let mut key_map = HashMap::new();
+  let mut texture_b = creator
+    .create_texture_target(PixelFormatEnum::RGB24, WIDTH as u32, HEIGHT as u32)
+    .unwrap();
+
+  let mut key_map = HashMap::new();
 
   key_map.insert(Keycode::W, KeyInputRegister::Up);
   key_map.insert(Keycode::S, KeyInputRegister::Down);
@@ -80,9 +84,14 @@ fn main() {
     frame_finished = false;
 
     // render stuff
-    texture.update(None, &bus.gpu.engine_a.pixels, WIDTH as usize * 3).unwrap();
+    texture_a.update(None, &bus.gpu.engine_a.pixels, WIDTH as usize * 3).unwrap();
+    texture_b.update(None, &bus.gpu.engine_b.pixels, WIDTH as usize * 3).unwrap();
 
-    canvas.copy(&texture, None, None).unwrap();
+    let screen_a = Rect::new(0, 0, WIDTH as u32, HEIGHT as u32);
+    let screen_b = Rect::new(0, HEIGHT as i32, WIDTH as u32, HEIGHT as u32);
+
+    canvas.copy(&texture_a, None, screen_a).unwrap();
+    canvas.copy(&texture_b, None, screen_b).unwrap();
 
     canvas.present();
 

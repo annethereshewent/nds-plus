@@ -185,9 +185,9 @@ impl Bus {
 
   pub fn send_to_fifo(&mut self, is_arm9: bool, val: u32) {
     let (receive_control, send_control, interrupt_request) = if is_arm9 {
-      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm9.interrupt_request)
+      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm7.interrupt_request)
     } else {
-      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm7.interrupt_request)
+      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm9.interrupt_request)
     };
 
     if send_control.enabled {
@@ -205,9 +205,9 @@ impl Bus {
 
   pub fn receive_from_fifo(&mut self, is_arm9: bool) -> u32 {
     let (receive_control, send_control, interrupt_request) = if is_arm9 {
-      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm9.interrupt_request)
+      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt, &mut self.arm7.interrupt_request)
     } else {
-      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm7.interrupt_request)
+      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt, &mut self.arm9.interrupt_request)
     };
 
     let previous_value = &mut send_control.previous_value;
@@ -221,7 +221,7 @@ impl Bus {
         }
         value
       } else {
-        send_control.error = true;
+        receive_control.error = true;
         *previous_value
       }
     } else {

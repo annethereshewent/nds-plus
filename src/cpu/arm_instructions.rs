@@ -950,7 +950,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // special BLX case
       self.r[LR_REGISTER] = self.pc.wrapping_sub(4) & !(0b1);
 
-      self.pc = ((self.pc as i32).wrapping_add(offset) as u32).wrapping_add(l * 2);
+      self.pc = ((self.pc as i32).wrapping_add(offset)).wrapping_add((l * 2) as i32) as u32;
       self.pc &= !0b1;
       self.cpsr.insert(PSRRegister::STATE_BIT);
 

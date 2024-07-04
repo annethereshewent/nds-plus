@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use super::interrupt_request_register::InterruptRequestRegister;
+
 pub struct IPCFifoControlRegister {
   pub send_empty_irq: bool,
   pub fifo: VecDeque<u32>,
@@ -40,29 +42,46 @@ impl IPCFifoControlRegister {
   14    R/W  Error, Read Empty/Send Full (0=No Error, 1=Error/Acknowledge)
   15    R/W  Enable Send/Receive Fifo    (0=Disable, 1=Enable)
   */
-  pub fn read(&self, send_fifo: &mut VecDeque<u32>) -> u32 {
-    (send_fifo.is_empty() as u32) |
-      ((send_fifo.len() == FIFO_CAPACITY) as u32) << 1 |
+  pub fn read(&self, receive_fifo: &mut VecDeque<u32>) -> u32 {
+    (self.fifo.is_empty() as u32) |
+      ((self.fifo.len() == FIFO_CAPACITY) as u32) << 1 |
       (self.send_empty_irq as u32) << 2 |
-      (self.fifo.is_empty() as u32) << 8 |
-      ((self.fifo.len() == FIFO_CAPACITY) as u32) << 9 |
+      (receive_fifo.is_empty() as u32) << 8 |
+      ((receive_fifo.len() == FIFO_CAPACITY) as u32) << 9 |
       (self.receive_not_empty_irq as u32) << 10 |
       (self.error as u32) << 14 |
       (self.enabled as u32) << 15
   }
 
-  pub fn write(&mut self, send_fifo: &mut VecDeque<u32>, previous_fifo_val: &mut u32, val: u16) {
+  pub fn write(
+      &mut self,
+      interrupt_request: &mut InterruptRequestRegister,
+      receive_fifo: &mut VecDeque<u32>,
+      val: u16
+    ) {
+    let previous_send_empty_irq = self.send_empty_irq;
+    let previous_receive_not_empty_irq = self.receive_not_empty_irq;
+
     self.send_empty_irq = val >> 2 & 0b1 == 1;
 
     let send_fifo_clear = val >> 3 & 0b1 == 1;
 
     self.receive_not_empty_irq = val >> 10 & 0b1 == 1;
     self.error = self.error && val >> 14 & 0b1 == 0;
+
     self.enabled = val >> 15 & 0b1 == 1;
 
+    if !receive_fifo.is_empty() && !previous_receive_not_empty_irq && self.receive_not_empty_irq {
+      interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY);
+    }
+
+    if self.fifo.is_empty() && !previous_send_empty_irq  && self.send_empty_irq {
+      interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
+    }
+
     if send_fifo_clear {
-      send_fifo.clear();
-      *previous_fifo_val = 0;
+      self.fifo.clear();
+      self.previous_value = 0;
     }
   }
 }
