@@ -184,11 +184,6 @@ impl Bus {
   }
 
   pub fn send_to_fifo(&mut self, is_arm9: bool, val: u32) {
-    // let receive_control = &mut self.arm9.ipcfifocnt;
-    // let send_control = &mut self.arm7.ipcfifocnt;
-
-    // let receive_fifo = &mut send_control.fifo;
-
     let (receive_control, send_control) = if is_arm9 {
       (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt)
     } else {
@@ -210,15 +205,9 @@ impl Bus {
 
   pub fn receive_from_fifo(&mut self, is_arm9: bool) -> u32 {
     let (receive_control, send_control) = if is_arm9 {
-      let receive_control = &mut self.arm9.ipcfifocnt;
-      let send_control = &mut self.arm7.ipcfifocnt;
-
-      (receive_control, send_control)
+      (&mut self.arm9.ipcfifocnt, &mut self.arm7.ipcfifocnt)
     } else {
-      let receive_control = &mut self.arm7.ipcfifocnt;
-      let send_control = &mut self.arm9.ipcfifocnt;
-
-      (receive_control, send_control)
+      (&mut self.arm7.ipcfifocnt, &mut self.arm9.ipcfifocnt)
     };
 
     let previous_value = &mut send_control.previous_value;
