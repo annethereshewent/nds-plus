@@ -2,12 +2,13 @@ use std::{cell::{Cell, RefCell}, rc::Rc};
 
 use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
+use num_integer::Roots;
 use spi::SPI;
 use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister}, timers::Timers};
+use super::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers};
 
 pub mod arm7;
 pub mod arm9;
@@ -34,7 +35,10 @@ pub struct Arm9Bus {
   pub ipcsync: IPCSyncRegister,
   pub ipcfifocnt: IPCFifoControlRegister,
   pub interrupt_request: InterruptRequestRegister,
-  pub interrupt_enable: InterruptEnableRegister
+  pub interrupt_enable: InterruptEnableRegister,
+  sqrtcnt: SquareRootControlRegister,
+  sqrt_param: u64,
+  sqrt_result: u32
 }
 
 pub struct Arm7Bus {
@@ -68,7 +72,7 @@ pub struct Bus {
   pub spi: SPI,
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
-  pub key_input_register: KeyInputRegister,
+  pub key_input_register: KeyInputRegister
 }
 
 impl Bus {
@@ -107,7 +111,10 @@ impl Bus {
         ipcsync: IPCSyncRegister::new(),
         ipcfifocnt: IPCFifoControlRegister::new(),
         interrupt_request: InterruptRequestRegister::from_bits_retain(0),
-        interrupt_enable: InterruptEnableRegister::from_bits_retain(0)
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        sqrtcnt: SquareRootControlRegister::new(),
+        sqrt_param: 0,
+        sqrt_result: 0
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
@@ -181,6 +188,20 @@ impl Bus {
         self.arm7_mem_write_8(ram_address+i, self.cartridge.rom[(rom_address + i) as usize])
       }
     }
+  }
+
+  pub fn write_sqrtcnt(&mut self, value: u16) {
+    self.arm9.sqrtcnt.write(value);
+  }
+
+  pub fn start_sqrt_calculation(&mut self) -> u32 {
+    let value = if self.arm9.sqrtcnt.mode() == BitMode::Bit32 {
+      (self.arm9.sqrt_param as u32).sqrt()
+    } else {
+      self.arm9.sqrt_param.sqrt() as u32
+    };
+
+    value
   }
 
   pub fn send_to_fifo(&mut self, is_arm9: bool, val: u32) {
