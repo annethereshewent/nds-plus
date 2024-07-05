@@ -15,8 +15,12 @@ impl Bus {
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
-      0x410_0000 => self.receive_from_fifo(true),
+      0x400_02a0 => self.arm9.div_result as u32,
+      0x400_02a4 => (self.arm9.div_result >> 32) as u32,
+      0x400_02a8 => self.arm9.div_remainder as u32,
+      0x400_02ac => (self.arm9.div_remainder >> 32) as u32,
       0x400_02b4 => self.arm9.sqrt_result,
+      0x410_0000 => self.receive_from_fifo(true),
       _ => panic!("unsupported io address received: {:X}", address)
     }
   }
@@ -76,6 +80,8 @@ impl Bus {
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
+      0x400_0280 => self.arm9.divcnt.read(),
+      0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       _ => {
         panic!("io register not implemented: {:X}", address);
@@ -158,6 +164,30 @@ impl Bus {
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(value),
+      0x400_0290 => {
+        self.arm9.div_numerator &= 0xffffffff00000000;
+        self.arm9.div_numerator |= value as u64;
+
+        self.start_div_calculation();
+      }
+      0x400_0294 => {
+        self.arm9.div_numerator &= 0xffffffff;
+        self.arm9.div_numerator |= (value as u64) << 32;
+
+        self.start_div_calculation();
+      }
+      0x400_0298 => {
+        self.arm9.div_denomenator &= 0xffffffff00000000;
+        self.arm9.div_denomenator |= value as u64;
+
+        self.start_div_calculation();
+      }
+      0x400_029c => {
+        self.arm9.div_denomenator &= 0xffffffff;
+        self.arm9.div_denomenator |= (value as u64) << 32;
+
+        self.start_div_calculation();
+      }
       0x400_02b8 => {
         self.arm9.sqrt_param &= 0xffffffff00000000;
         self.arm9.sqrt_param |= value as u64;
@@ -193,6 +223,7 @@ impl Bus {
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
       // 0x400_0006 => (),
       _ => {

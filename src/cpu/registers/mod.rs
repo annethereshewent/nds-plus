@@ -5,3 +5,4 @@ pub mod waitstate_control_register;
 pub mod ipc_sync_register;
 pub mod ipc_fifo_control_register;
 pub mod square_root_control_register;
+pub mod division_control_register;

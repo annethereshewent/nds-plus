@@ -8,7 +8,7 @@ use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers};
+use super::{dma::dma_channels::DmaChannels, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers};
 
 pub mod arm7;
 pub mod arm9;
@@ -37,6 +37,11 @@ pub struct Arm9Bus {
   pub interrupt_request: InterruptRequestRegister,
   pub interrupt_enable: InterruptEnableRegister,
   sqrtcnt: SquareRootControlRegister,
+  divcnt: DivisionControlRegister,
+  div_numerator: u64,
+  div_denomenator: u64,
+  div_result: u64,
+  div_remainder: u64,
   sqrt_param: u64,
   sqrt_result: u32
 }
@@ -114,7 +119,12 @@ impl Bus {
         interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
         sqrtcnt: SquareRootControlRegister::new(),
         sqrt_param: 0,
-        sqrt_result: 0
+        sqrt_result: 0,
+        divcnt: DivisionControlRegister::new(),
+        div_denomenator: 0,
+        div_numerator: 0,
+        div_result: 0,
+        div_remainder: 0
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
@@ -202,6 +212,63 @@ impl Bus {
     };
 
     value
+  }
+
+  pub fn start_div_calculation(&mut self) {
+    if self.arm9.div_denomenator == 0 {
+      self.arm9.divcnt.set_division_by_zero(true);
+    } else {
+      self.arm9.divcnt.set_division_by_zero(false);
+    }
+
+    let mut result: i64 = 0;
+    let mut remainder: i64 = 0;
+
+    let (numerator, denomenator) = match self.arm9.divcnt.mode() {
+      DivisionMode::Mode0 => {
+       ((self.arm9.div_numerator as u32 as i32 as i64), ((self.arm9.div_denomenator as u32 as i32 as i64)))
+      }
+      DivisionMode::Mode1 => {
+        ((self.arm9.div_numerator as i64), (self.arm9.div_denomenator as u32 as i32 as i64))
+      }
+      DivisionMode::Mode2 => {
+        (self.arm9.div_numerator as i64, self.arm9.div_denomenator as i64)
+      }
+    };
+
+    if denomenator == 0 {
+      remainder = numerator;
+      if numerator == 0 {
+        result = -1
+      } else {
+        result = if numerator < 0 {
+          1
+        } else {
+          -1
+        }
+      }
+
+      self.arm9.div_result = result as u64;
+      self.arm9.div_remainder = remainder as u64;
+
+      // overflows occur on div0 as well
+      if self.arm9.divcnt.mode() == DivisionMode::Mode0 {
+        // on 32 bit values invert the upper 32 bit values of the result
+        self.arm9.div_result ^= 0xffffffff00000000
+      }
+    } else if numerator == i64::MIN && denomenator == -1 {
+      // overflows
+      self.arm9.div_result = numerator as u64;
+      self.arm9.div_remainder = 0;
+
+      if self.arm9.divcnt.mode() == DivisionMode::Mode0 {
+        self.arm9.div_result ^= 0xffffffff00000000
+      }
+
+    } else {
+      self.arm9.div_result = (numerator / denomenator) as u64;
+      self.arm9.div_remainder = (numerator % denomenator) as u64;
+    }
   }
 
   pub fn send_to_fifo(&mut self, is_arm9: bool, val: u32) {
