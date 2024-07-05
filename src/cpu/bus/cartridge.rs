@@ -54,7 +54,7 @@ impl Header {
       arm7_size: util::read_word(rom, 0x3c)
     };
 
-    println!("{:?}", header);
+    println!("arm7_ram_address: {:x} arm7_entry_address: {:x}, arm7_size: {:x} arm7_rom_offset: {:x}", header.arm7_ram_address, header.arm7_entry_address, header.arm7_size, header.arm7_rom_offset);
 
     header
   }

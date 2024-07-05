@@ -100,8 +100,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       s = 0;
     }
 
-    // if (0xffff_0278..=0xffff_0284).contains(&self.pc.wrapping_sub(8)) {
-    //   println!("operand1 = {operand1} operand2 = {operand2}");
+    // if self.pc.wrapping_sub(8) == 0x2000B4C || self.pc.wrapping_sub(8) == 0x2000B40 || self.pc.wrapping_sub(8) == 0x2000b48 {
+    //   println!("operand1 = {:x} operand2 = {:x}", operand1, operand2);
     //   println!("rn = {rn} rd = {rd}");
     //   println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
     // }
@@ -553,6 +553,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         _ => panic!("shouldn't happen")
       };
 
+      // if self.pc.wrapping_sub(8) == 0x2000b48 {
+      //   println!("loaded value {:x} from address {:x} into register r{rd}", value, address);
+      // }
+
       if rd == PC_REGISTER as u32 {
         self.pc = value & !(0b11);
 
@@ -944,6 +948,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let l = (instr >> 24) & 0b1;
     let offset = (((instr & 0xFFFFFF) << 8) as i32) >> 6;
 
+    let old_pc = self.pc.wrapping_sub(8);
+
     if IS_ARM9 && (instr >> 28) == 0xf {
       // special BLX case
       self.r[LR_REGISTER] = self.pc.wrapping_sub(4) & !(0b1);
@@ -959,7 +965,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         self.r[LR_REGISTER] = (self.pc - 4) & !(0b1);
       }
 
+
       self.pc = ((self.pc as i32).wrapping_add(offset) as u32) & !(0b1);
+      if old_pc == 0x20064ECu32 {
+        println!("pc is now {:X}", self.pc);
+      }
+
 
       self.reload_pipeline32();
     }

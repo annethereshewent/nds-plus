@@ -5,7 +5,7 @@
 // R15 are zero and bits [31:2] contain the PC. In THUMB state,
 // bit [0] is zero and bits [31:1] contain the PC.
 
-use std::{cell::{Cell, RefCell}, rc::Rc};
+use std::{cell::{Cell, RefCell}, ops::RangeInclusive, rc::Rc};
 
 use bus::Bus;
 
@@ -267,7 +267,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    // if self.debug_on {
+    // if pc.wrapping_sub(8) == 0x38001B0 {
     //   println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
     // }
 

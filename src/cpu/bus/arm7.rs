@@ -1,6 +1,6 @@
 use crate::cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY};
 
-use super::{Bus, MAIN_MEMORY_SIZE};
+use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 
 impl Bus {
   pub fn arm7_mem_read_32(&mut self, address: u32) -> u32 {
@@ -36,7 +36,7 @@ impl Bus {
 
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
-      0x300_0000..=0x3ff_ffff => {
+      0x300_0000..=0x37f_ffff => {
         if self.wramcnt.arm7_size == 0 {
           return 0;
         }
@@ -45,6 +45,7 @@ impl Bus {
 
         self.shared_wram[actual_addr as usize]
       }
+      0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize], // FIX THIS
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_8(address),
       0x700_0000..=0x7ff_ffff => 0,
       0x800_0000..=0xdff_ffff => {
@@ -123,7 +124,7 @@ impl Bus {
   pub fn arm7_mem_write_8(&mut self, address: u32, val: u8) {
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
-      0x300_0000..=0x3ff_ffff => {
+      0x300_0000..=0x37f_ffff => {
         if self.wramcnt.arm7_size == 0 {
           panic!("accessing shared ram when bank is currently inaccessable");
         }
@@ -132,6 +133,7 @@ impl Bus {
 
         self.shared_wram[actual_addr as usize] = val;
       }
+      0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
       0x800_0000..=0x8ff_ffff => (),

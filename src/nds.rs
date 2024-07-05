@@ -1,4 +1,4 @@
-use std::{cell::RefCell, cmp::Reverse, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{cpu::{bus::Bus, CPU}, scheduler::{EventType, Scheduler}};
 
