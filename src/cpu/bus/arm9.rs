@@ -52,6 +52,16 @@ impl Bus {
 
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
+      0x300_0000..=0x3ff_ffff => {
+        if self.wramcnt.arm9_size == 0 {
+          return 0;
+        }
+
+        let base = self.wramcnt.arm9_offset;
+        let mask = self.wramcnt.arm9_size - 1;
+
+        self.shared_wram[((address & mask) + base) as usize]
+      }
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       // 0x700_0000..=0x7ff_ffff => 0,
@@ -80,6 +90,14 @@ impl Bus {
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
+      0x400_0240..=0x400_0246 => {
+        let offset = address - 0x400_0240;
+
+        let mut value = self.gpu.read_vramcnt(offset) as u16;
+        value |= (self.gpu.read_vramcnt(offset + 1) as u16) << 8;
+
+        value
+      }
       0x400_0280 => self.arm9.divcnt.read(),
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
@@ -145,6 +163,15 @@ impl Bus {
 
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
+      0x300_0000..=0x3ff_ffff => {
+        if self.wramcnt.arm9_size == 0 {
+          return;
+        }
+        let arm9_offset = self.wramcnt.arm9_offset;
+        let arm9_mask = self.wramcnt.arm9_size - 1;
+
+        self.shared_wram[((address & arm9_mask) + arm9_offset) as usize] = val;
+      }
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm9_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
@@ -215,14 +242,25 @@ impl Bus {
 
     match address {
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
-      0x400_0184 => {
-        self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value)
-      }
+      0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
       0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 == 1,
+      0x400_0240..=0x400_0246 => {
+        let offset = address - 0x400_0240;
+
+        self.gpu.write_vramcnt(offset, value as u8);
+
+        if offset == 6 {
+          // this is kinda hacky... so if we're writing to 400_0246 with a 16 bit value, the upper 8 bits actually
+          // go to the wramcnt register instead of the next vramcnt register. TODO: fix this
+          self.wramcnt.write((value >> 8) as u8);
+        } else {
+          self.gpu.write_vramcnt(offset + 1, (value >> 8) as u8);
+        }
+      }
       0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
       // 0x400_0006 => (),

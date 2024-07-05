@@ -200,6 +200,10 @@ impl GPU {
     }
   }
 
+  pub fn read_vramcnt(&self, offset: u32) -> u8 {
+    self.vramcnt[offset as usize].read()
+  }
+
   pub fn schedule_next_line(&mut self, scheduler: &mut Scheduler) {
     scheduler.schedule(EventType::NEXT_LINE, CYCLES_PER_DOT * DOTS_PER_LINE);
   }

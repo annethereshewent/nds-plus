@@ -38,7 +38,7 @@ impl Bus {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x300_0000..=0x3ff_ffff => {
         if self.wramcnt.arm7_size == 0 {
-          panic!("reading from shared ram when region is inaccessible!");
+          return 0;
         }
 
         let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
