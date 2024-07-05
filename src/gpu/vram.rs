@@ -119,6 +119,21 @@ impl VRam {
     value
   }
 
+  pub fn write_arm7_wram(&mut self, address: u32, val: u8) {
+    let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
+    index = index as usize / BANK_SIZES[BANK_C as usize];
+
+    let region = &self.arm7_wram[index];
+
+    let address = address as usize & (BANK_SIZES[BANK_C as usize] - 1);
+
+    for bank_enum in region.into_iter() {
+      let bank = &mut self.banks[*bank_enum as usize];
+
+      bank[address] = val;
+    }
+  }
+
   pub fn get_lcdc_bank(&mut self, block_num: u32) -> &Vec<u8> {
     &self.banks[block_num as usize]
   }

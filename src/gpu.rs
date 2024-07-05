@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam, BANK_SIZES};
 
 use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
@@ -40,6 +40,7 @@ pub struct GPU {
   pub vramcnt: [VramControlRegister; 9],
   pub dispstat: [DisplayStatusRegister; 2],
   pub frame_finished: bool,
+  pub master_brightness: MasterBrightnessRegister,
   pub vram: VRam,
   scheduler: Rc<RefCell<Scheduler>>,
   vcount: u16
@@ -64,7 +65,8 @@ impl GPU {
       scheduler,
       vcount: 0,
       frame_finished: false,
-      vram: VRam::new()
+      vram: VRam::new(),
+      master_brightness: MasterBrightnessRegister::new()
     };
 
     gpu.schedule_hblank();

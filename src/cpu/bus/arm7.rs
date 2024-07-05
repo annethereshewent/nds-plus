@@ -83,6 +83,7 @@ impl Bus {
     match address {
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
+      0x400_0208 => self.arm7.interrupt_master_enable as u16,
       0x400_0240 => {
         // special case where it's reading from 2 different registers
         self.gpu.get_arm7_vram_stat() as u16 | ((self.wramcnt.read() & 0x3) as u16) << 8
@@ -145,6 +146,7 @@ impl Bus {
       0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
+      0x600_0000..=0x6ff_ffff => self.gpu.vram.write_arm7_wram(address, val),
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);

@@ -86,12 +86,14 @@ impl Bus {
 
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
+      0x400_0006 => self.gpu.master_brightness.read(),
       0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
       0x400_0180 => self.arm9.ipcsync.read() as u16,
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
+      0x400_0208 => self.arm9.interrupt_master_enable as u16,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 
