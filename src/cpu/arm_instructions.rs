@@ -948,8 +948,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let l = (instr >> 24) & 0b1;
     let offset = (((instr & 0xFFFFFF) << 8) as i32) >> 6;
 
-    let old_pc = self.pc.wrapping_sub(8);
-
     if IS_ARM9 && (instr >> 28) == 0xf {
       // special BLX case
       self.r[LR_REGISTER] = self.pc.wrapping_sub(4) & !(0b1);
@@ -964,13 +962,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         // pc current instruction address is self.pc - 8, plus the word size of 4 bytes = self.pc - 4
         self.r[LR_REGISTER] = (self.pc - 4) & !(0b1);
       }
-
-
       self.pc = ((self.pc as i32).wrapping_add(offset) as u32) & !(0b1);
-      if old_pc == 0x20064ECu32 {
-        println!("pc is now {:X}", self.pc);
-      }
-
 
       self.reload_pipeline32();
     }

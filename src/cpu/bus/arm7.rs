@@ -78,6 +78,7 @@ impl Bus {
     match address {
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
+      0x400_0240 => self.gpu.get_arm7_vram_stat() as u16,
       0x400_0300 => self.arm7.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
