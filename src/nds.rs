@@ -52,7 +52,8 @@ impl Nds {
 
       match event_type {
         EventType::HBLANK => bus.gpu.handle_hblank(&mut self.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::NEXT_LINE => bus.gpu.start_next_line(&mut self.scheduler, &mut interrupt_requests, &mut dma_channels)
+        EventType::NEXT_LINE => bus.gpu.start_next_line(&mut self.scheduler, &mut interrupt_requests, &mut dma_channels),
+        _ => todo!("not implemented yet")
       }
 
       self.scheduler.update_cycles(cycles);

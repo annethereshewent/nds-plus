@@ -1,6 +1,6 @@
-use crate::cpu::CPU;
+use crate::cpu::{bus::Bus, CPU};
 
-use super::dma_channel::{DmaChannel, registers::dma_control_register::DmaControlRegister};
+use super::dma_channel::{registers::dma_control_register::DmaControlRegister, DmaChannel, DmaParams};
 
 pub const VBLANK_TIMING: u16 = 1;
 pub const HBLANK_TIMING: u16 = 2;
@@ -17,13 +17,13 @@ pub enum AddressType {
 }
 
 impl DmaChannels{
-  pub fn new() -> Self {
+  pub fn new(is_arm9: bool) -> Self {
     Self {
       channels: [
-        DmaChannel::new(0),
-        DmaChannel::new(1),
-        DmaChannel::new(2),
-        DmaChannel::new(3)
+        DmaChannel::new(0, is_arm9),
+        DmaChannel::new(1, is_arm9),
+        DmaChannel::new(2, is_arm9),
+        DmaChannel::new(3, is_arm9)
       ]
     }
   }
@@ -47,19 +47,23 @@ impl DmaChannels{
     }
   }
 
-  pub fn do_transfers<const IS_ARM9: bool>(&mut self, cpu: &mut CPU<IS_ARM9>) -> Vec<bool> {
-    let mut trigger_irqs = Vec::new();
+  pub fn get_transfer_parameters(&mut self) -> Vec<Option<DmaParams>> {
+    let mut dma_params = Vec::new();
+
+    let mut cpu_cycles = 0;
+
     for channel in &mut self.channels {
       if channel.pending {
-        let should_trigger_irq = channel.transfer(cpu);
-        trigger_irqs.push(should_trigger_irq);
+        let params = channel.get_transfer_parameters();
+
+        dma_params.push(Some(params));
         channel.pending = false;
       } else {
-        trigger_irqs.push(false);
+        dma_params.push(None);
       }
     }
 
-    trigger_irqs
+    dma_params
   }
 
   pub fn has_pending_transfers(&self) -> bool {

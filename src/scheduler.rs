@@ -5,7 +5,9 @@ use priority_queue::PriorityQueue;
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub enum EventType {
   HBLANK,
-  NEXT_LINE
+  NEXT_LINE,
+  DMA7(usize),
+  DMA9(usize)
 }
 
 pub struct Scheduler {

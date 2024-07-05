@@ -341,6 +341,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     //   self.bus.interrupt_request.set(interrupt_request);
     //   self.bus.dma_channels.set(dma);
     // }
+    self.bus.borrow_mut().check_dma(IS_ARM9);
 
     while self.cycles < cycles {
       if !self.bus.borrow_mut().is_halted {

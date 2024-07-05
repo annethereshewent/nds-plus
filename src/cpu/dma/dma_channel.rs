@@ -1,4 +1,4 @@
-use crate::cpu::{CPU, MemoryAccess};
+use crate::{cpu::{bus::Bus, MemoryAccess, CPU}, scheduler::{EventType, Scheduler}};
 
 use self::registers::dma_control_register::DmaControlRegister;
 
@@ -8,12 +8,24 @@ const FIFO_REGISTER_A: u32 = 0x400_00a0;
 const FIFO_REGISTER_B: u32 = 0x400_00a4;
 
 #[derive(Copy, Clone)]
+pub struct DmaParams {
+  pub fifo_mode: bool,
+  pub count: u32,
+  pub word_size: i32,
+  pub destination_adjust: i32,
+  pub source_adjust: i32,
+  pub should_trigger_irq: bool,
+  pub source_address: u32,
+  pub destination_address: u32
+}
+
+#[derive(Copy, Clone)]
 pub struct DmaChannel {
   id: usize,
   pub source_address: u32,
   pub destination_address: u32,
-  internal_source_address: u32,
-  internal_destination_address: u32,
+  pub internal_source_address: u32,
+  pub internal_destination_address: u32,
   internal_count: u16,
   pub dma_control: DmaControlRegister,
   pub word_count: u16,
@@ -21,11 +33,11 @@ pub struct DmaChannel {
   pub running: bool,
   fifo_mode: bool,
   cycles: u32,
-  cycles_to_transfer: u32
+  is_arm9: bool
 }
 
 impl DmaChannel {
-  pub fn new(id: usize) -> Self {
+  pub fn new(id: usize, is_arm9: bool) -> Self {
     Self {
       source_address: 0,
       destination_address: 0,
@@ -39,12 +51,14 @@ impl DmaChannel {
       fifo_mode: false,
       id,
       cycles: 0,
-      cycles_to_transfer: 0
+      is_arm9
     }
   }
 
-  pub fn transfer<const IS_ARM9: bool>(&mut self, cpu: &mut CPU<IS_ARM9>) -> bool {
+  pub fn get_transfer_parameters(&mut self) -> DmaParams {
     let mut should_trigger_irq = false;
+
+    let mut cpu_cycles: u32 = 0;
 
     let word_size = if self.dma_control.contains(DmaControlRegister::DMA_TRANSFER_TYPE) {
       4 // 32 bit
@@ -80,62 +94,24 @@ impl DmaChannel {
 
     let mut access = MemoryAccess::NonSequential;
 
-    if self.fifo_mode {
-      for _ in 0..4 {
-        let value = cpu.load_32(self.internal_source_address & !(0b11), access);
-        cpu.store_32(self.internal_destination_address & !(0b11), value, access);
-        access = MemoryAccess::Sequential;
-        self.internal_source_address += 4;
-      }
-    } else if word_size == 4 {
-      for _ in 0..count {
-        let word = cpu.load_32(self.internal_source_address & !(0b11), access);
-        cpu.store_32(self.internal_destination_address & !(0b11), word, access);
-        access = MemoryAccess::Sequential;
-        self.internal_source_address = (self.internal_source_address as i32).wrapping_add(source_adjust) as u32;
-        self.internal_destination_address = (self.internal_destination_address as i32).wrapping_add(destination_adjust) as u32;
-      }
-    } else {
-      for _ in 0..count {
-        let half_word = cpu.load_16(self.internal_source_address & !(0b1), access);
-        cpu.store_16(self.internal_destination_address & !(0b1), half_word, access);
-        access = MemoryAccess::Sequential;
-        self.internal_source_address = (self.internal_source_address as i32).wrapping_add(source_adjust) as u32;
-        self.internal_destination_address = (self.internal_destination_address as i32).wrapping_add(destination_adjust) as u32;
-      }
-    }
-
-
     if self.dma_control.contains(DmaControlRegister::IRQ_ENABLE) {
       should_trigger_irq = true;
     }
 
-    if self.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
-      if self.dma_control.dest_addr_control() == 3 {
-        self.internal_destination_address = self.destination_address;
-      }
-    } else {
-      self.running = false;
-      self.dma_control.remove(DmaControlRegister::DMA_ENABLE);
-    }
-
-    should_trigger_irq
-  }
-
-  pub fn tick(&mut self, cycles: u32) {
-    if self.cycles_to_transfer > 0 {
-      self.cycles += cycles;
-
-      if self.cycles >= self.cycles_to_transfer {
-        self.cycles_to_transfer = 0;
-        self.cycles -= self.cycles_to_transfer;
-
-        self.pending = true;
-      }
+    DmaParams {
+      fifo_mode: self.fifo_mode,
+      word_size,
+      count,
+      destination_adjust,
+      source_adjust,
+      destination_address: self.destination_address,
+      source_address: self.source_address,
+      should_trigger_irq
     }
   }
 
-  pub fn write_control(&mut self, value: u16) {
+
+  pub fn write_control(&mut self, value: u16, scheduler: &mut Scheduler) {
     let dma_control = DmaControlRegister::from_bits_retain(value);
 
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
@@ -148,7 +124,13 @@ impl DmaChannel {
       let timing = dma_control.dma_start_timing();
 
       if timing == 0 {
-        self.cycles_to_transfer = 3;
+        let event = if self.is_arm9 {
+          EventType::DMA9(self.id)
+        } else {
+          EventType::DMA7(self.id)
+        };
+
+        scheduler.schedule(event, 3);
       } else {
         self.pending = false;
       }

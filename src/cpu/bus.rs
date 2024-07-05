@@ -8,7 +8,7 @@ use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::dma_channels::DmaChannels, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers};
+use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers, MemoryAccess};
 
 pub mod arm7;
 pub mod arm9;
@@ -89,8 +89,8 @@ impl Bus {
      skip_bios: bool,
      scheduler: &mut Scheduler) -> Self
   {
-    let dma_channels7 = DmaChannels::new();
-    let dma_channels9 = DmaChannels::new();
+    let dma_channels7 = DmaChannels::new(false);
+    let dma_channels9 = DmaChannels::new(true);
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
 
     let mut bus = Self {
@@ -146,8 +146,196 @@ impl Bus {
     bus
   }
 
-  pub fn clear_interrupts(&mut self, value: u16) {
+  fn handle_dma(&mut self, params: &mut DmaParams) -> u32 {
+    let mut access = MemoryAccess::NonSequential;
+    let mut cpu_cycles = 0;
+    if params.fifo_mode {
+      for _ in 0..4 {
+        let (value, cycles) = self.load_32(params.source_address & !(0b11), access, true);
 
+        cpu_cycles += cycles;
+
+        cpu_cycles += self.store_32(params.destination_address & !(0b11), value, access, true);
+
+        access = MemoryAccess::Sequential;
+        params.source_address += 4;
+      }
+    } else if params.word_size == 4 {
+      for _ in 0..params.count {
+        let (word, cycles) = self.load_32(params.source_address & !(0b11), access, true);
+
+        cpu_cycles += cycles;
+
+        cpu_cycles += self.store_32(params.destination_address & !(0b11), word, access, true);
+
+        access = MemoryAccess::Sequential;
+        params.source_address = (params.source_address as i32).wrapping_add(params.source_adjust) as u32;
+        params.destination_address = (params.destination_address as i32).wrapping_add(params.destination_adjust) as u32;
+      }
+    } else {
+      for _ in 0..params.count {
+        let (half_word, cycles) = self.load_16(params.source_address & !(0b1), access, true);
+
+        cpu_cycles += cycles;
+
+        cpu_cycles += self.store_16(params.destination_address & !(0b1), half_word, access, true);
+        access = MemoryAccess::Sequential;
+        params.source_address = (params.source_address as i32).wrapping_add(params.source_adjust) as u32;
+        params.destination_address = (params.destination_address as i32).wrapping_add(params.destination_adjust) as u32;
+      }
+    }
+
+
+    cpu_cycles
+  }
+
+  pub fn check_dma(&mut self, is_arm9: bool) -> u32 {
+    let mut cpu_cycles = 0;
+
+    // Rust *REALLY* makes it hard to keep your code DRY. like.... REALLY. This is really shitty annoying code
+    // but if I don't do it like this rust will throw a fit. TODO: clean this code up somehow
+    if is_arm9 && self.arm9.dma_channels.has_pending_transfers() {
+      let mut dma_params = self.arm9.dma_channels.get_transfer_parameters();
+
+      for i in 0..4 {
+        if let Some(params) = &mut dma_params[i] {
+          cpu_cycles += self.handle_dma(params);
+
+          // update internal destination and source address for the dma channel as well.
+          let channel = &mut self.arm9.dma_channels.channels[i];
+
+          channel.internal_destination_address = params.destination_address;
+          channel.internal_source_address = params.source_address;
+
+          if channel.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
+            if channel.dma_control.dest_addr_control() == 3 {
+              channel.internal_destination_address = channel.destination_address;
+            }
+          } else {
+            channel.running = false;
+            channel.dma_control.remove(DmaControlRegister::DMA_ENABLE);
+          }
+
+          if params.should_trigger_irq {
+            self.arm9.interrupt_request.request_dma(i);
+          }
+        }
+      }
+    } else if !is_arm9 && self.arm7.dma_channels.has_pending_transfers() {
+      let mut dma_params = self.arm7.dma_channels.get_transfer_parameters();
+
+      for i in 0..4 {
+        if let Some(params) = &mut dma_params[i] {
+          cpu_cycles += self.handle_dma(params);
+
+          // update internal destination and source address for the dma channel as well.
+          let channel = &mut self.arm9.dma_channels.channels[i];
+
+          channel.internal_destination_address = params.destination_address;
+          channel.internal_source_address = params.source_address;
+
+          if channel.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
+            if channel.dma_control.dest_addr_control() == 3 {
+              channel.internal_destination_address = channel.destination_address;
+            }
+          } else {
+            channel.running = false;
+            channel.dma_control.remove(DmaControlRegister::DMA_ENABLE);
+          }
+
+          if params.should_trigger_irq {
+            self.arm7.interrupt_request.request_dma(i);
+          }
+        }
+      }
+    }
+
+    cpu_cycles
+  }
+
+  // these are similar to the cpu methods but only to be used with dma
+  pub fn load_32(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
+    // TODO: write this method
+    // self.get_cycles(address, access, MemoryWidth::Width32);
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      (self.arm7_mem_read_32(address), cpu_cycles)
+    } else {
+      (self.arm9_mem_read_32(address), cpu_cycles)
+    }
+  }
+
+  pub fn load_16(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
+    // TODO: write this method
+    // self.get_cycles(address, access, MemoryWidth::Width16);
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      (self.arm7_mem_read_16(address), cpu_cycles)
+    } else {
+      (self.arm9_mem_read_16(address), cpu_cycles)
+    }
+  }
+
+  pub fn load_8(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u8, u32) {
+    // TODO: write this method
+    // self.get_cycles(address, access, MemoryWidth::Width8);
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      (self.arm7_mem_read_8(address), cpu_cycles)
+    } else {
+      (self.arm9_mem_read_8(address), cpu_cycles)
+    }
+  }
+
+  pub fn store_8(&mut self, address: u32, value: u8, access: MemoryAccess, is_arm9: bool) -> u32 {
+    // TODO
+    // self.get_cycles(address, access, MemoryWidth::Width8);
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      self.arm7_mem_write_8(address, value);
+    } else {
+      self.arm9_mem_write_8(address, value);
+    }
+
+    cpu_cycles
+  }
+
+  pub fn store_16(&mut self, address: u32, value: u16, access: MemoryAccess, is_arm9: bool) -> u32 {
+    // TODO
+    // self.get_cycles(address, access, MemoryWidth::Width8)
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      self.arm7_mem_write_16(address, value);
+    } else {
+      self.arm9_mem_write_16(address, value);
+    }
+
+    cpu_cycles
+  }
+
+  pub fn store_32(&mut self, address: u32, value: u32, access: MemoryAccess, is_arm9: bool) -> u32 {
+    // TODO
+    // self.get_cycles(address, access, MemoryWidth::Width8);
+
+    let cpu_cycles = 1;
+
+    if !is_arm9 {
+      self.arm7_mem_write_32(address, value);
+    } else {
+      self.arm9_mem_write_32(address, value);
+    }
+
+    cpu_cycles
   }
 
   fn skip_bios(&mut self) {
