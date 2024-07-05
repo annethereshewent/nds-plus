@@ -75,7 +75,7 @@ impl VRam {
   pub fn map_bank(&mut self, bank: Bank, mst: u8) {
     match mst {
       0 => self.lcdc.push(bank),
-      _ => todo!("unimplemented")
+      _ => todo!("mst = {mst} not implemented")
     }
   }
 

@@ -205,7 +205,7 @@ impl GPU {
   }
 
   pub fn get_arm7_vram_stat(&self) -> u8 {
-    ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 3) as u8)
+    ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 2) as u8)
   }
 
   pub fn schedule_next_line(&mut self, scheduler: &mut Scheduler) {
