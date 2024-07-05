@@ -1,4 +1,4 @@
-use std::{cell::{Cell, RefCell}, rc::Rc};
+use std::{cell::{Cell, Ref, RefCell}, rc::Rc};
 
 use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
@@ -77,7 +77,8 @@ pub struct Bus {
   pub spi: SPI,
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
-  pub key_input_register: KeyInputRegister
+  pub key_input_register: KeyInputRegister,
+  scheduler: Rc<RefCell<Scheduler>>
 }
 
 impl Bus {
@@ -87,7 +88,7 @@ impl Bus {
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
      skip_bios: bool,
-     scheduler: &mut Scheduler) -> Self
+     scheduler: Rc<RefCell<Scheduler>>) -> Self
   {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);
@@ -134,6 +135,7 @@ impl Bus {
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
+      scheduler: scheduler.clone(),
       gpu: GPU::new(scheduler),
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
 

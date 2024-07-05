@@ -248,6 +248,11 @@ impl Bus {
     // };
 
     match address {
+      0x400_00ba => {
+        let ref mut scheduler = self.scheduler.borrow_mut();
+
+        self.arm9.dma_channels.channels[0].write_control(value, scheduler);
+      }
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),

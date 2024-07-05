@@ -50,8 +50,6 @@ impl DmaChannels{
   pub fn get_transfer_parameters(&mut self) -> Vec<Option<DmaParams>> {
     let mut dma_params = Vec::new();
 
-    let mut cpu_cycles = 0;
-
     for channel in &mut self.channels {
       if channel.pending {
         let params = channel.get_transfer_parameters();

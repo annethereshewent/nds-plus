@@ -42,11 +42,12 @@ pub struct GPU {
   pub frame_finished: bool,
   pub master_brightness: MasterBrightnessRegister,
   pub vram: VRam,
+  scheduler: Rc<RefCell<Scheduler>>,
   vcount: u16
 }
 
 impl GPU {
-  pub fn new(scheduler: &mut Scheduler) -> Self {
+  pub fn new(scheduler: Rc<RefCell<Scheduler>>) -> Self {
     let mut vramcnt: Vec<VramControlRegister> = Vec::new();
 
     for i in 0..9 {
@@ -64,10 +65,11 @@ impl GPU {
       vcount: 0,
       frame_finished: false,
       vram: VRam::new(),
-      master_brightness: MasterBrightnessRegister::new()
+      master_brightness: MasterBrightnessRegister::new(),
+      scheduler
     };
 
-    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
+    gpu.schedule_hblank();
 
     gpu
   }
@@ -95,6 +97,12 @@ impl GPU {
         interrupt_request.insert(interrupt_flag);
       }
     }
+  }
+
+  fn schedule_hblank(&mut self) {
+    let ref mut scheduler = *self.scheduler.borrow_mut();
+
+    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
   }
 
   pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {

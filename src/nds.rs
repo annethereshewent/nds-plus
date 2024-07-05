@@ -5,13 +5,13 @@ use crate::{cpu::{bus::Bus, CPU}, scheduler::{EventType, Scheduler}};
 pub struct Nds {
   pub arm9_cpu: CPU<true>,
   pub arm7_cpu: CPU<false>,
-  scheduler: Scheduler,
+  scheduler: Rc<RefCell<Scheduler>>,
   pub bus: Rc<RefCell<Bus>>
 }
 
 impl Nds {
   pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool) -> Self {
-    let mut scheduler = Scheduler::new();
+    let mut scheduler = Rc::new(RefCell::new(Scheduler::new()));
     let bus = Rc::new(
       RefCell::new(
         Bus::new(
@@ -20,7 +20,7 @@ impl Nds {
           bios9_bytes,
           rom_bytes,
           skip_bios,
-          &mut scheduler
+          scheduler.clone()
         )
       )
     );
@@ -40,7 +40,9 @@ impl Nds {
   pub fn step(&mut self) -> bool {
     let mut frame_finished = false;
 
-    if let Some((event_type, cycles)) = self.scheduler.get_next_event() {
+    let ref mut scheduler = *self.scheduler.borrow_mut();
+
+    if let Some((event_type, cycles)) = scheduler.get_next_event() {
       self.arm9_cpu.step(cycles * 2);
       self.arm7_cpu.step(cycles);
 
@@ -51,12 +53,13 @@ impl Nds {
       let mut dma_channels = [&mut bus.arm7.dma_channels, &mut bus.arm9.dma_channels];
 
       match event_type {
-        EventType::HBLANK => bus.gpu.handle_hblank(&mut self.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::NEXT_LINE => bus.gpu.start_next_line(&mut self.scheduler, &mut interrupt_requests, &mut dma_channels),
-        _ => todo!("not implemented yet")
+        EventType::HBLANK => bus.gpu.handle_hblank(scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::NEXT_LINE => bus.gpu.start_next_line(scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::DMA7(channel_id) => bus.arm7.dma_channels.channels[channel_id].pending = true,
+        EventType::DMA9(channel_id) => bus.arm9.dma_channels.channels[channel_id].pending = true,
       }
 
-      self.scheduler.update_cycles(cycles);
+      scheduler.update_cycles(cycles);
 
       frame_finished = bus.gpu.frame_finished;
     } else {

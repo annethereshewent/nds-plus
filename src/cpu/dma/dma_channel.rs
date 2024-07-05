@@ -92,8 +92,6 @@ impl DmaChannel {
     // }
 
 
-    let mut access = MemoryAccess::NonSequential;
-
     if self.dma_control.contains(DmaControlRegister::IRQ_ENABLE) {
       should_trigger_irq = true;
     }
@@ -130,6 +128,7 @@ impl DmaChannel {
           EventType::DMA7(self.id)
         };
 
+        // TODO: see if we can get away with just setting pending to true here instead of delaying it by 3 cycles
         scheduler.schedule(event, 3);
       } else {
         self.pending = false;
