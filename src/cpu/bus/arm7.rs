@@ -38,7 +38,11 @@ impl Bus {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x300_0000..=0x37f_ffff => {
         if self.wramcnt.arm7_size == 0 {
-          return 0;
+          // per martin koth: "De-allocation (0K) is a special case: At the ARM9-side,
+          // the WRAM area is then empty (containing undefined data). At the ARM7-side,
+          // the WRAM area is then containing mirrors of the 64KB ARM7-WRAM
+          // (the memory at 3800000h and up)."
+          return self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize];
         }
 
         let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
@@ -78,7 +82,10 @@ impl Bus {
     match address {
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
-      0x400_0240 => self.gpu.get_arm7_vram_stat() as u16,
+      0x400_0240 => {
+        // special case where it's reading from 2 different registers
+        self.gpu.get_arm7_vram_stat() as u16 | ((self.wramcnt.read() & 0x3) as u16) << 8
+      }
       0x400_0300 => self.arm7.postflg as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
