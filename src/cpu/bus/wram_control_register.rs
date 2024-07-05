@@ -45,7 +45,7 @@ impl WRAMControlRegister {
         self.arm7_size = 2u32.pow(14);
 
 
-        self.arm9_offset = self.arm9_size / 2;
+        self.arm9_offset = self.arm9_size;
         self.arm7_offset = 0;
       }
       2 => {
@@ -53,7 +53,7 @@ impl WRAMControlRegister {
         self.arm7_size = 2u32.pow(14);
 
         self.arm9_offset = 0;
-        self.arm7_offset = self.arm7_size / 2;
+        self.arm7_offset = self.arm7_size;
       }
       3 => {
         self.arm9_size = 0;

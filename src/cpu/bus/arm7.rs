@@ -45,7 +45,7 @@ impl Bus {
           return self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize];
         }
 
-        let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
+        let actual_addr = (address & (self.wramcnt.arm7_size - 1)) + self.wramcnt.arm7_offset;
 
         self.shared_wram[actual_addr as usize]
       }

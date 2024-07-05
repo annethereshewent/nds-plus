@@ -58,6 +58,7 @@ impl Bus {
         }
 
         let base = self.wramcnt.arm9_offset;
+
         let mask = self.wramcnt.arm9_size - 1;
 
         self.shared_wram[((address & mask) + base) as usize]
