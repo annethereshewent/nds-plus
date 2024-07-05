@@ -26,8 +26,8 @@ const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
 
 pub struct Arm9Bus {
-  timers: Timers<true>,
-  dma_channels: Rc<RefCell<DmaChannels<true>>>,
+  timers: Timers,
+  pub dma_channels: DmaChannels,
   bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
@@ -47,8 +47,8 @@ pub struct Arm9Bus {
 }
 
 pub struct Arm7Bus {
-  timers: Timers<false>,
-  dma_channels: Rc<RefCell<DmaChannels<false>>>,
+  timers: Timers,
+  pub dma_channels: DmaChannels,
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
   pub postflg: bool,
@@ -87,17 +87,17 @@ impl Bus {
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
      skip_bios: bool,
-     scheduler: Rc<RefCell<Scheduler>>) -> Self
+     scheduler: &mut Scheduler) -> Self
   {
-    let dma_channels7 = Rc::new(RefCell::new(DmaChannels::new()));
-    let dma_channels9 = Rc::new(RefCell::new(DmaChannels::new()));
+    let dma_channels7 = DmaChannels::new();
+    let dma_channels9 = DmaChannels::new();
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
 
     let mut bus = Self {
       arm7: Arm7Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios7: bios7_bytes,
-        dma_channels: dma_channels7.clone(),
+        dma_channels: dma_channels7,
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
         postflg: skip_bios,
         interrupt_master_enable: false,
@@ -109,7 +109,7 @@ impl Bus {
       arm9: Arm9Bus {
         timers: Timers::new(interrupt_request.clone()),
         bios9: bios9_bytes,
-        dma_channels: dma_channels9.clone(),
+        dma_channels: dma_channels9,
         cp15: CP15::new(),
         postflg: skip_bios,
         interrupt_master_enable: false,
@@ -134,7 +134,7 @@ impl Bus {
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
-      gpu: GPU::new(scheduler.clone()),
+      gpu: GPU::new(scheduler),
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
 
     };

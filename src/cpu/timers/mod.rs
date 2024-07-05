@@ -6,18 +6,18 @@ use super::{dma::dma_channels::DmaChannels, registers::interrupt_request_registe
 
 pub mod timer;
 
-pub struct Timers<const IS_ARM9: bool> {
+pub struct Timers {
   pub t: [Timer; 4],
 }
 
-impl<const IS_ARM9: bool> Timers<IS_ARM9> {
+impl Timers {
   pub fn new(interrupt_request: Rc<Cell<InterruptRequestRegister>>) -> Self {
     Self {
       t: [Timer::new(0, interrupt_request.clone()), Timer::new(1, interrupt_request.clone()), Timer::new(2, interrupt_request.clone()), Timer::new(3, interrupt_request.clone())],
     }
   }
 
-  pub fn tick(&mut self, cycles: u32, dma: &mut DmaChannels<IS_ARM9>) {
+  pub fn tick(&mut self, cycles: u32, dma: &mut DmaChannels) {
     for i in 0..self.t.len() {
       let timer = &mut self.t[i];
 
@@ -30,7 +30,7 @@ impl<const IS_ARM9: bool> Timers<IS_ARM9> {
     }
   }
 
-  pub fn handle_overflow(&mut self, timer_id: usize, dma: &mut DmaChannels<IS_ARM9>) {
+  pub fn handle_overflow(&mut self, timer_id: usize, dma: &mut DmaChannels) {
     if timer_id != 3 {
       let next_timer_id = timer_id + 1;
 

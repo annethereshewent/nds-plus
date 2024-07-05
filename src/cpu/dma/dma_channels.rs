@@ -7,7 +7,7 @@ pub const HBLANK_TIMING: u16 = 2;
 const FIFO_TIMING: u16 = 3;
 
 #[derive(Copy, Clone)]
-pub struct DmaChannels<const IS_ARM9: bool> {
+pub struct DmaChannels {
   pub channels: [DmaChannel; 4]
 }
 
@@ -16,7 +16,7 @@ pub enum AddressType {
   High
 }
 
-impl<const IS_ARM9: bool> DmaChannels<IS_ARM9> {
+impl DmaChannels{
   pub fn new() -> Self {
     Self {
       channels: [
@@ -47,7 +47,7 @@ impl<const IS_ARM9: bool> DmaChannels<IS_ARM9> {
     }
   }
 
-  pub fn do_transfers(&mut self, cpu: &mut CPU<IS_ARM9>) -> Vec<bool> {
+  pub fn do_transfers<const IS_ARM9: bool>(&mut self, cpu: &mut CPU<IS_ARM9>) -> Vec<bool> {
     let mut trigger_irqs = Vec::new();
     for channel in &mut self.channels {
       if channel.pending {

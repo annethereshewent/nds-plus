@@ -5,7 +5,7 @@ use engine_3d::Engine3d;
 use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam, BANK_SIZES};
 
-use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
+use crate::{cpu::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
 
 pub mod registers;
 pub mod engine_2d;
@@ -42,12 +42,11 @@ pub struct GPU {
   pub frame_finished: bool,
   pub master_brightness: MasterBrightnessRegister,
   pub vram: VRam,
-  scheduler: Rc<RefCell<Scheduler>>,
   vcount: u16
 }
 
 impl GPU {
-  pub fn new(scheduler: Rc<RefCell<Scheduler>>) -> Self {
+  pub fn new(scheduler: &mut Scheduler) -> Self {
     let mut vramcnt: Vec<VramControlRegister> = Vec::new();
 
     for i in 0..9 {
@@ -62,25 +61,18 @@ impl GPU {
       powcnt2: PowerControlRegister2::from_bits_retain(0),
       vramcnt: vramcnt.try_into().unwrap(),
       dispstat: [DisplayStatusRegister::new(), DisplayStatusRegister::new()],
-      scheduler,
       vcount: 0,
       frame_finished: false,
       vram: VRam::new(),
       master_brightness: MasterBrightnessRegister::new()
     };
 
-    gpu.schedule_hblank();
+    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
 
     gpu
   }
 
-  fn schedule_hblank(&mut self) {
-    let ref mut scheduler = *self.scheduler.borrow_mut();
-
-    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
-  }
-
-  pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
+  pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
     self.schedule_next_line(scheduler);
 
     for dispstat in &mut self.dispstat {
@@ -105,7 +97,7 @@ impl GPU {
     }
   }
 
-  pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
+  pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
     scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
 
     self.vcount += 1;
@@ -224,6 +216,7 @@ impl GPU {
     }
 
     // do some other stuff here
+
   }
 
   fn render_line(&mut self) {
