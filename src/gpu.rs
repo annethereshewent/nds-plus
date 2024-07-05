@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
 use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
-use vram::{Bank, VRam};
+use vram::{Bank, VRam, BANK_SIZES};
 
 use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
 
@@ -166,18 +166,22 @@ impl GPU {
     }
   }
 
+  pub fn read_arm7_wram(&self, address: u32) -> u8 {
+    self.vram.read_arm7_wram(address)
+  }
+
   pub fn write_vramcnt(&mut self, offset: u32, val: u8) {
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => self.vram.unmap_bank(Bank::BankA, self.vramcnt[offset as usize].vram_mst),
-        BANK_B => self.vram.unmap_bank(Bank::BankB, self.vramcnt[offset as usize].vram_mst),
-        BANK_C => self.vram.unmap_bank(Bank::BankC, self.vramcnt[offset as usize].vram_mst),
-        BANK_D => self.vram.unmap_bank(Bank::BankD, self.vramcnt[offset as usize].vram_mst),
-        BANK_E => self.vram.unmap_bank(Bank::BankE, self.vramcnt[offset as usize].vram_mst),
-        BANK_F => self.vram.unmap_bank(Bank::BankF, self.vramcnt[offset as usize].vram_mst),
-        BANK_G => self.vram.unmap_bank(Bank::BankG, self.vramcnt[offset as usize].vram_mst),
-        BANK_H => self.vram.unmap_bank(Bank::BankH, self.vramcnt[offset as usize].vram_mst),
-        BANK_I => self.vram.unmap_bank(Bank::BankI, self.vramcnt[offset as usize].vram_mst),
+        BANK_A => self.vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => self.vram.unmap_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => self.vram.unmap_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => self.vram.unmap_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => self.vram.unmap_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => self.vram.unmap_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => self.vram.unmap_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => self.vram.unmap_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => self.vram.unmap_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => unreachable!("can't happen")
       }
     }
@@ -186,15 +190,15 @@ impl GPU {
 
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => self.vram.map_bank(Bank::BankA, self.vramcnt[offset as usize].vram_mst),
-        BANK_B => self.vram.map_bank(Bank::BankB, self.vramcnt[offset as usize].vram_mst),
-        BANK_C => self.vram.map_bank(Bank::BankC, self.vramcnt[offset as usize].vram_mst),
-        BANK_D => self.vram.map_bank(Bank::BankD, self.vramcnt[offset as usize].vram_mst),
-        BANK_E => self.vram.map_bank(Bank::BankE, self.vramcnt[offset as usize].vram_mst),
-        BANK_F => self.vram.map_bank(Bank::BankF, self.vramcnt[offset as usize].vram_mst),
-        BANK_G => self.vram.map_bank(Bank::BankG, self.vramcnt[offset as usize].vram_mst),
-        BANK_H => self.vram.map_bank(Bank::BankH, self.vramcnt[offset as usize].vram_mst),
-        BANK_I => self.vram.map_bank(Bank::BankI, self.vramcnt[offset as usize].vram_mst),
+        BANK_A => self.vram.map_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => self.vram.map_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => self.vram.map_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => self.vram.map_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => self.vram.map_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => self.vram.map_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => self.vram.map_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => self.vram.map_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => self.vram.map_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => todo!("unimplemented")
       }
     }
@@ -205,7 +209,7 @@ impl GPU {
   }
 
   pub fn get_arm7_vram_stat(&self) -> u8 {
-    ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 2) as u8)
+    ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 2) as u8) << 1
   }
 
   pub fn schedule_next_line(&mut self, scheduler: &mut Scheduler) {

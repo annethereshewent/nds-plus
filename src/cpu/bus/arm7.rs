@@ -51,6 +51,7 @@ impl Bus {
       }
       0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize], // FIX THIS
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_8(address),
+      0x600_0000..=0x6ff_ffff => self.gpu.read_arm7_wram(address),
       0x700_0000..=0x7ff_ffff => 0,
       0x800_0000..=0xdff_ffff => {
         0
