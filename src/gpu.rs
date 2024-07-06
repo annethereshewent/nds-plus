@@ -1,6 +1,6 @@
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister};
 use vram::{Bank, VRam};
 
 use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
@@ -29,6 +29,33 @@ const BANK_G: u32 = Bank::BankG as u32;
 const BANK_H: u32 = Bank::BankH as u32;
 const BANK_I: u32 = Bank::BankI as u32;
 
+#[derive(Copy, Clone)]
+pub struct BgProps {
+  pub x: i32,
+  pub y: i32,
+  pub dx: i16,
+  pub dmx: i16,
+  pub dy: i16,
+  pub dmy: i16,
+  pub internal_x: i32,
+  pub internal_y: i32
+}
+
+impl BgProps {
+  pub fn new() -> Self {
+    Self {
+      x: 0,
+      y: 0,
+      dx: 0,
+      dmx: 0,
+      dy: 0,
+      dmy: 0,
+      internal_x: 0,
+      internal_y: 0
+    }
+  }
+}
+
 pub struct GPU {
   pub engine_a: Engine2d<false>,
   pub engine_b: Engine2d<true>,
@@ -40,7 +67,19 @@ pub struct GPU {
   pub frame_finished: bool,
   pub master_brightness: MasterBrightnessRegister,
   pub vram: VRam,
-  vcount: u16
+  vcount: u16,
+  pub bgcnt: [BgControlRegister; 4],
+  pub bgxofs: [u16; 4],
+  pub bgyofs: [u16; 4],
+  pub bg_props: [BgProps; 2],
+  bg_lines: [[Option<(u8, u8, u8)>; WIDTH as usize]; 4],
+  pub winin: WindowInRegister,
+  pub winout: WindowOutRegister,
+  pub winh: [WindowHorizontalRegister; 2],
+  pub winv: [WindowVerticalRegister; 2],
+  pub bldcnt: ColorEffectsRegister,
+  pub bldalpha: AlphaBlendRegister,
+  pub bldy: BrightnessRegister,
 }
 
 impl GPU {
@@ -62,7 +101,19 @@ impl GPU {
       vcount: 0,
       frame_finished: false,
       vram: VRam::new(),
-      master_brightness: MasterBrightnessRegister::new()
+      master_brightness: MasterBrightnessRegister::new(),
+      bgcnt: [BgControlRegister::from_bits_retain(0); 4],
+      bg_lines: [[None; WIDTH as usize]; 4],
+      bgxofs: [0; 4],
+      bgyofs: [0; 4],
+      bg_props: [BgProps::new(); 2],
+      winh: [WindowHorizontalRegister::new(); 2],
+      winv: [WindowVerticalRegister::new(); 2],
+      winin: WindowInRegister::from_bits_retain(0),
+      winout: WindowOutRegister::from_bits_retain(0),
+      bldcnt: ColorEffectsRegister::new(),
+      bldalpha: AlphaBlendRegister::new(),
+      bldy: BrightnessRegister::new(),
     };
 
     scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
