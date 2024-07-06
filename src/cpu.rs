@@ -344,7 +344,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.bus.borrow_mut().check_dma(IS_ARM9);
 
     while self.cycles < cycles {
-      if !self.bus.borrow_mut().is_halted {
+      if !self.bus.borrow().is_halted(IS_ARM9) {
         if self.cpsr.contains(PSRRegister::STATE_BIT) {
           self.step_thumb();
         } else {

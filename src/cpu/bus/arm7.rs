@@ -74,11 +74,11 @@ impl Bus {
   }
 
   fn arm7_io_read_16(&mut self, address: u32) -> u16 {
-    let address = if address & 0xfffe == 0x8000 {
-      0x400_0800
-    } else {
-      address
-    };
+    // let address = if address & 0xfffe == 0x8000 {
+    //   0x400_0800
+    // } else {
+    //   address
+    // };
 
     match address {
       0x400_0180 => self.arm7.ipcsync.read() as u16,

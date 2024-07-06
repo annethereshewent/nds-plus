@@ -82,6 +82,7 @@ impl DmaChannel {
       _ => panic!("illegal value specified for source address control")
     };
 
+    // might need to add this back in
     // if self.id == 3 && word_size == 2 {
     //   if let BackupMedia::Eeprom(eeprom_controller) = &mut cpu.cartridge.backup {
     //     eeprom_controller.handle_dma(self.internal_destination_address, self.internal_source_address, self.internal_count.into());

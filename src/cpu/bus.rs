@@ -143,6 +143,14 @@ impl Bus {
     bus
   }
 
+  pub fn is_halted(&self, is_arm9: bool) -> bool {
+    if is_arm9 {
+      self.arm9.cp15.arm9_halted
+    } else {
+      self.is_halted
+    }
+  }
+
   fn handle_dma(&mut self, params: &mut DmaParams) -> u32 {
     let mut access = MemoryAccess::NonSequential;
     let mut cpu_cycles = 0;
