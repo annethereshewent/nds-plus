@@ -12,6 +12,10 @@ impl Bus {
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
     match address {
+      0x400_00b0..=0x400_00ba => self.arm9.dma.read(0, (address - 0x400_00b0) as usize),
+      0x400_00bc..=0x400_00c6 => self.arm9.dma.read(1, (address - 0x400_00bc) as usize),
+      0x400_00c8..=0x400_00d2 => self.arm9.dma.read(2, (address - 0x400_00d2) as usize),
+      0x400_00d4..=0x400_00de => self.arm9.dma.read(3, (address - 0x400_00d4) as usize),
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
@@ -87,7 +91,7 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.master_brightness.read(),
-      0x400_00ba => self.arm9.dma_channels.channels[0].dma_control.bits(),
+      0x400_00ba => self.arm9.dma.channels[0].dma_control.bits(),
       0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
       0x400_0180 => self.arm9.ipcsync.read() as u16,
@@ -193,9 +197,10 @@ impl Bus {
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
-      0x400_00b0 => self.arm9.dma_channels.channels[0].source_address = value,
-      0x400_00b4 => self.arm9.dma_channels.channels[0].destination_address = value,
-      0x400_00b8 => self.arm9.dma_channels.channels[0].word_count = value as u16,
+      0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, &mut self.scheduler),
+      0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, &mut self.scheduler),
+      0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00d2) as usize, value, &mut self.scheduler),
+      0x400_00d4..=0x400_00de => self.arm9.dma.write(3, (address - 0x400_00d4) as usize, value, &mut self.scheduler),
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
@@ -250,8 +255,8 @@ impl Bus {
     // };
 
     match address {
-      0x400_00b0 => self.arm9.dma_channels.channels[0].write_source(value as u32, 0xffff0000),
-      0x400_00ba => self.arm9.dma_channels.channels[0].write_control(value, &mut self.scheduler),
+      0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
+      0x400_00ba => self.arm9.dma.channels[0].write_control(value, &mut self.scheduler),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),

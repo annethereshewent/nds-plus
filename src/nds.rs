@@ -58,15 +58,15 @@ impl Nds {
     // finally check if there are any events to handle.
     if let Some(event_type) = bus.scheduler.get_next_event() {
       let mut interrupt_requests = [&mut bus.arm7.interrupt_request, &mut bus.arm9.interrupt_request];
-      let mut dma_channels = [&mut bus.arm7.dma_channels, &mut bus.arm9.dma_channels];
+      let mut dma_channels = [&mut bus.arm7.dma, &mut bus.arm9.dma];
 
       match event_type {
         EventType::HBLANK => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
         EventType::NEXT_LINE => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::DMA7(channel_id) => bus.arm7.dma_channels.channels[channel_id].pending = true,
-        EventType::DMA9(channel_id) => bus.arm9.dma_channels.channels[channel_id].pending = true,
-        EventType::TIMER7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma_channels, &mut bus.arm7.interrupt_request),
-        EventType::TIMER9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma_channels, &mut bus.arm9.interrupt_request)
+        EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
+        EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
+        EventType::TIMER7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request),
+        EventType::TIMER9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request)
       }
     }
 

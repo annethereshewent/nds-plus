@@ -19,7 +19,6 @@ pub struct DmaParams {
   pub destination_address: u32
 }
 
-#[derive(Copy, Clone)]
 pub struct DmaChannel {
   id: usize,
   pub source_address: u32,
@@ -57,8 +56,6 @@ impl DmaChannel {
 
   pub fn get_transfer_parameters(&mut self) -> DmaParams {
     let mut should_trigger_irq = false;
-
-    let mut cpu_cycles: u32 = 0;
 
     let word_size = if self.dma_control.contains(DmaControlRegister::DMA_TRANSFER_TYPE) {
       4 // 32 bit
@@ -127,7 +124,6 @@ impl DmaChannel {
       let timing = dma_control.dma_start_timing();
 
       if timing == 0 {
-        // TODO: add back scheduler here if things don't work properly
         if self.is_arm9 {
           scheduler.schedule(EventType::DMA9(self.id), 3);
         } else {

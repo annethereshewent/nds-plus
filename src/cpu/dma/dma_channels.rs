@@ -1,4 +1,4 @@
-use crate::cpu::{bus::Bus, CPU};
+use crate::{cpu::{bus::Bus, CPU}, scheduler::Scheduler};
 
 use super::dma_channel::{registers::dma_control_register::DmaControlRegister, DmaChannel, DmaParams};
 
@@ -6,7 +6,6 @@ pub const VBLANK_TIMING: u16 = 1;
 pub const HBLANK_TIMING: u16 = 2;
 const FIFO_TIMING: u16 = 3;
 
-#[derive(Copy, Clone)]
 pub struct DmaChannels {
   pub channels: [DmaChannel; 4]
 }
@@ -33,6 +32,26 @@ impl DmaChannels{
       if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE) && channel.dma_control.dma_start_timing() == timing {
         channel.pending = true;
       }
+    }
+  }
+
+  pub fn write(&mut self, channel: usize, index: usize, val: u32, scheduler: &mut Scheduler) {
+    match index {
+      0x0 => self.channels[channel].source_address = val,
+      0x4 => self.channels[channel].destination_address = val,
+      0x8 => self.channels[channel].word_count = val as u16,
+      0xa => self.channels[channel].write_control(val as u16, scheduler),
+      _ => panic!("invalid index given for dma write method")
+    }
+  }
+
+  pub fn read(&mut self, channel: usize, index: usize) -> u32 {
+    match index {
+      0x0 => self.channels[channel].source_address,
+      0x4 => self.channels[channel].destination_address,
+      0x8 => self.channels[channel].word_count as u32,
+      0xa => self.channels[channel].dma_control.bits() as u32,
+      _ => panic!("invalid index given for dma write method")
     }
   }
 
@@ -65,7 +84,7 @@ impl DmaChannels{
   }
 
   pub fn has_pending_transfers(&self) -> bool {
-    for channel in self.channels {
+    for channel in &self.channels {
       if channel.pending {
         return true;
       }

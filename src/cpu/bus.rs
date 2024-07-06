@@ -27,7 +27,7 @@ const SHARED_WRAM_SIZE: usize = 0x8000;
 
 pub struct Arm9Bus {
   pub timers: Timers,
-  pub dma_channels: DmaChannels,
+  pub dma: DmaChannels,
   bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
@@ -48,7 +48,7 @@ pub struct Arm9Bus {
 
 pub struct Arm7Bus {
   pub timers: Timers,
-  pub dma_channels: DmaChannels,
+  pub dma: DmaChannels,
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
   pub postflg: bool,
@@ -93,7 +93,7 @@ impl Bus {
       arm7: Arm7Bus {
         timers: Timers::new(false),
         bios7: bios7_bytes,
-        dma_channels: dma_channels7,
+        dma: dma_channels7,
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
         postflg: skip_bios,
         interrupt_master_enable: false,
@@ -105,7 +105,7 @@ impl Bus {
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: bios9_bytes,
-        dma_channels: dma_channels9,
+        dma: dma_channels9,
         cp15: CP15::new(),
         postflg: skip_bios,
         interrupt_master_enable: false,
@@ -191,15 +191,15 @@ impl Bus {
 
     // Rust *REALLY* makes it hard to keep your code DRY. like.... REALLY. This is really shitty annoying code
     // but if I don't do it like this rust will throw a fit. TODO: clean this code up somehow
-    if is_arm9 && self.arm9.dma_channels.has_pending_transfers() {
-      let mut dma_params = self.arm9.dma_channels.get_transfer_parameters();
+    if is_arm9 && self.arm9.dma.has_pending_transfers() {
+      let mut dma_params = self.arm9.dma.get_transfer_parameters();
 
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
           cpu_cycles += self.handle_dma(params);
 
           // update internal destination and source address for the dma channel as well.
-          let channel = &mut self.arm9.dma_channels.channels[i];
+          let channel = &mut self.arm9.dma.channels[i];
 
           channel.internal_destination_address = params.destination_address;
           channel.internal_source_address = params.source_address;
@@ -218,15 +218,15 @@ impl Bus {
           }
         }
       }
-    } else if !is_arm9 && self.arm7.dma_channels.has_pending_transfers() {
-      let mut dma_params = self.arm7.dma_channels.get_transfer_parameters();
+    } else if !is_arm9 && self.arm7.dma.has_pending_transfers() {
+      let mut dma_params = self.arm7.dma.get_transfer_parameters();
 
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
           cpu_cycles += self.handle_dma(params);
 
           // update internal destination and source address for the dma channel as well.
-          let channel = &mut self.arm9.dma_channels.channels[i];
+          let channel = &mut self.arm9.dma.channels[i];
 
           channel.internal_destination_address = params.destination_address;
           channel.internal_source_address = params.source_address;
