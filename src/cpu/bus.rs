@@ -42,7 +42,8 @@ pub struct Arm9Bus {
   div_result: u64,
   div_remainder: u64,
   sqrt_param: u64,
-  sqrt_result: u32
+  sqrt_result: u32,
+  pub dma_fill: [u32; 4]
 }
 
 pub struct Arm7Bus {
@@ -122,7 +123,8 @@ impl Bus {
         div_denomenator: 0,
         div_numerator: 0,
         div_result: 0,
-        div_remainder: 0
+        div_remainder: 0,
+        dma_fill: [0; 4],
       },
       is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),

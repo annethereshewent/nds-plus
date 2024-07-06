@@ -1,4 +1,4 @@
-use crate::{cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register1::PowerControlRegister1};
+use crate::{cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::{bg_control_register::BgControlRegister, power_control_register1::PowerControlRegister1, window_in_register::WindowInRegister, window_out_register::WindowOutRegister}};
 
 use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
@@ -95,7 +95,7 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.master_brightness.read(),
-      0x400_00ba => self.arm9.dma.channels[0].dma_control.bits(),
+      0x400_00ba => self.arm9.dma.channels[0].dma_control.bits() as u16,
       0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
       0x400_0180 => self.arm9.ipcsync.read() as u16,
@@ -115,6 +115,7 @@ impl Bus {
       0x400_0280 => self.arm9.divcnt.read(),
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
+      0x400_0304 => self.gpu.powcnt1.bits() as u16,
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -205,10 +206,21 @@ impl Bus {
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, &mut self.scheduler),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00d2) as usize, value, &mut self.scheduler),
       0x400_00d4..=0x400_00de => self.arm9.dma.write(3, (address - 0x400_00d4) as usize, value, &mut self.scheduler),
+      0x400_00e0..=0x400_00ec => {
+        let channel = (address - 0x400_00e0) / 4;
+
+        self.arm9.dma_fill[channel as usize] = value;
+      }
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(value),
+      0x400_0240 => {
+        // need to write to 4 different registers
+        for i in 0..4 {
+          self.gpu.write_vramcnt(i, (value >> (8 * i)) as u8);
+        }
+      }
       0x400_0290 => {
         self.arm9.div_numerator &= 0xffffffff00000000;
         self.arm9.div_numerator |= value as u64;
@@ -260,7 +272,8 @@ impl Bus {
 
     match address {
       0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
-      0x400_00ba => self.arm9.dma.channels[0].write_control(value, &mut self.scheduler),
+      0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
+      0x400_006c => self.gpu.master_brightness.write(value),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
@@ -282,8 +295,23 @@ impl Bus {
           self.gpu.write_vramcnt(offset + 1, (value >> 8) as u8);
         }
       }
+      0x400_0248 => {
+        let base = 7;
+
+        // need to write to h and i vram registers
+        for i in 0..2 {
+          self.gpu.write_vramcnt(base + i, (value >> 8 * i) as u8);
+        }
+      }
       0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
+      0x400_0304 => {
+        let old_value = self.gpu.powcnt1.bits();
+
+        let value = (old_value & 0xffff0000) | value as u32;
+
+        self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value);
+      }
       // 0x400_0006 => (),
       _ => {
         panic!("io register not implemented: {:X}", address)

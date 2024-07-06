@@ -3,7 +3,7 @@ use engine_3d::Engine3d;
 use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam};
 
-use crate::{cpu::{dma::dma_channels::{DmaChannels, HBLANK_TIMING, VBLANK_TIMING}, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
+use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
 
 pub mod registers;
 pub mod engine_2d;
@@ -78,7 +78,7 @@ impl GPU {
     }
 
     for dma in dma_channels {
-      dma.notify_gpu_event(HBLANK_TIMING);
+      dma.notify_gpu_event(DmaTiming::Hblank);
     }
 
     if self.vcount < HEIGHT {
@@ -124,7 +124,7 @@ impl GPU {
       self.trigger_vblank();
 
       for dma in dma_channels {
-        dma.notify_gpu_event(VBLANK_TIMING);
+        dma.notify_gpu_event(DmaTiming::Vblank);
       }
 
       self.frame_finished = true;

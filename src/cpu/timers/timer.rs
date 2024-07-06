@@ -88,7 +88,6 @@ impl Timer {
   }
 
   pub fn read_timer_value(&self, scheduler: &Scheduler) -> u16 {
-
     if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
       let current_cycles = scheduler.cycles;
 
@@ -96,7 +95,6 @@ impl Timer {
 
       return time_passed as u16 + self.value;
     }
-
 
     self.value
   }

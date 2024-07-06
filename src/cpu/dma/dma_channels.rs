@@ -1,13 +1,14 @@
 use crate::{cpu::{bus::Bus, CPU}, scheduler::Scheduler};
 
-use super::dma_channel::{registers::dma_control_register::DmaControlRegister, DmaChannel, DmaParams};
+use super::dma_channel::{registers::dma_control_register::{DmaControlRegister, DmaTiming}, DmaChannel, DmaParams};
 
-pub const VBLANK_TIMING: u16 = 1;
-pub const HBLANK_TIMING: u16 = 2;
-const FIFO_TIMING: u16 = 3;
+// pub const VBLANK_TIMING: u16 = 1;
+// pub const HBLANK_TIMING: u16 = 2;
+// const FIFO_TIMING: u16 = 3;
 
 pub struct DmaChannels {
-  pub channels: [DmaChannel; 4]
+  pub channels: [DmaChannel; 4],
+  is_arm9: bool
 }
 
 pub enum AddressType {
@@ -23,13 +24,14 @@ impl DmaChannels{
         DmaChannel::new(1, is_arm9),
         DmaChannel::new(2, is_arm9),
         DmaChannel::new(3, is_arm9)
-      ]
+      ],
+      is_arm9
     }
   }
 
-  pub fn notify_gpu_event(&mut self, timing: u16) {
+  pub fn notify_gpu_event(&mut self, timing: DmaTiming) {
     for channel in &mut self.channels {
-      if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE) && channel.dma_control.dma_start_timing() == timing {
+      if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE) && channel.dma_control.dma_start_timing(self.is_arm9) == timing {
         channel.pending = true;
       }
     }
@@ -39,8 +41,8 @@ impl DmaChannels{
     match index {
       0x0 => self.channels[channel].source_address = val,
       0x4 => self.channels[channel].destination_address = val,
-      0x8 => self.channels[channel].word_count = val as u16,
-      0xa => self.channels[channel].write_control(val as u16, scheduler),
+      0x8 => self.channels[channel].word_count = val & 0x1fffff,
+      0xa => self.channels[channel].write_control(val, scheduler),
       _ => panic!("invalid index given for dma write method")
     }
   }
@@ -49,7 +51,7 @@ impl DmaChannels{
     match index {
       0x0 => self.channels[channel].source_address,
       0x4 => self.channels[channel].destination_address,
-      0x8 => self.channels[channel].word_count as u32,
+      0x8 => self.channels[channel].word_count,
       0xa => self.channels[channel].dma_control.bits() as u32,
       _ => panic!("invalid index given for dma write method")
     }
@@ -59,7 +61,7 @@ impl DmaChannels{
     for channel in &mut self.channels {
       if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE)
         && channel.running
-        && channel.dma_control.dma_start_timing() == FIFO_TIMING
+        && channel.dma_control.dma_start_timing(self.is_arm9) == DmaTiming::Fifo
         && channel.destination_address == address {
           channel.pending = true;
         }

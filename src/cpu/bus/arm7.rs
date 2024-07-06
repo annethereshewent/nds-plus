@@ -81,7 +81,12 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
+      0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
+      0x400_0138 => {
+        println!("ignoring reads to RTC register");
+        0
+      }
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01c0 => self.arm7.spicnt.read(),
@@ -174,7 +179,11 @@ impl Bus {
       0x400_0100 => self.arm7.timers.t[0].reload_timer_value(value),
       0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
       0x400_0104 => self.arm7.timers.t[0].reload_timer_value(value),
+      0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0134 => (), // RCNT
+      0x400_0138 => {
+        println!("ignoring writes to rtc register");
+      }
       0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,  value),

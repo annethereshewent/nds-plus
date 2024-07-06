@@ -1,3 +1,5 @@
+use registers::dma_control_register::DmaTiming;
+
 use crate::{cpu::{bus::Bus, MemoryAccess, CPU}, scheduler::{EventType, Scheduler}};
 
 use self::registers::dma_control_register::DmaControlRegister;
@@ -25,13 +27,12 @@ pub struct DmaChannel {
   pub destination_address: u32,
   pub internal_source_address: u32,
   pub internal_destination_address: u32,
-  internal_count: u16,
+  internal_count: u32,
   pub dma_control: DmaControlRegister,
-  pub word_count: u16,
+  pub word_count: u32,
   pub pending: bool,
   pub running: bool,
   fifo_mode: bool,
-  cycles: u32,
   is_arm9: bool
 }
 
@@ -49,7 +50,6 @@ impl DmaChannel {
       running: false,
       fifo_mode: false,
       id,
-      cycles: 0,
       is_arm9
     }
   }
@@ -112,7 +112,7 @@ impl DmaChannel {
   }
 
 
-  pub fn write_control(&mut self, value: u16, scheduler: &mut Scheduler) {
+  pub fn write_control(&mut self, value: u32, scheduler: &mut Scheduler) {
     let dma_control = DmaControlRegister::from_bits_retain(value);
 
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
@@ -122,9 +122,9 @@ impl DmaChannel {
 
       self.running = true;
 
-      let timing = dma_control.dma_start_timing();
+      let timing = dma_control.dma_start_timing(self.is_arm9);
 
-      if timing == 0 {
+      if timing == DmaTiming::Immediately {
         if self.is_arm9 {
           scheduler.schedule(EventType::DMA9(self.id), 3);
         } else {
@@ -134,7 +134,7 @@ impl DmaChannel {
         self.pending = false;
       }
 
-      self.fifo_mode = timing == 3
+      self.fifo_mode = timing == DmaTiming::Fifo
         && dma_control.contains(DmaControlRegister::DMA_REPEAT)
         && (self.id == 1) || (self.id == 2)
         && (self.destination_address == FIFO_REGISTER_A || self.destination_address == FIFO_REGISTER_B);

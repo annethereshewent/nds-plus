@@ -12,4 +12,8 @@ impl MasterBrightnessRegister {
   pub fn read(&self) -> u16 {
     self.val
   }
+
+  pub fn write(&mut self, val: u16) {
+    self.val = val;
+  }
 }
