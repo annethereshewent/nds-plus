@@ -87,12 +87,14 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.master_brightness.read(),
+      0x400_00ba => self.arm9.dma_channels.channels[0].dma_control.bits(),
       0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
       0x400_0180 => self.arm9.ipcsync.read() as u16,
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
+      0x400_0204 => self.exmem.read(true),
       0x400_0208 => self.arm9.interrupt_master_enable as u16,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
@@ -192,10 +194,7 @@ impl Bus {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
       0x400_0188 => self.send_to_fifo(true, value),
-      0x400_0208 => {
-        println!("setting IME to {value}");
-        self.arm9.interrupt_master_enable = value != 0;
-      }
+      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(value),
       0x400_0290 => {
@@ -248,21 +247,18 @@ impl Bus {
     // };
 
     match address {
-      0x400_00ba => {
-        let ref mut scheduler = self.scheduler.borrow_mut();
-
-        self.arm9.dma_channels.channels[0].write_control(value, scheduler);
+      0x400_00b0 => {
+        // one sec
       }
+      0x400_00ba => self.arm9.dma_channels.channels[0].write_control(value),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
-      0x400_0208 => {
-        println!("setting IME to {value}");
-        self.arm9.interrupt_master_enable = value != 0;
-      }
+      0x400_0204 => self.exmem.write(true, value),
+      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 

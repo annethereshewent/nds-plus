@@ -8,7 +8,7 @@ use wram_control_register::WRAMControlRegister;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers, MemoryAccess};
+use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_memory::ExternalMemory, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers, MemoryAccess};
 
 pub mod arm7;
 pub mod arm9;
@@ -78,7 +78,8 @@ pub struct Bus {
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
   pub key_input_register: KeyInputRegister,
-  scheduler: Rc<RefCell<Scheduler>>
+  scheduler: Rc<RefCell<Scheduler>>,
+  exmem: ExternalMemory
 }
 
 impl Bus {
@@ -138,7 +139,7 @@ impl Bus {
       scheduler: scheduler.clone(),
       gpu: GPU::new(scheduler),
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
-
+      exmem: ExternalMemory::new()
     };
 
     if skip_bios {

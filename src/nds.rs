@@ -38,17 +38,22 @@ impl Nds {
   }
 
   pub fn step(&mut self) -> bool {
-    let mut frame_finished = false;
-
     let ref mut scheduler = *self.scheduler.borrow_mut();
 
-    if let Some((event_type, cycles)) = scheduler.get_next_event() {
-      self.arm9_cpu.step(cycles * 2);
-      self.arm7_cpu.step(cycles);
+    let cycles = scheduler.get_cycles_to_next_event();
 
-      // finally handle any events
-      let ref mut bus = *self.bus.borrow_mut();
+    let actual_target = std::cmp::min(scheduler.cycles + 30, cycles);
 
+    self.arm9_cpu.step(actual_target * 2);
+    self.arm7_cpu.step(actual_target);
+
+
+    scheduler.update_cycles(actual_target);
+
+    let ref mut bus = *self.bus.borrow_mut();
+
+    // finally check if there are any events to handle.
+    if let Some(event_type) = scheduler.get_next_event() {
       let mut interrupt_requests = [&mut bus.arm7.interrupt_request, &mut bus.arm9.interrupt_request];
       let mut dma_channels = [&mut bus.arm7.dma_channels, &mut bus.arm9.dma_channels];
 
@@ -58,20 +63,8 @@ impl Nds {
         EventType::DMA7(channel_id) => bus.arm7.dma_channels.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma_channels.channels[channel_id].pending = true,
       }
-
-      scheduler.update_cycles(cycles);
-
-      frame_finished = bus.gpu.frame_finished;
-    } else {
-      panic!("there are no events left to process! something probably went wrong");
     }
 
-    frame_finished
-  }
-
-  pub fn start_new_frame(&mut self) {
-    let ref mut bus = *self.bus.borrow_mut();
-
-    bus.gpu.frame_finished = false;
+    bus.gpu.frame_finished
   }
 }

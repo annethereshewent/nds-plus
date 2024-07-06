@@ -109,7 +109,7 @@ impl DmaChannel {
   }
 
 
-  pub fn write_control(&mut self, value: u16, scheduler: &mut Scheduler) {
+  pub fn write_control(&mut self, value: u16) {
     let dma_control = DmaControlRegister::from_bits_retain(value);
 
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
@@ -122,14 +122,8 @@ impl DmaChannel {
       let timing = dma_control.dma_start_timing();
 
       if timing == 0 {
-        let event = if self.is_arm9 {
-          EventType::DMA9(self.id)
-        } else {
-          EventType::DMA7(self.id)
-        };
-
-        // TODO: see if we can get away with just setting pending to true here instead of delaying it by 3 cycles
-        scheduler.schedule(event, 3);
+        // TODO: add back scheduler here if things don't work properly
+        self.pending = true;
       } else {
         self.pending = false;
       }

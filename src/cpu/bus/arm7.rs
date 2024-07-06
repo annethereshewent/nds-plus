@@ -12,10 +12,7 @@ impl Bus {
 
   pub fn arm7_io_write_32(&mut self, address: u32, val: u32) {
     match address {
-      0x400_0208 => {
-        println!("setting IME to {val}");
-        self.arm7.interrupt_master_enable = val != 0;
-      }
+      0x400_0208 => self.arm7.interrupt_master_enable = val != 0,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(val),
       0x400_0188 => self.send_to_fifo(false, val),
@@ -168,10 +165,7 @@ impl Bus {
       0x400_0006 => (),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,  value),
-      0x400_0208 => {
-        println!("setting IME to {value}");
-        self.arm7.interrupt_master_enable = value != 0;
-      }
+      0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
       0x400_0210 => {
         let mut value = self.arm7.interrupt_enable.bits() & 0xffff0000;
 
