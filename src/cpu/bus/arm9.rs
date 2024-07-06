@@ -71,9 +71,7 @@ impl Bus {
       0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       // 0x700_0000..=0x7ff_ffff => 0,
-      // 0x800_0000..=0xdff_ffff => {
-      //   0
-      // }
+      0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
       _ => {
         panic!("reading from unsupported address: {:X}", address);
       }

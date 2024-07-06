@@ -5,7 +5,7 @@
 // R15 are zero and bits [31:2] contain the PC. In THUMB state,
 // bit [0] is zero and bits [31:1] contain the PC.
 
-use std::{cell::{Cell, RefCell}, ops::RangeInclusive, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use bus::Bus;
 

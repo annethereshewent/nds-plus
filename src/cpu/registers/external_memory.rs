@@ -1,10 +1,10 @@
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum AccessRights {
   Arm7 = 0,
   Arm9 = 1
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum AccessPriority {
   Arm9 = 0,
   Arm7 = 1
@@ -17,12 +17,12 @@ pub enum MemoryMode {
 }
 
 pub struct ExternalMemory {
-  arm7_exmem: ExternalMemoryControlRegister,
-  arm9_exmem: ExternalMemoryControlRegister,
-  gba_access_rights: AccessRights,
-  nds_access_rights: AccessRights,
-  memory_access_priority: AccessPriority,
-  memory_mode: MemoryMode
+  pub arm7_exmem: ExternalMemoryControlRegister,
+  pub arm9_exmem: ExternalMemoryControlRegister,
+  pub gba_access_rights: AccessRights,
+  pub nds_access_rights: AccessRights,
+  pub memory_access_priority: AccessPriority,
+  pub memory_mode: MemoryMode
 }
 
 impl ExternalMemory {
@@ -93,10 +93,10 @@ impl ExternalMemory {
 }
 
 pub struct ExternalMemoryControlRegister {
-  gba_sram_access_time: u16,
-  gba_rom_1st_access: u16,
-  gba_rom_2nd_access: u16,
-  gba_phi: u16,
+  pub gba_sram_access_time: u16,
+  pub gba_rom_1st_access: u16,
+  pub gba_rom_2nd_access: u16,
+  pub gba_phi: u16,
 }
 
 impl ExternalMemoryControlRegister {

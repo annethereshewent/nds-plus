@@ -4,11 +4,11 @@ use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
 use num_integer::Roots;
 use spi::SPI;
-use wram_control_register::WRAMControlRegister;
+use touchscreen::Touchscreen;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_memory::ExternalMemory, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, square_root_control_register::{BitMode, SquareRootControlRegister}}, timers::Timers, MemoryAccess};
+use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
 
 pub mod arm7;
 pub mod arm9;
@@ -16,8 +16,7 @@ pub mod cp15;
 pub mod spi;
 pub mod flash;
 pub mod cartridge;
-pub mod wram_control_register;
-pub mod wram_status_register;
+pub mod touchscreen;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -56,7 +55,8 @@ pub struct Arm7Bus {
   pub ipcsync: IPCSyncRegister,
   pub ipcfifocnt: IPCFifoControlRegister,
   pub interrupt_request: InterruptRequestRegister,
-  pub interrupt_enable: InterruptEnableRegister
+  pub interrupt_enable: InterruptEnableRegister,
+  pub spicnt: SPIControlRegister,
 }
 
 pub struct Bus {
@@ -73,7 +73,8 @@ pub struct Bus {
   pub wramcnt: WRAMControlRegister,
   pub key_input_register: KeyInputRegister,
   pub scheduler: Scheduler,
-  exmem: ExternalMemory
+  exmem: ExternalMemory,
+  pub touchscreen: Touchscreen
 }
 
 impl Bus {
@@ -100,7 +101,8 @@ impl Bus {
         ipcsync: IPCSyncRegister::new(),
         ipcfifocnt: IPCFifoControlRegister::new(),
         interrupt_request: InterruptRequestRegister::from_bits_retain(0),
-        interrupt_enable: InterruptEnableRegister::from_bits_retain(0)
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        spicnt: SPIControlRegister::new()
       },
       arm9: Arm9Bus {
         timers: Timers::new(true),
@@ -133,7 +135,8 @@ impl Bus {
       gpu: GPU::new(&mut scheduler),
       scheduler: scheduler,
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
-      exmem: ExternalMemory::new()
+      exmem: ExternalMemory::new(),
+      touchscreen: Touchscreen::new()
     };
 
     if skip_bios {
@@ -391,6 +394,62 @@ impl Bus {
         self.arm7_mem_write_8(ram_address+i, self.cartridge.rom[(rom_address + i) as usize])
       }
     }
+  }
+
+  pub fn write_spi_data(&mut self, value: u8) {
+    if self.arm7.spicnt.spi_bus_enabled {
+      match self.arm7.spicnt.device {
+        DeviceSelect::Touchscreen => self.touchscreen.write(value),
+        DeviceSelect::Firmware => {
+          println!("ignoring writes to firmware (let's see if this doesn't break things too badly)")
+        },
+        _ => ()
+      }
+    }
+  }
+
+  pub fn read_spi_data(&self) -> u8 {
+    if self.arm7.spicnt.spi_bus_enabled {
+      return match self.arm7.spicnt.device {
+        DeviceSelect::Firmware => {
+          println!("ignoring reads from firmware");
+          0
+        }
+        DeviceSelect::Touchscreen => self.touchscreen.read(),
+        _ => 0
+      }
+    }
+    0
+  }
+
+  pub fn read_gba_rom(&self, address: u32, is_arm9: bool) -> u8 {
+    let exmemcnt = if is_arm9 {
+      &self.exmem.arm9_exmem
+    } else {
+      &self.exmem.arm7_exmem
+    };
+
+    if is_arm9 && self.exmem.gba_access_rights == AccessRights::Arm9 || !is_arm9 && self.exmem.gba_access_rights == AccessRights::Arm7 {
+      // return garbage values depending on exmem properties
+      let value = match exmemcnt.gba_rom_1st_access {
+        0 => (address / 2) | 0xfe08, // 10 clocks
+        1 => address / 2, // 8 clocks
+        2 => address / 2, // 6 clocks
+        3 => 0xffff,
+        _ => unreachable!()
+      } & 0xffff;
+
+      return match address & 0x3 {
+        0 => value as u8,
+        1 => (value >> 8) as u8,
+        2 => 0,
+        3 => 0,
+        _ => unreachable!()
+      };
+    }
+
+    // return back 0 for the deselected cpu
+    0
   }
 
   pub fn write_sqrtcnt(&mut self, value: u16) {

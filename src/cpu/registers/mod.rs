@@ -7,3 +7,6 @@ pub mod ipc_fifo_control_register;
 pub mod square_root_control_register;
 pub mod division_control_register;
 pub mod external_memory;
+pub mod spi_control_register;
+pub mod wram_control_register;
+pub mod wram_status_register;
