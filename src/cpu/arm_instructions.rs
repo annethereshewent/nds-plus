@@ -64,7 +64,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn arm_panic(&mut self, instr: u32) -> Option<MemoryAccess> {
-    panic!("unsupported instr: {:032b}", instr)
+    panic!("unsupported instruction: {:032b}", instr)
   }
 
   fn data_processing(&mut self, instr: u32) -> Option<MemoryAccess> {

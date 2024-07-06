@@ -1,6 +1,6 @@
 use std::{rc::Rc, cell::Cell};
 
-use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
+use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
 
 pub const CYCLE_LUT: [u32; 4] = [1, 64, 256, 1024];
 
@@ -12,50 +12,48 @@ pub struct Timer {
   pub timer_ctl: TimerControl,
   pub prescalar_frequency: u32,
   pub running: bool,
-  pub cycles: u32,
-  interrupt_request: Rc<Cell<InterruptRequestRegister>>
+  is_arm9: bool
 }
 
 impl Timer {
-  pub fn new(id: usize, interrupt_request: Rc<Cell<InterruptRequestRegister>>) -> Self {
+  pub fn new(id: usize, is_arm9: bool) -> Self {
     Self {
       reload_value: 0,
       value: 0,
       timer_ctl: TimerControl::from_bits_retain(0),
       prescalar_frequency: 0,
       running: false,
-      cycles: 0,
       id,
-      interrupt_request
+      is_arm9
     }
   }
 
-  pub fn tick(&mut self, cycles: u32) -> bool {
-    if self.running && !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
-      self.cycles += cycles;
+  // pub fn tick(&mut self, cycles: u32) -> bool {
+  //   if self.running && !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+  //     self.cycles += cycles;
 
-      let temp = if self.cycles >= self.prescalar_frequency {
-        let to_add = self.cycles / self.prescalar_frequency;
-        self.cycles = 0;
-        self.value.wrapping_add(to_add as u16)
-      } else {
-        self.value
-      };
+  //     let temp = if self.cycles >= self.prescalar_frequency {
+  //       let to_add = self.cycles / self.prescalar_frequency;
+  //       self.cycles = 0;
+  //       self.value.wrapping_add(to_add as u16)
+  //     } else {
+  //       self.value
+  //     };
 
-      // timer has overflown
-      if temp < self.value  {
-        self.handle_overflow();
+  //     // timer has overflown
+  //     if temp < self.value  {
+  //       self.handle_overflow();
 
-        return true;
-      } else {
-        self.value = temp;
-      }
-    }
+  //       return true;
+  //     } else {
+  //       self.value = temp;
+  //     }
+  //   }
 
-    false
-  }
+  //   false
+  // }
 
-  pub fn count_up_timer(&mut self) -> bool {
+  pub fn count_up_timer(&mut self, interrupt_request: &mut InterruptRequestRegister) -> bool {
     let mut return_val = false;
 
     if self.running {
@@ -63,7 +61,7 @@ impl Timer {
 
       // overflow has happened
       if temp < self.value {
-        self.handle_overflow();
+        self.handle_overflow(interrupt_request);
 
         return_val = true;
       } else {
@@ -74,17 +72,12 @@ impl Timer {
     return_val
   }
 
-  fn handle_overflow(&mut self) {
+  fn handle_overflow(&mut self, interrupt_request: &mut InterruptRequestRegister) {
     self.value = self.reload_value;
-    self.cycles = 0;
 
     if self.timer_ctl.contains(TimerControl::IRQ_ENABLE) {
       // trigger irq
-      let mut interrupt_request = self.interrupt_request.get();
-
       interrupt_request.request_timer(self.id);
-
-      self.interrupt_request.set(interrupt_request);
     }
   }
 
@@ -92,18 +85,28 @@ impl Timer {
     self.reload_value = value;
   }
 
-  pub fn write_timer_control(&mut self, value: u16) {
+  pub fn write_timer_control(&mut self, value: u16, scheduler: &mut Scheduler) {
     let new_ctl = TimerControl::from_bits_retain(value);
 
     self.prescalar_frequency = CYCLE_LUT[new_ctl.prescalar_selection() as usize];
 
+    let event_type = if self.is_arm9 {
+      EventType::TIMER9(self.id)
+    } else {
+      EventType::TIMER7(self.id)
+    };
+
     if new_ctl.contains(TimerControl::ENABLED) && !self.timer_ctl.contains(TimerControl::ENABLED) {
       self.value = self.reload_value;
-      self.cycles = 0;
       self.running = true;
+
+      scheduler.remove(event_type);
+
+      // this will probably not work as is
+      scheduler.schedule(event_type, self.value as usize * self.prescalar_frequency as usize);
     } else if !new_ctl.contains(TimerControl::ENABLED) {
+      scheduler.remove(event_type);
       self.running = false;
-      self.cycles = 0;
     }
 
     self.timer_ctl = new_ctl;

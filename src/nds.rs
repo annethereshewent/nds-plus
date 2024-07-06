@@ -65,6 +65,8 @@ impl Nds {
         EventType::NEXT_LINE => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
         EventType::DMA7(channel_id) => bus.arm7.dma_channels.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma_channels.channels[channel_id].pending = true,
+        EventType::TIMER7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma_channels, &mut bus.arm7.interrupt_request),
+        EventType::TIMER9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma_channels, &mut bus.arm9.interrupt_request)
       }
     }
 

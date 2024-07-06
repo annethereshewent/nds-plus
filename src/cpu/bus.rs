@@ -26,7 +26,7 @@ const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
 
 pub struct Arm9Bus {
-  timers: Timers,
+  pub timers: Timers,
   pub dma_channels: DmaChannels,
   bios9: Vec<u8>,
   pub cp15: CP15,
@@ -47,7 +47,7 @@ pub struct Arm9Bus {
 }
 
 pub struct Arm7Bus {
-  timers: Timers,
+  pub timers: Timers,
   pub dma_channels: DmaChannels,
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
@@ -57,12 +57,6 @@ pub struct Arm7Bus {
   pub ipcfifocnt: IPCFifoControlRegister,
   pub interrupt_request: InterruptRequestRegister,
   pub interrupt_enable: InterruptEnableRegister
-}
-
-impl Arm7Bus {
-  pub fn load_bios(&mut self, bytes: Vec<u8>) {
-    self.bios7 = bytes;
-  }
 }
 
 pub struct Bus {
@@ -92,13 +86,12 @@ impl Bus {
   {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);
-    let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
 
     let mut scheduler = Scheduler::new();
 
     let mut bus = Self {
       arm7: Arm7Bus {
-        timers: Timers::new(interrupt_request.clone()),
+        timers: Timers::new(false),
         bios7: bios7_bytes,
         dma_channels: dma_channels7,
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
@@ -110,7 +103,7 @@ impl Bus {
         interrupt_enable: InterruptEnableRegister::from_bits_retain(0)
       },
       arm9: Arm9Bus {
-        timers: Timers::new(interrupt_request.clone()),
+        timers: Timers::new(true),
         bios9: bios9_bytes,
         dma_channels: dma_channels9,
         cp15: CP15::new(),

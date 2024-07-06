@@ -487,16 +487,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
-    let irq_base: u32 = if IS_ARM9 {
-      let ref mut bus = *self.bus.borrow_mut();
-      bus.arm9.cp15.irq_base
-    } else {
-      0
-    };
-
     if !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
       let lr = self.get_irq_return_address();
-      self.interrupt(OperatingMode::IRQ, irq_base | IRQ_VECTOR, lr);
+      self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
     }
@@ -519,6 +512,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn interrupt(&mut self, mode: OperatingMode, vector: u32, lr: u32) {
+    let irq_base: u32 = if IS_ARM9 {
+      let ref mut bus = *self.bus.borrow_mut();
+      bus.arm9.cp15.irq_base
+    } else {
+      0
+    };
     let bank = mode.bank_index();
 
     self.r14_banks[bank] = lr;
@@ -529,7 +528,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // change to ARM state
     self.cpsr.remove(PSRRegister::STATE_BIT);
 
-    self.pc = vector;
+    self.pc = irq_base | vector;
 
     self.reload_pipeline32();
   }

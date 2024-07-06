@@ -162,7 +162,9 @@ impl Bus {
     };
 
     match address {
-      0x400_0006 => (),
+      // 0x400_0006 => (),
+      0x400_0100 => self.arm7.timers.t[0].reload_timer_value(value),
+      0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,  value),
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,

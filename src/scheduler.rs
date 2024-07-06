@@ -2,12 +2,14 @@ use std::cmp::Reverse;
 
 use priority_queue::PriorityQueue;
 
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub enum EventType {
   HBLANK,
   NEXT_LINE,
   DMA7(usize),
-  DMA9(usize)
+  DMA9(usize),
+  TIMER7(usize),
+  TIMER9(usize)
 }
 
 pub struct Scheduler {
@@ -25,6 +27,10 @@ impl Scheduler {
 
   pub fn schedule(&mut self, event_type: EventType, time: usize) {
     self.queue.push(event_type, Reverse(self.cycles + time));
+  }
+
+  pub fn remove(&mut self, event_type: EventType) {
+    self.queue.remove(&event_type);
   }
 
   pub fn update_cycles(&mut self, cycles: usize) {
