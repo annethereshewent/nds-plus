@@ -78,7 +78,7 @@ pub struct Bus {
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
   pub key_input_register: KeyInputRegister,
-  scheduler: Rc<RefCell<Scheduler>>,
+  pub scheduler: Scheduler,
   exmem: ExternalMemory
 }
 
@@ -88,12 +88,13 @@ impl Bus {
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
-     skip_bios: bool,
-     scheduler: Rc<RefCell<Scheduler>>) -> Self
+     skip_bios: bool) -> Self
   {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);
     let interrupt_request = Rc::new(Cell::new(InterruptRequestRegister::from_bits_retain(0)));
+
+    let mut scheduler = Scheduler::new();
 
     let mut bus = Self {
       arm7: Arm7Bus {
@@ -136,8 +137,8 @@ impl Bus {
       spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(rom_bytes),
       wramcnt: WRAMControlRegister::new(),
-      scheduler: scheduler.clone(),
-      gpu: GPU::new(scheduler),
+      gpu: GPU::new(&mut scheduler),
+      scheduler: scheduler,
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
       exmem: ExternalMemory::new()
     };

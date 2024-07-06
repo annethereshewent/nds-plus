@@ -108,8 +108,13 @@ impl DmaChannel {
     }
   }
 
+  pub fn write_source(&mut self, address: u32, mask: u32) {
+    self.source_address &= mask;
+    self.source_address |= address;
+  }
 
-  pub fn write_control(&mut self, value: u16) {
+
+  pub fn write_control(&mut self, value: u16, scheduler: &mut Scheduler) {
     let dma_control = DmaControlRegister::from_bits_retain(value);
 
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
@@ -123,7 +128,11 @@ impl DmaChannel {
 
       if timing == 0 {
         // TODO: add back scheduler here if things don't work properly
-        self.pending = true;
+        if self.is_arm9 {
+          scheduler.schedule(EventType::DMA9(self.id), 3);
+        } else {
+          scheduler.schedule(EventType::DMA7(self.id), 3);
+        }
       } else {
         self.pending = false;
       }
