@@ -19,11 +19,17 @@ impl Bus {
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
+      0x400_0290 => self.arm9.div_numerator as u32,
+      0x400_0294 => (self.arm9.div_numerator >> 32) as u32,
+      0x400_0298 => self.arm9.div_denomenator as u32,
+      0x400_029c => (self.arm9.div_denomenator >> 32) as u32,
       0x400_02a0 => self.arm9.div_result as u32,
       0x400_02a4 => (self.arm9.div_result >> 32) as u32,
       0x400_02a8 => self.arm9.div_remainder as u32,
       0x400_02ac => (self.arm9.div_remainder >> 32) as u32,
       0x400_02b4 => self.arm9.sqrt_result,
+      0x400_02b8 => self.arm9.sqrt_param as u32,
+      0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x410_0000 => self.receive_from_fifo(true),
       _ => panic!("unsupported io address received: {:X}", address)
     }

@@ -53,9 +53,7 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm7_io_read_8(address),
       0x600_0000..=0x6ff_ffff => self.gpu.read_arm7_wram(address),
       0x700_0000..=0x7ff_ffff => 0,
-      0x800_0000..=0xdff_ffff => {
-        0
-      }
+      0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, false),
       _ => {
         panic!("reading from unsupported address: {:X}", address);
       }
@@ -81,6 +79,9 @@ impl Bus {
     // };
 
     match address {
+      0x400_0004 => self.gpu.dispstat[0].read(),
+      0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
+      0x400_0134 => 0, // RCNT register, some kind of debug thing idk
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01c0 => self.arm7.spicnt.read(),
@@ -91,6 +92,10 @@ impl Bus {
         self.gpu.get_arm7_vram_stat() as u16 | ((self.wramcnt.read() & 0x3) as u16) << 8
       }
       0x400_0300 => self.arm7.postflg as u16,
+      0x400_0400..=0x400_051c => {
+        println!("ignoring reads from spu registers");
+        0
+      }
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -165,8 +170,12 @@ impl Bus {
 
     match address {
       // 0x400_0006 => (),
+      0x400_0004 => self.gpu.dispstat[0].write(value),
       0x400_0100 => self.arm7.timers.t[0].reload_timer_value(value),
       0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
+      0x400_0104 => self.arm7.timers.t[0].reload_timer_value(value),
+      0x400_0134 => (), // RCNT
+      0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,  value),
       0x400_01c0 => self.arm7.spicnt.write(value),
@@ -200,6 +209,7 @@ impl Bus {
 
         self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(value);
       }
+      0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
       _ => {
         panic!("io register not implemented: {:X}", address)
       }

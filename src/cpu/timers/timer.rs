@@ -12,7 +12,8 @@ pub struct Timer {
   pub timer_ctl: TimerControl,
   pub prescalar_frequency: u32,
   pub running: bool,
-  is_arm9: bool
+  is_arm9: bool,
+  start_cycles: usize
 }
 
 impl Timer {
@@ -24,7 +25,8 @@ impl Timer {
       prescalar_frequency: 0,
       running: false,
       id,
-      is_arm9
+      is_arm9,
+      start_cycles: 0
     }
   }
 
@@ -85,6 +87,20 @@ impl Timer {
     self.reload_value = value;
   }
 
+  pub fn read_timer_value(&self, scheduler: &Scheduler) -> u16 {
+
+    if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+      let current_cycles = scheduler.cycles;
+
+      let time_passed = (current_cycles - self.start_cycles) / self.prescalar_frequency as usize;
+
+      return time_passed as u16 + self.value;
+    }
+
+
+    self.value
+  }
+
   pub fn write_timer_control(&mut self, value: u16, scheduler: &mut Scheduler) {
     let new_ctl = TimerControl::from_bits_retain(value);
 
@@ -96,16 +112,18 @@ impl Timer {
       EventType::TIMER7(self.id)
     };
 
+    scheduler.remove(event_type);
+
     if new_ctl.contains(TimerControl::ENABLED) && !self.timer_ctl.contains(TimerControl::ENABLED) {
       self.value = self.reload_value;
       self.running = true;
 
-      scheduler.remove(event_type);
-
-      // this will probably not work as is
-      scheduler.schedule(event_type, self.value as usize * self.prescalar_frequency as usize);
+      if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+        self.start_cycles = scheduler.cycles;
+        scheduler.schedule(event_type, self.value as usize * self.prescalar_frequency as usize);
+      }
     } else if !new_ctl.contains(TimerControl::ENABLED) {
-      scheduler.remove(event_type);
+
       self.running = false;
     }
 

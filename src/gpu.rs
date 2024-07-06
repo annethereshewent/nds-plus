@@ -1,11 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
-
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
 use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, master_brightness_register::MasterBrightnessRegister, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
-use vram::{Bank, VRam, BANK_SIZES};
+use vram::{Bank, VRam};
 
-use crate::{cpu::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
+use crate::{cpu::{dma::dma_channels::{DmaChannels, HBLANK_TIMING, VBLANK_TIMING}, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
 
 pub mod registers;
 pub mod engine_2d;
@@ -79,6 +77,10 @@ impl GPU {
       dispstat.flags.insert(DispStatFlags::HBLANK);
     }
 
+    for dma in dma_channels {
+      dma.notify_gpu_event(HBLANK_TIMING);
+    }
+
     if self.vcount < HEIGHT {
       self.render_line();
     }
@@ -120,6 +122,10 @@ impl GPU {
       }
     } else if self.vcount == HEIGHT {
       self.trigger_vblank();
+
+      for dma in dma_channels {
+        dma.notify_gpu_event(VBLANK_TIMING);
+      }
 
       self.frame_finished = true;
       self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
@@ -220,9 +226,7 @@ impl GPU {
     for dispstat in &mut self.dispstat {
       dispstat.flags.insert(DispStatFlags::VBLANK);
     }
-
-    // do some other stuff here
-
+    // TODO: 3d rendering and possibly other stuff
   }
 
   fn render_line(&mut self) {
