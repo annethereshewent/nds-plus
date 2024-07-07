@@ -463,8 +463,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
-      println!("actually it is working");
-
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
 
       let ref mut bus = *self.bus.borrow_mut();

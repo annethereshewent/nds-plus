@@ -339,18 +339,7 @@ impl Bus {
       0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => {
-        let previous_send_empty = self.arm9.ipcfifocnt.send_empty_irq;
-        let previous_receive_not_empty = self.arm9.ipcfifocnt.receive_not_empty_irq;
-
         self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value);
-
-        // now check if there are any interrupts to send
-        if self.arm7.ipcfifocnt.fifo.is_empty() && !previous_send_empty && self.arm7.ipcfifocnt.send_empty_irq {
-          self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
-        }
-        if !self.arm9.ipcfifocnt.fifo.is_empty() && !previous_receive_not_empty && self.arm7.ipcfifocnt.send_empty_irq {
-          self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY);
-        }
       }
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
