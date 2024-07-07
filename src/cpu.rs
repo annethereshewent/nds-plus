@@ -315,14 +315,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     if interrupt_master_enable && (interrupt_request.bits() & interrupt_enable.bits()) != 0 {
       self.trigger_irq();
-
-      let ref mut bus = *self.bus.borrow_mut();
-
-      if IS_ARM9 {
-        bus.arm9.cp15.arm9_halted = false;
-      } else {
-        bus.is_halted = true;
-      }
     }
   }
 
@@ -474,11 +466,19 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
-    if !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
+    if (IS_ARM9 || !self.bus.borrow().is_halted) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
       let lr = self.get_irq_return_address();
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
+
+      let ref mut bus = *self.bus.borrow_mut();
+
+      if IS_ARM9 {
+        bus.arm9.cp15.arm9_halted = false;
+      } else {
+        bus.is_halted = false;
+      }
     }
   }
 
