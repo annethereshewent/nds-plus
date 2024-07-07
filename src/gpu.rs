@@ -1,6 +1,6 @@
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{display_capture_control_register::DisplayCaptureControlRegister, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam};
 
 use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}};
@@ -67,6 +67,7 @@ pub struct GPU {
   pub frame_finished: bool,
   pub vram: VRam,
   pub vcount: u16,
+  pub dispcapcnt: DisplayCaptureControlRegister
 }
 
 impl GPU {
@@ -85,6 +86,7 @@ impl GPU {
       powcnt2: PowerControlRegister2::from_bits_retain(0),
       vramcnt: vramcnt.try_into().unwrap(),
       dispstat: [DisplayStatusRegister::new(), DisplayStatusRegister::new()],
+      dispcapcnt: DisplayCaptureControlRegister::new(),
       vcount: 0,
       frame_finished: false,
       vram: VRam::new()
