@@ -197,7 +197,6 @@ impl Bus {
 
         // now check if there are any interrupts to send
         if self.arm7.ipcfifocnt.fifo.is_empty() && !previous_send_empty && self.arm7.ipcfifocnt.send_empty_irq {
-          println!("test???????");
           self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
         }
         if !self.arm9.ipcfifocnt.fifo.is_empty() && !previous_receive_not_empty && self.arm7.ipcfifocnt.send_empty_irq {
