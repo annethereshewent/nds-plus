@@ -121,6 +121,42 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_00b0..=0x400_00ba => {
+        let value = self.arm9.dma.read(0, (address - 0x400_00b0) as usize);
+
+        if address & 0b1 == 0 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00bc..=0x400_00c6 => {
+        let value = self.arm9.dma.read(1, (address - 0x400_00bc) as usize);
+
+        if address & 0b1 == 0 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00c8..=0x400_00d2 => {
+        let value = self.arm9.dma.read(2, (address - 0x400_00c8) as usize);
+
+        if address & 0b1 == 0 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00d4..=0x400_00de => {
+        let value = self.arm9.dma.read(3, (address - 0x400_00d4) as usize);
+
+        if address & 0b1 == 0 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
       0x400_1008..=0x400_1005f => self.gpu.engine_b.read_register(address),
       _ => {
         panic!("register not implemented: {:X}", address);

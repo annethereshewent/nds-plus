@@ -80,6 +80,7 @@ impl Bus {
 
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
+      0x400_0006 => self.gpu.vcount,
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
