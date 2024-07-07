@@ -77,7 +77,7 @@ impl GPU {
       vramcnt.push(VramControlRegister::new(i));
     }
 
-    let mut gpu = Self {
+    let gpu = Self {
       engine_a: Engine2d::new(),
       engine_b: Engine2d::new(),
       engine3d: Engine3d::new(),
@@ -123,12 +123,6 @@ impl GPU {
       }
     }
   }
-
-  // fn schedule_hblank(&mut self) {
-  //   let ref mut scheduler = *self.scheduler.borrow_mut();
-
-  //   scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
-  // }
 
   pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
     scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);

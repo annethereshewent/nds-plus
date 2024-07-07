@@ -205,18 +205,18 @@ impl Bus {
         self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
       }
       0x400_0214 => {
-        let mut value = self.arm7.interrupt_request.bits() & 0xffff0000;
+        // let mut value = self.arm7.interrupt_request.bits() & 0xffff0000;
 
-        value |= value as u32;
+        // value |= value as u32;
 
-        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(value);
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !value as u32);
       }
       0x400_0216 => {
-        let mut value = self.arm7.interrupt_request.bits() & 0xffff;
+        // let mut value = self.arm7.interrupt_request.bits() & 0xffff;
 
-        value |= (value as u32) << 16;
+        // value |= (value as u32) << 16;
 
-        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(value);
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !value as u32);
       }
       0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
       _ => {
