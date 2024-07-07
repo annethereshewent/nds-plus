@@ -14,7 +14,9 @@ impl Bus {
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = val != 0,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
-      0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(val),
+      0x400_0214 => {
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val);
+      }
       0x400_0188 => self.send_to_fifo(false, val),
       _ => panic!("write to unsupported address: {:X}", address)
     }
@@ -216,7 +218,7 @@ impl Bus {
 
         // value |= (value as u32) << 16;
 
-        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !value as u32);
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & (!value as u32) << 16);
       }
       0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
       _ => {
