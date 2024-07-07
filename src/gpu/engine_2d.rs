@@ -99,7 +99,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   pub fn read_register(&self, address: u32) -> u16 {
-    println!("read address = {:x}", address);
     match address & 0xff {
       0x08 => self.bgcnt[0].bits(),
       0x0a => self.bgcnt[1].bits(),
@@ -138,8 +137,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         bg_props[$i].$internal = new_value;
       }}
     }
-
-    println!("address = {:x}", address);
 
     match address & 0xff {
       0x08 => self.bgcnt[0] = BgControlRegister::from_bits_retain(value),
