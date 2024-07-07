@@ -56,7 +56,7 @@ impl Nds {
     bus.scheduler.update_cycles(actual_target);
 
     // finally check if there are any events to handle.
-    if let Some(event_type) = bus.scheduler.get_next_event() {
+    while let Some(event_type) = bus.scheduler.get_next_event() {
       let mut interrupt_requests = [&mut bus.arm7.interrupt_request, &mut bus.arm9.interrupt_request];
       let mut dma_channels = [&mut bus.arm7.dma, &mut bus.arm9.dma];
 

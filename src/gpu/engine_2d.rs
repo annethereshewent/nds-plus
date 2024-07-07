@@ -1,6 +1,6 @@
 use std::path::Display;
 
-use super::{registers::display_control_register::{DisplayControlRegister, DisplayMode}, vram::VRam, HEIGHT, WIDTH};
+use super::{registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::{DisplayControlRegister, DisplayMode}, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, vram::VRam, BgProps, HEIGHT, WIDTH};
 
 #[derive(Copy, Clone)]
 pub struct Color {
@@ -30,7 +30,21 @@ impl Color {
 pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub dispcnt: DisplayControlRegister<IS_ENGINE_B>,
   pub oam: [u8; 0x400],
-  pub pixels: [u8; 3 * (WIDTH * HEIGHT) as usize]
+  pub pixels: [u8; 3 * (WIDTH * HEIGHT) as usize],
+  pub winin: WindowInRegister,
+  pub winout: WindowOutRegister,
+  pub winh: [WindowHorizontalRegister; 2],
+  pub winv: [WindowVerticalRegister; 2],
+  pub bldcnt: ColorEffectsRegister,
+  pub bldalpha: AlphaBlendRegister,
+  pub bldy: BrightnessRegister,
+  pub bgcnt: [BgControlRegister; 4],
+  pub bgxofs: [u16; 4],
+  pub bgyofs: [u16; 4],
+  pub bg_props: [BgProps; 2],
+  bg_lines: [[Option<(u8, u8, u8)>; WIDTH as usize]; 4],
+  pub master_brightness: MasterBrightnessRegister,
+
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
@@ -38,7 +52,20 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     Self {
       dispcnt: DisplayControlRegister::new(),
       oam: [0; 0x400],
-      pixels: [0; 3 * (WIDTH * HEIGHT) as usize]
+      pixels: [0; 3 * (WIDTH * HEIGHT) as usize],
+      bgxofs: [0; 4],
+      bgyofs: [0; 4],
+      bg_props: [BgProps::new(); 2],
+      winh: [WindowHorizontalRegister::new(); 2],
+      winv: [WindowVerticalRegister::new(); 2],
+      winin: WindowInRegister::from_bits_retain(0),
+      winout: WindowOutRegister::from_bits_retain(0),
+      bldcnt: ColorEffectsRegister::new(),
+      bldalpha: AlphaBlendRegister::new(),
+      bldy: BrightnessRegister::new(),
+      bgcnt: [BgControlRegister::from_bits_retain(0); 4],
+      bg_lines: [[None; WIDTH as usize]; 4],
+      master_brightness: MasterBrightnessRegister::new()
     }
   }
 

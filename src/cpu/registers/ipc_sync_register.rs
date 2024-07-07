@@ -23,6 +23,7 @@ impl IPCSyncRegister {
 
   pub fn write(&mut self, other: &mut IPCSyncRegister, interrupt_request: &mut InterruptRequestRegister, value: u16) {
     self.data_output = ((value >> 8) & 0xf) as u32;
+
     other.data_input = self.data_output;
 
     self.send_irq = (value >> 13) & 0b1 == 1;

@@ -26,7 +26,7 @@
   24    NDS7 only: Wifi    / DSi9: XpertTeak DSP */
 
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Debug)]
   pub struct InterruptEnableRegister: u32 {
     const VBLANK = 0b1;
     const HBLANK = 0b1 << 1;

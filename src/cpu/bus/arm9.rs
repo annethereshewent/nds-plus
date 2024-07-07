@@ -94,10 +94,11 @@ impl Bus {
 
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
-      0x400_0006 => self.gpu.master_brightness.read(),
+      0x400_0006 => self.gpu.vcount,
+      0x400_006c => self.gpu.engine_a.master_brightness.read(),
       0x400_00ba => self.arm9.dma.channels[0].dma_control.bits() as u16,
-      0x400_0300 => self.arm9.postflg as u16,
       0x400_0130 => self.key_input_register.bits(),
+      0x400_0300 => self.arm9.postflg as u16,
       0x400_0180 => self.arm9.ipcsync.read() as u16,
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
@@ -117,7 +118,7 @@ impl Bus {
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
       _ => {
-        panic!("io register not implemented: {:X}", address);
+        panic!("register not implemented: {:X}", address);
       }
     }
   }
@@ -273,66 +274,67 @@ impl Bus {
     let gpu = &mut self.gpu;
 
     macro_rules! write_bg_reference_point {
-      (low $coordinate:ident $internal:ident $i:expr) => {{
-        let existing = gpu.bg_props[$i].$coordinate as u32;
+      (low $coordinate:ident $internal:ident $engine:ident $i:expr) => {{
+        let existing = gpu.$engine.bg_props[$i].$coordinate as u32;
 
         let new_value = ((existing & 0xffff0000) + (value as u32)) as i32;
 
-        gpu.bg_props[$i].$coordinate = new_value;
-        gpu.bg_props[$i].$internal = new_value;
+        gpu.$engine.bg_props[$i].$coordinate = new_value;
+        gpu.$engine.bg_props[$i].$internal = new_value;
       }};
-      (high $coordinate:ident $internal:ident $i:expr) => {{
-        let existing = gpu.bg_props[$i].$coordinate;
+      (high $coordinate:ident $internal:ident $engine:ident $i:expr) => {{
+        let existing = gpu.$engine.bg_props[$i].$coordinate;
 
         let new_value = existing & 0xffff | (((value & 0xfff) as i32) << 20) >> 4;
 
-        gpu.bg_props[$i].$coordinate = new_value;
-        gpu.bg_props[$i].$internal = new_value;
+        gpu.$engine.bg_props[$i].$coordinate = new_value;
+        gpu.$engine.bg_props[$i].$internal = new_value;
       }}
     }
 
     match address {
       0x400_0004 => self.gpu.dispstat[1].write(value),
-      0x400_0008 => self.gpu.bgcnt[0] = BgControlRegister::from_bits_retain(value),
-      0x400_000a => self.gpu.bgcnt[1] = BgControlRegister::from_bits_retain(value),
-      0x400_000c => self.gpu.bgcnt[2] = BgControlRegister::from_bits_retain(value),
-      0x400_000e => self.gpu.bgcnt[3] = BgControlRegister::from_bits_retain(value),
-      0x400_0010 => self.gpu.bgxofs[0] = value & 0b111111111,
-      0x400_0012 => self.gpu.bgyofs[0] = value & 0b111111111,
-      0x400_0014 => self.gpu.bgxofs[1] = value & 0b111111111,
-      0x400_0016 => self.gpu.bgyofs[1] = value & 0b111111111,
-      0x400_0018 => self.gpu.bgxofs[2] = value & 0b111111111,
-      0x400_001a => self.gpu.bgyofs[2] = value & 0b111111111,
-      0x400_001c => self.gpu.bgxofs[3] = value & 0b111111111,
-      0x400_001e => self.gpu.bgyofs[3] = value & 0b111111111,
-      0x400_0020 => self.gpu.bg_props[0].dx = value as i16,
-      0x400_0022 => self.gpu.bg_props[0].dmx = value as i16,
-      0x400_0024 => self.gpu.bg_props[0].dy = value as i16,
-      0x400_0026 => self.gpu.bg_props[0].dmy = value as i16,
-      0x400_0028 => write_bg_reference_point!(low x internal_x 0),
-      0x400_002a => write_bg_reference_point!(high x internal_x 0),
-      0x400_002c => write_bg_reference_point!(low y internal_y 0),
-      0x400_002e => write_bg_reference_point!(high y internal_y 0),
-      0x400_0030 => self.gpu.bg_props[1].dx = value as i16,
-      0x400_0032 => self.gpu.bg_props[1].dmx = value as i16,
-      0x400_0034 => self.gpu.bg_props[1].dy = value as i16,
-      0x400_0036 => self.gpu.bg_props[1].dmy = value as i16,
-      0x400_0038 => write_bg_reference_point!(low x internal_x 1),
-      0x400_003a => write_bg_reference_point!(high x internal_x 1),
-      0x400_003c => write_bg_reference_point!(low y internal_y 1),
-      0x400_003e => write_bg_reference_point!(high y internal_y 1),
-      0x400_0040 => self.gpu.winh[0].write(value),
-      0x400_0042 => self.gpu.winh[1].write(value),
-      0x400_0044 => self.gpu.winv[0].write(value),
-      0x400_0046 => self.gpu.winv[1].write(value),
-      0x400_0048 => self.gpu.winin = WindowInRegister::from_bits_retain(value),
-      0x400_004a => self.gpu.winout = WindowOutRegister::from_bits_retain(value),
-      0x400_0050 => self.gpu.bldcnt.write(value),
-      0x400_0052 => self.gpu.bldalpha.write(value),
-      0x400_0054 => self.gpu.bldy.write(value),
+      0x400_0006 => (),
+      0x400_0008 => self.gpu.engine_a.bgcnt[0] = BgControlRegister::from_bits_retain(value),
+      0x400_000a => self.gpu.engine_a.bgcnt[1] = BgControlRegister::from_bits_retain(value),
+      0x400_000c => self.gpu.engine_a.bgcnt[2] = BgControlRegister::from_bits_retain(value),
+      0x400_000e => self.gpu.engine_a.bgcnt[3] = BgControlRegister::from_bits_retain(value),
+      0x400_0010 => self.gpu.engine_a.bgxofs[0] = value & 0b111111111,
+      0x400_0012 => self.gpu.engine_a.bgyofs[0] = value & 0b111111111,
+      0x400_0014 => self.gpu.engine_a.bgxofs[1] = value & 0b111111111,
+      0x400_0016 => self.gpu.engine_a.bgyofs[1] = value & 0b111111111,
+      0x400_0018 => self.gpu.engine_a.bgxofs[2] = value & 0b111111111,
+      0x400_001a => self.gpu.engine_a.bgyofs[2] = value & 0b111111111,
+      0x400_001c => self.gpu.engine_a.bgxofs[3] = value & 0b111111111,
+      0x400_001e => self.gpu.engine_a.bgyofs[3] = value & 0b111111111,
+      0x400_0020 => self.gpu.engine_a.bg_props[0].dx = value as i16,
+      0x400_0022 => self.gpu.engine_a.bg_props[0].dmx = value as i16,
+      0x400_0024 => self.gpu.engine_a.bg_props[0].dy = value as i16,
+      0x400_0026 => self.gpu.engine_a.bg_props[0].dmy = value as i16,
+      0x400_0028 => write_bg_reference_point!(low x internal_x engine_a 0),
+      0x400_002a => write_bg_reference_point!(high x internal_x engine_a 0),
+      0x400_002c => write_bg_reference_point!(low y internal_y engine_a 0),
+      0x400_002e => write_bg_reference_point!(high y internal_y engine_a 0),
+      0x400_0030 => self.gpu.engine_a.bg_props[1].dx = value as i16,
+      0x400_0032 => self.gpu.engine_a.bg_props[1].dmx = value as i16,
+      0x400_0034 => self.gpu.engine_a.bg_props[1].dy = value as i16,
+      0x400_0036 => self.gpu.engine_a.bg_props[1].dmy = value as i16,
+      0x400_0038 => write_bg_reference_point!(low x internal_x engine_a 1),
+      0x400_003a => write_bg_reference_point!(high x internal_x engine_a 1),
+      0x400_003c => write_bg_reference_point!(low y internal_y engine_a 1),
+      0x400_003e => write_bg_reference_point!(high y internal_y engine_a 1),
+      0x400_0040 => self.gpu.engine_a.winh[0].write(value),
+      0x400_0042 => self.gpu.engine_a.winh[1].write(value),
+      0x400_0044 => self.gpu.engine_a.winv[0].write(value),
+      0x400_0046 => self.gpu.engine_a.winv[1].write(value),
+      0x400_0048 => self.gpu.engine_a.winin = WindowInRegister::from_bits_retain(value),
+      0x400_004a => self.gpu.engine_a.winout = WindowOutRegister::from_bits_retain(value),
+      0x400_0050 => self.gpu.engine_a.bldcnt.write(value),
+      0x400_0052 => self.gpu.engine_a.bldalpha.write(value),
+      0x400_0054 => self.gpu.engine_a.bldy.write(value),
+      0x400_006c => self.gpu.engine_a.master_brightness.write(value),
       0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
       0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
-      0x400_006c => self.gpu.master_brightness.write(value),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value),
       0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xff00),
@@ -371,9 +373,8 @@ impl Bus {
 
         self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value);
       }
-      // 0x400_0006 => (),
       _ => {
-        panic!("io register not implemented: {:X}", address)
+        panic!("register not implemented: {:X}", address)
       }
     }
   }

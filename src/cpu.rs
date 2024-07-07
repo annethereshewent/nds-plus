@@ -318,32 +318,18 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       let ref mut bus = *self.bus.borrow_mut();
 
-      bus.is_halted = false;
+      if IS_ARM9 {
+        bus.arm9.cp15.arm9_halted = false;
+      } else {
+        bus.is_halted = true;
+      }
     }
   }
 
   pub fn step(&mut self, cycles: usize) {
-    // first check interrupts
-    self.check_interrupts();
-
-    // let mut dma = self.bus.dma_channels.get();
-
-    // if dma.has_pending_transfers() {
-    //   let should_trigger_irqs = dma.do_transfers(self);
-    //   let mut interrupt_request = self.bus.interrupt_request.get();
-
-    //   for i in 0..4 {
-    //     if should_trigger_irqs[i] {
-    //       interrupt_request.request_dma(i);
-    //     }
-    //   }
-
-    //   self.bus.interrupt_request.set(interrupt_request);
-    //   self.bus.dma_channels.set(dma);
-    // }
-    self.bus.borrow_mut().check_dma(IS_ARM9);
-
     while self.cycles < cycles {
+      self.check_interrupts();
+      self.bus.borrow_mut().check_dma(IS_ARM9);
       if !self.bus.borrow().is_halted(IS_ARM9) {
         if self.cpsr.contains(PSRRegister::STATE_BIT) {
           self.step_thumb();
@@ -393,6 +379,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   pub fn load_16(&mut self, address: u32, access: MemoryAccess) -> u16 {
     self.update_cycles(address, access, MemoryWidth::Width16);
+
     if !IS_ARM9 {
       self.bus.borrow_mut().arm7_mem_read_16(address)
     } else {

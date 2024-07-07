@@ -220,8 +220,6 @@ impl Bus {
   pub fn check_dma(&mut self, is_arm9: bool) -> u32 {
     let mut cpu_cycles = 0;
 
-    // Rust *REALLY* makes it hard to keep your code DRY. like.... REALLY. This is really shitty annoying code
-    // but if I don't do it like this rust will throw a fit. TODO: clean this code up somehow
     if is_arm9 && self.arm9.dma.has_pending_transfers() {
       let mut dma_params = self.arm9.dma.get_transfer_parameters();
 
