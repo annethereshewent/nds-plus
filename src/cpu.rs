@@ -461,8 +461,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if (IS_ARM9 || !self.bus.borrow().is_halted) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
       let lr = self.get_irq_return_address();
 
-      self.interrupt_return_address = lr;
-
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
       println!("actually it is working");
