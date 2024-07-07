@@ -1,5 +1,5 @@
 bitflags! {
-  pub struct PowerControlRegister1: u32 {
+  pub struct PowerControlRegister1: u16 {
     const LCD_ENABLE = 1;
     const ENGINE_A_ENABLE = 1 << 1;
     const ENGINE_3D_ENABLE = 1 << 2;

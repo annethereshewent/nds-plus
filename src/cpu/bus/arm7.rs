@@ -1,4 +1,4 @@
-use crate::cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY};
+use crate::{cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY}, gpu::registers::power_control_register2::PowerControlRegister2};
 
 use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 
@@ -38,7 +38,7 @@ impl Bus {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
       0x300_0000..=0x37f_ffff => {
         if self.wramcnt.arm7_size == 0 {
-          // per martin koth: "De-allocation (0K) is a special case: At the ARM9-side,
+          // per martin korth: "De-allocation (0K) is a special case: At the ARM9-side,
           // the WRAM area is then empty (containing undefined data). At the ARM7-side,
           // the WRAM area is then containing mirrors of the 64KB ARM7-WRAM
           // (the memory at 3800000h and up)."
@@ -97,6 +97,7 @@ impl Bus {
         self.gpu.get_arm7_vram_stat() as u16 | ((self.wramcnt.read() & 0x3) as u16) << 8
       }
       0x400_0300 => self.arm7.postflg as u16,
+      0x400_0304 => self.gpu.powcnt2.bits(),
       0x400_0400..=0x400_051c => {
         println!("ignoring reads from spu registers");
         0
@@ -189,6 +190,7 @@ impl Bus {
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
+      0x400_0206 => (),
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
       0x400_0210 => {
         let mut value = self.arm7.interrupt_enable.bits() & 0xffff0000;
@@ -218,7 +220,11 @@ impl Bus {
 
         self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16));
       }
+      0x400_0300 => self.arm7.postflg = value & 0b1 == 1,
+      0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
       0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
+      0x0480_4000..=0x0480_5FFF => (),
+      0x0480_8000..=0x0480_8FFF => (),
       _ => {
         panic!("io register not implemented: {:X}", address)
       }
