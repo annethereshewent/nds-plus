@@ -97,6 +97,7 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.vcount,
+      0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
       0x400_006c => self.gpu.engine_a.master_brightness.read(),
       0x400_00ba => self.arm9.dma.channels[0].dma_control.bits() as u16,
       0x400_0100 => self.arm9.timers.t[0].read_timer_value(&self.scheduler),
@@ -120,6 +121,7 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_1008..=0x400_1005f => self.gpu.engine_b.read_register(address),
       _ => {
         panic!("register not implemented: {:X}", address);
       }
@@ -206,6 +208,10 @@ impl Bus {
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      0x400_0008..=0x400_005f => {
+        self.gpu.engine_a.write_register(address, value as u16);
+        self.gpu.engine_a.write_register(address + 2, (value >> 16) as u16);
+      }
       0x400_0064 => self.gpu.dispcapcnt.write(value),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, &mut self.scheduler),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, &mut self.scheduler),
@@ -266,6 +272,10 @@ impl Bus {
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
+      0x400_1008..=0x400_105f => {
+        self.gpu.engine_b.write_register(address, value as u16);
+        self.gpu.engine_b.write_register(address + 2, (value >> 16) as u16);
+      }
       _ => panic!("write to unsupported io address: {:X}", address)
     }
   }
@@ -281,7 +291,8 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
-      0x400_0008..=0x400_006c => self.gpu.engine_a.write_register(address, value),
+      0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value),
+      0x400_006c => self.gpu.engine_a.master_brightness.write(value),
       0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
       0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
       0x400_0100 => self.arm9.timers.t[0].reload_timer_value(value),
@@ -323,6 +334,8 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg = value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
+      0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value),
+      0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {
         panic!("register not implemented: {:X}", address)
       }

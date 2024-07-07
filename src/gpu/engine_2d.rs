@@ -98,6 +98,25 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   }
 
+  pub fn read_register(&self, address: u32) -> u16 {
+    println!("read address = {:x}", address);
+    match address & 0xff {
+      0x08 => self.bgcnt[0].bits(),
+      0x0a => self.bgcnt[1].bits(),
+      0x0c => self.bgcnt[2].bits(),
+      0x0e => self.bgcnt[3].bits(),
+      0x40 => self.winh[0].x1,
+      0x42 => self.winh[1].x1,
+      0x44 => self.winv[0].y1,
+      0x46 => self.winv[1].y1,
+      0x48 => self.winin.bits(),
+      0x4a => self.winout.bits(),
+      0x4c => 0, // TODO, see below
+      0x50 => self.bldcnt.value,
+      _ => panic!("invalid address given to engine read register method")
+    }
+  }
+
   pub fn write_register(&mut self, address: u32, value: u16) {
     let bg_props = &mut self.bg_props;
 
@@ -119,6 +138,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         bg_props[$i].$internal = new_value;
       }}
     }
+
+    println!("address = {:x}", address);
 
     match address & 0xff {
       0x08 => self.bgcnt[0] = BgControlRegister::from_bits_retain(value),
@@ -155,10 +176,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x46 => self.winv[1].write(value),
       0x48 => self.winin = WindowInRegister::from_bits_retain(value),
       0x4a => self.winout = WindowOutRegister::from_bits_retain(value),
+      0x4c => (), // TODO (but probably not lmao, mosaic is pointless)
       0x50 => self.bldcnt.write(value),
       0x52 => self.bldalpha.write(value),
       0x54 => self.bldy.write(value),
-      0x6c => self.master_brightness.write(value),
       _ => panic!("invalid address given to engine write register method")
     }
   }

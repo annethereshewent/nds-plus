@@ -91,6 +91,7 @@ impl Bus {
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01c0 => self.arm7.spicnt.read(),
       0x400_01c2 => self.read_spi_data() as u16,
+      0x400_0204 => self.exmem.read(false),
       0x400_0208 => self.arm7.interrupt_master_enable as u16,
       0x400_0240 => {
         // special case where it's reading from 2 different registers
@@ -190,6 +191,7 @@ impl Bus {
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
+      0x400_0204 => self.exmem.write(false, value),
       0x400_0206 => (),
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
       0x400_0210 => {
