@@ -161,16 +161,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     cpu
   }
 
-  pub fn trigger_interrupt(&mut self, flags: u32) {
-    let ref mut bus = *self.bus.borrow_mut();
-
-    if IS_ARM9 {
-      bus.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(bus.arm9.interrupt_request.bits() | flags);
-    } else {
-      bus.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(bus.arm7.interrupt_request.bits() | flags)
-    }
-  }
-
   pub fn set_mode(&mut self, new_mode: OperatingMode) {
     let old_mode = self.cpsr.mode();
 
@@ -267,9 +257,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    if self.debug_on {
-      println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
-    }
+    // if self.debug_on {
+    //   println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+    // }
 
     if self.arm_condition_met(condition) {
       if let Some(access) = self.execute_arm(instruction) {
@@ -319,9 +309,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn step(&mut self, cycles: usize) {
+
     while self.cycles < cycles {
       self.check_interrupts();
       self.bus.borrow_mut().check_dma(IS_ARM9);
+
       if !self.bus.borrow().is_halted(IS_ARM9) {
         if self.cpsr.contains(PSRRegister::STATE_BIT) {
           self.step_thumb();
@@ -468,7 +460,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   pub fn trigger_irq(&mut self) {
     if (IS_ARM9 || !self.bus.borrow().is_halted) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
       let lr = self.get_irq_return_address();
+
+      self.interrupt_return_address = lr;
+
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
+
+      println!("actually it is working");
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
 

@@ -188,7 +188,23 @@ impl Bus {
       }
       0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
-      0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,  value),
+      0x400_0184 => {
+        let previous_send_empty = self.arm7.ipcfifocnt.send_empty_irq;
+        let previous_receive_not_empty = self.arm7.ipcfifocnt.receive_not_empty_irq;
+
+        self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value);
+
+
+        // now check if there are any interrupts to send
+        if self.arm7.ipcfifocnt.fifo.is_empty() && !previous_send_empty && self.arm7.ipcfifocnt.send_empty_irq {
+          println!("test???????");
+          self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
+        }
+        if !self.arm9.ipcfifocnt.fifo.is_empty() && !previous_receive_not_empty && self.arm7.ipcfifocnt.send_empty_irq {
+          self.arm7.interrupt_request.insert(InterruptRequestRegister::IPC_RECV_FIFO_NOT_EMPTY);
+        }
+
+      }
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
@@ -218,7 +234,7 @@ impl Bus {
 
         // value |= (value as u32) << 16;
 
-        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & (!value as u32) << 16);
+        self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16));
       }
       0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
       _ => {
