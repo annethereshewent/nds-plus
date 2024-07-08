@@ -15,9 +15,10 @@ impl CartridgeControlRegister {
   }
 
   pub fn write(&mut self, val: u32, mask: u32) {
-    // self.val |= val;
-
     self.val &= mask;
     self.val |= val;
+
+    // need to run commands here:
+
   }
 }

@@ -17,6 +17,7 @@ impl Bus {
       0x400_00bc..=0x400_00c6 => self.arm9.dma.read(1, (address - 0x400_00bc) as usize),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.read(2, (address - 0x400_00d2) as usize),
       0x400_00d4..=0x400_00de => self.arm9.dma.read(3, (address - 0x400_00d4) as usize),
+      0x400_01a4 => self.cartridge.control.read(),
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
@@ -107,6 +108,13 @@ impl Bus {
       0x400_0182 => (self.arm9.ipcsync.read() >> 16) as u16,
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
+      0x400_01a0 => self.cartridge.spicnt.read() as u16,
+      0x400_01a2 => (self.cartridge.spicnt.read() >> 16) as u16,
+      0x400_01a4 => self.cartridge.control.read() as u16,
+      0x400_01a8..=0x400_01af => {
+        println!("ignoring reads from read only write command register");
+        0
+      }
       0x400_0204 => self.exmem.read(true),
       0x400_0208 => self.arm9.interrupt_master_enable as u16,
       0x400_0240..=0x400_0246 => {
@@ -263,6 +271,7 @@ impl Bus {
 
         self.arm9.dma_fill[channel as usize] = value;
       }
+      0x400_01a4 => self.cartridge.control.write(value, 0xffffffff),
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
@@ -388,6 +397,22 @@ impl Bus {
       0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xff),
       0x400_01a4 => self.cartridge.control.write(value as u32, 0xff00),
       0x400_01a6 => self.cartridge.control.write((value as u32) << 16, 0xff),
+      0x400_01a8 => {
+        self.cartridge.write_command(value as u8, 0);
+        self.cartridge.write_command((value >> 8) as u8, 1);
+      }
+      0x400_01aa => {
+        self.cartridge.write_command(value as u8, 2);
+        self.cartridge.write_command((value >> 8) as u8, 3);
+      }
+      0x400_01ac => {
+        self.cartridge.write_command(value as u8, 4);
+        self.cartridge.write_command((value >> 8) as u8, 5);
+      }
+      0x400_01ae => {
+        self.cartridge.write_command(value as u8, 6);
+        self.cartridge.write_command((value >> 8) as u8, 7);
+      }
       0x400_0204 => self.exmem.write(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0240..=0x400_0246 => {

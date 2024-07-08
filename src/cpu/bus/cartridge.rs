@@ -8,8 +8,6 @@ pub mod spicnt;
 
 pub const CHIP_ID: u32 = 0x1fc2;
 
-
-#[derive(Debug)]
 pub struct Header {
   game_title: String,
   game_code: String,
@@ -32,9 +30,7 @@ pub struct Header {
 
 impl Header {
   pub fn new(rom: &Vec<u8>) -> Self {
-    let default_str: &str = "";
-
-    let header = Self {
+    Self {
       game_title: std::str::from_utf8(&rom[0..0xc]).unwrap_or_default().to_string(),
       game_code: std::str::from_utf8(&rom[0xc..0x10]).unwrap_or_default().to_string(),
       maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap_or_default().to_string(),
@@ -52,11 +48,7 @@ impl Header {
       arm7_entry_address: util::read_word(rom, 0x34),
       arm7_ram_address: util::read_word(rom, 0x38),
       arm7_size: util::read_word(rom, 0x3c)
-    };
-
-    println!("arm7_ram_address: {:x} arm7_entry_address: {:x}, arm7_size: {:x} arm7_rom_offset: {:x}", header.arm7_ram_address, header.arm7_entry_address, header.arm7_size, header.arm7_rom_offset);
-
-    header
+    }
   }
 }
 
@@ -64,7 +56,8 @@ pub struct Cartridge {
   pub rom: Vec<u8>,
   pub control: CartridgeControlRegister,
   pub spicnt: SPICNT,
-  pub header: Header
+  pub header: Header,
+  pub command: [u8; 8]
 }
 
 impl Cartridge {
@@ -73,7 +66,12 @@ impl Cartridge {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
       header: Header::new(&rom),
-      rom
+      rom,
+      command: [0; 8]
     }
+  }
+
+  pub fn write_command(&mut self, command: u8, byte: usize) {
+    self.command[byte] = command;
   }
 }
