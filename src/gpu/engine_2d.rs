@@ -42,7 +42,8 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub bg_props: [BgProps; 2],
   bg_lines: [[Option<(u8, u8, u8)>; SCREEN_WIDTH as usize]; 4],
   pub master_brightness: MasterBrightnessRegister,
-
+  pub bg_palette_ram: [u8; 0x200],
+  pub obj_palette_ram: [u8; 0x200]
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
@@ -63,8 +64,24 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bldy: BrightnessRegister::new(),
       bgcnt: [BgControlRegister::from_bits_retain(0); 4],
       bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
-      master_brightness: MasterBrightnessRegister::new()
+      master_brightness: MasterBrightnessRegister::new(),
+      bg_palette_ram: [0; 0x200],
+      obj_palette_ram: [0; 0x200]
     }
+  }
+
+  pub fn write_palette_ram(&mut self, address: u32, byte: u8) {
+    let mut address = address & (2 * self.bg_palette_ram.len() - 1) as u32;
+
+    let ram = if address < self.bg_palette_ram.len() as u32 {
+      &mut self.bg_palette_ram
+    } else {
+      &mut self.obj_palette_ram
+    };
+
+    address = address & (ram.len() - 1) as u32;
+
+    ram[address as usize] = byte;
   }
 
   pub fn render_normal_line(&mut self, y: u16, vram: &VRam) {
@@ -291,7 +308,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.set_pixel(x as usize, y as usize, color);
         }
       }
-      DisplayMode::Mode3 => todo!() // no one seems to have implemented this
+      DisplayMode::Mode3 => todo!()
     }
   }
 

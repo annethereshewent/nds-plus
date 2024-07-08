@@ -19,6 +19,7 @@ impl CartridgeControlRegister {
     self.val |= val;
 
     // need to run commands here:
+    println!("im awaiting commands");
 
   }
 }

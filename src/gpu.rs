@@ -163,6 +163,14 @@ impl GPU {
 
   }
 
+  pub fn write_palette_a(&mut self, address: u32, val: u8) {
+    self.engine_a.write_palette_ram(address, val);
+  }
+
+  pub fn write_palette_b(&mut self, address: u32, val: u8) {
+    self.engine_b.write_palette_ram(address, val);
+  }
+
   pub fn write_lcdc(&mut self, address: u32, val: u8) {
     match address {
       0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val),
