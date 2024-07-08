@@ -10,3 +10,4 @@ pub mod external_memory;
 pub mod spi_control_register;
 pub mod wram_control_register;
 pub mod wram_status_register;
+pub mod external_key_input_register;

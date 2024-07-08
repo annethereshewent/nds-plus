@@ -8,7 +8,7 @@ use touchscreen::Touchscreen;
 
 use crate::{gpu::GPU, scheduler::Scheduler};
 
-use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
+use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_key_input_register::ExternalKeyInputRegister, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
 
 pub mod arm7;
 pub mod arm9;
@@ -58,6 +58,7 @@ pub struct Arm7Bus {
   pub interrupt_request: InterruptRequestRegister,
   pub interrupt_enable: InterruptEnableRegister,
   pub spicnt: SPIControlRegister,
+  pub extkeyin: ExternalKeyInputRegister
 }
 
 pub struct Bus {
@@ -103,7 +104,8 @@ impl Bus {
         ipcfifocnt: IPCFifoControlRegister::new(),
         interrupt_request: InterruptRequestRegister::from_bits_retain(0),
         interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
-        spicnt: SPIControlRegister::new()
+        spicnt: SPIControlRegister::new(),
+        extkeyin: ExternalKeyInputRegister::new()
       },
       arm9: Arm9Bus {
         timers: Timers::new(true),

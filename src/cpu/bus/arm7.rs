@@ -84,6 +84,7 @@ impl Bus {
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
+      0x400_0136 => self.arm7.extkeyin.bits(),
       0x400_0138 => {
         println!("ignoring reads to RTC register");
         0
