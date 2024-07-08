@@ -30,7 +30,7 @@ pub struct Header {
 
 impl Header {
   pub fn new(rom: &Vec<u8>) -> Self {
-    Self {
+    let header = Self {
       game_title: std::str::from_utf8(&rom[0..0xc]).unwrap_or_default().to_string(),
       game_code: std::str::from_utf8(&rom[0xc..0x10]).unwrap_or_default().to_string(),
       maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap_or_default().to_string(),
@@ -48,7 +48,11 @@ impl Header {
       arm7_entry_address: util::read_word(rom, 0x34),
       arm7_ram_address: util::read_word(rom, 0x38),
       arm7_size: util::read_word(rom, 0x3c)
-    }
+    };
+
+    println!("Game title: {}", header.game_title.trim());
+
+    header
   }
 }
 
@@ -71,7 +75,19 @@ impl Cartridge {
     }
   }
 
-  pub fn write_command(&mut self, command: u8, byte: usize) {
-    self.command[byte] = command;
+  pub fn write_command(&mut self, command: u8, byte: usize, has_access: bool) {
+    if has_access {
+      self.command[byte] = command;
+    }
+  }
+
+  pub fn write_control(&mut self, value: u32, mask: u32, has_access: bool) {
+    if has_access {
+      self.control.write(value, mask, has_access);
+      if (value >> 31) & 0b1 == 1 {
+        // run a command
+        println!("im awaiting commands");
+      }
+    }
   }
 }

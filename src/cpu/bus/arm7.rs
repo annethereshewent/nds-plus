@@ -1,4 +1,4 @@
-use crate::{cpu::registers::{interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY}, gpu::registers::power_control_register2::PowerControlRegister2};
+use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY}, gpu::registers::power_control_register2::PowerControlRegister2};
 
 use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 
@@ -91,8 +91,7 @@ impl Bus {
       }
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
-      0x400_01a0 => self.cartridge.spicnt.read() as u16,
-      0x400_01a2 => (self.cartridge.spicnt.read() >> 16) as u16,
+      0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01c0 => self.arm7.spicnt.read(),
       0x400_01c2 => self.read_spi_data() as u16,
       0x400_0204 => self.exmem.read(false),
@@ -193,8 +192,7 @@ impl Bus {
       0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
-      0x400_01a0 => self.cartridge.spicnt.write(value as u32, 0xffff0000),
-      0x400_01a2 => self.cartridge.spicnt.write((value as u32) << 16, 0xffff),
+      0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
