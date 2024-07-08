@@ -223,7 +223,7 @@ impl Bus {
 
         self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16));
       }
-      0x400_0300 => self.arm7.postflg = value & 0b1 == 1,
+      0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
       0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
       0x0480_4000..=0x0480_5FFF => (),

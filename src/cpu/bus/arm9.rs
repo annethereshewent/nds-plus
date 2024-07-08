@@ -48,14 +48,14 @@ impl Bus {
     let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
     let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
 
-    if dtcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
-
-      return self.dtcm[actual_addr as usize];
-    } else if itcm_ranges.contains(&address) {
+    if itcm_ranges.contains(&address) {
       let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
 
       return self.itcm[actual_addr as usize];
+    } else if dtcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+
+      return self.dtcm[actual_addr as usize];
     }
 
     if address >= 0xffff_0000 {
@@ -182,42 +182,56 @@ impl Bus {
     let upper = (val >> 16) as u16;
     let lower = (val & 0xffff) as u16;
 
+    if address == 0 {
+      println!("yes");
+    }
+
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_32(address, val),
       _ => {
-        self.arm9_mem_write_16(address, lower);
-        self.arm9_mem_write_16(address + 2, upper);
+        self.arm9_mem_write_16(address, lower, "arm9_mem_write_32");
+        self.arm9_mem_write_16(address + 2, upper, "arm9_mem_write_32");
       }
     }
   }
 
-  pub fn arm9_mem_write_16(&mut self, address: u32, val: u16) {
+  pub fn arm9_mem_write_16(&mut self, address: u32, val: u16, source: &str) {
     let upper = (val >> 8) as u8;
     let lower = (val & 0xff) as u8;
 
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_16(address, val),
       _ => {
-        self.arm9_mem_write_8(address, lower);
-        self.arm9_mem_write_8(address + 1, upper);
+        self.arm9_mem_write_8(address, lower, source);
+        self.arm9_mem_write_8(address + 1, upper, source);
       }
     }
   }
 
-  pub fn arm9_mem_write_8(&mut self, address: u32, val: u8) {
+  pub fn arm9_mem_write_8(&mut self, address: u32, val: u8, source: &str) {
     let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
     let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
 
+    if address == 0 {
+      println!("source = {source}");
+      println!("what????");
+    }
+
+    if itcm_ranges.contains(&address) {
+      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+
+      if actual_addr == 0 {
+        println!("writing to itcm at address {:X}", address);
+      }
+
+      self.itcm[actual_addr as usize] = val;
+
+      return;
+    }
     if dtcm_ranges.contains(&address) {
       let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
       self.dtcm[actual_addr as usize] = val;
-
-      return;
-    } else if itcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
-
-      self.itcm[actual_addr as usize] = val;
 
       return;
     }
@@ -234,7 +248,7 @@ impl Bus {
         self.shared_wram[((address & arm9_mask) + arm9_offset) as usize] = val;
       }
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
-      0x500_0000..=0x5ff_ffff => self.arm9_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
+      0x500_0000..=0x5ff_ffff => (),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
       0x700_0000..=0x700_3fff => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
       0x700_4000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
@@ -412,7 +426,7 @@ impl Bus {
       }
       0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
-      0x400_0300 => self.arm9.postflg = value & 0b1 == 1,
+      0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
@@ -449,7 +463,7 @@ impl Bus {
           (temp & 0xff00) | value as u16
         };
 
-        self.arm9_mem_write_16(address & !(0b1), temp);
+        self.arm9_mem_write_16(address & !(0b1), temp, "io_write_8");
       }
     }
 
