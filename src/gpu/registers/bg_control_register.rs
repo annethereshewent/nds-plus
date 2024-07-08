@@ -13,7 +13,7 @@ impl BgControlRegister {
   }
 
   pub fn character_base_block(&self) -> u16 {
-    (self.bits() >> 2) & 0b11
+    (self.bits() >> 2) & 0xf
   }
 
   pub fn screen_base_block(&self) -> u16 {

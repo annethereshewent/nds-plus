@@ -16,8 +16,8 @@ const DOTS_PER_LINE: usize = 355;
 
 const NUM_LINES: u16 = 263;
 
-pub const HEIGHT: u16 = 192;
-pub const WIDTH: u16 = 256;
+pub const SCREEN_HEIGHT: u16 = 192;
+pub const SCREEN_WIDTH: u16 = 256;
 
 const BANK_A: u32 = Bank::BankA as u32;
 const BANK_B: u32 = Bank::BankB as u32;
@@ -108,7 +108,7 @@ impl GPU {
       dma.notify_gpu_event(DmaTiming::Hblank);
     }
 
-    if self.vcount < HEIGHT {
+    if self.vcount < SCREEN_HEIGHT {
       self.render_line();
     }
 
@@ -141,7 +141,7 @@ impl GPU {
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
       }
-    } else if self.vcount == HEIGHT {
+    } else if self.vcount == SCREEN_HEIGHT {
       self.trigger_vblank();
 
       for dma in dma_channels {

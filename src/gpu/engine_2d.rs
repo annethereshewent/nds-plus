@@ -1,6 +1,4 @@
-use std::path::Display;
-
-use super::{registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::{DisplayControlRegister, DisplayMode}, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, vram::VRam, BgProps, HEIGHT, WIDTH};
+use super::{registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::{BgMode, DisplayControlRegister, DisplayControlRegisterFlags, DisplayMode}, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, vram::VRam, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 #[derive(Copy, Clone)]
 pub struct Color {
@@ -30,7 +28,7 @@ impl Color {
 pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub dispcnt: DisplayControlRegister<IS_ENGINE_B>,
   pub oam: [u8; 0x400],
-  pub pixels: [u8; 3 * (WIDTH * HEIGHT) as usize],
+  pub pixels: [u8; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
   pub winin: WindowInRegister,
   pub winout: WindowOutRegister,
   pub winh: [WindowHorizontalRegister; 2],
@@ -42,7 +40,7 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub bgxofs: [u16; 4],
   pub bgyofs: [u16; 4],
   pub bg_props: [BgProps; 2],
-  bg_lines: [[Option<(u8, u8, u8)>; WIDTH as usize]; 4],
+  bg_lines: [[Option<(u8, u8, u8)>; SCREEN_WIDTH as usize]; 4],
   pub master_brightness: MasterBrightnessRegister,
 
 }
@@ -52,7 +50,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     Self {
       dispcnt: DisplayControlRegister::new(),
       oam: [0; 0x400],
-      pixels: [0; 3 * (WIDTH * HEIGHT) as usize],
+      pixels: [0; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
       bgxofs: [0; 4],
       bgyofs: [0; 4],
       bg_props: [BgProps::new(); 2],
@@ -64,18 +62,226 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bldalpha: AlphaBlendRegister::new(),
       bldy: BrightnessRegister::new(),
       bgcnt: [BgControlRegister::from_bits_retain(0); 4],
-      bg_lines: [[None; WIDTH as usize]; 4],
+      bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
       master_brightness: MasterBrightnessRegister::new()
     }
   }
 
+  pub fn render_normal_line(&mut self, y: u16, vram: &VRam) {
+    if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
+      self.render_objects();
+    }
+
+    match self.dispcnt.bg_mode {
+      BgMode::Mode0 => {
+        for i in 0..4 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+      }
+      BgMode::Mode1 => {
+        for i in 0..3 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+
+        if self.bg_mode_enabled(3) {
+          self.render_affine_line(3);
+        }
+      }
+      BgMode::Mode2 => {
+        for i in 0..2 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+
+        for i in 2..4 {
+          if self.bg_mode_enabled(i) {
+            self.render_affine_line(i);
+          }
+        }
+      }
+      BgMode::Mode3 => {
+        for i in 0..3 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+
+        if self.bg_mode_enabled(3) {
+          self.render_extended_line(3);
+        }
+      }
+      BgMode::Mode4 => {
+        for i in 0..2 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+
+        if self.bg_mode_enabled(2) {
+          self.render_affine_line(2);
+        }
+
+        if self.bg_mode_enabled(3) {
+          self.render_extended_line(3);
+        }
+      }
+      BgMode::Mode5 => {
+        for i in 0..2 {
+          if self.bg_mode_enabled(i) {
+            self.render_text_line(i, y, vram);
+          }
+        }
+
+        if self.bg_mode_enabled(2) {
+          self.render_extended_line(2);
+        }
+
+        if self.bg_mode_enabled(3) {
+          self.render_extended_line(3);
+        }
+      }
+      BgMode::Mode6 => (), // TODO
+      _ => panic!("reserved option given for bg mode: 7")
+    }
+
+    self.finalize_scanline();
+  }
+
+  fn render_extended_line(&mut self, bg_index: usize) {
+
+  }
+
+  fn finalize_scanline(&mut self) {
+
+  }
+
+  fn render_affine_line(&mut self, bg_index: usize) {
+
+  }
+  fn render_objects(&mut self) {
+
+  }
+
+  fn bg_mode_enabled(&self, bg_index: usize) -> bool {
+    match bg_index {
+      0 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG0),
+      1 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG1),
+      2 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG2),
+      3 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG3),
+      _ => unreachable!("can't happen")
+    }
+  }
+
+  fn render_text_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
+    let (x_offset, y_offset) = (self.bgxofs[bg_index], self.bgyofs[bg_index]);
+    /*
+      engine A screen base: BGxCNT.bits*2K + DISPCNT.bits*64K
+      engine B screen base: BGxCNT.bits*2K + 0
+      engine A char base: BGxCNT.bits*16K + DISPCNT.bits*64K
+      engine B char base: BGxCNT.bits*16K + 0
+     */
+    let (tilemap_base, tile_base) = if !IS_ENGINE_B {
+      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800 + self.dispcnt.screen_base * 0x1_0000, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000 + self.dispcnt.character_base * 0x1_0000)
+    } else {
+      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000)
+    };
+
+    let mut x = 0;
+
+    let x_in_bg = x + x_offset;
+    let y_in_bg = y + y_offset;
+
+    let mut x_tile_number = (x_in_bg / 8) % 32;
+    let y_tile_number = (x_in_bg / 8) % 32;
+
+    let mut x_pos_in_tile = x_in_bg % 8;
+    let y_pos_in_tile = y_in_bg % 8;
+
+    let mut screen_index = match self.bgcnt[bg_index].screen_size() {
+      0 => 0,
+      1 => x_in_bg / 256, // 512 x 256
+      2 => y_in_bg / 256, // 256 x 512
+      3 => (x_in_bg / 256) + ((y_in_bg / 256) * 2), // 512 x 512
+      _ => unreachable!("not possible")
+    };
+
+    let tile_size: u32 = if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
+      64
+    } else {
+      32
+    };
+
+    while x < SCREEN_WIDTH {
+      let tile_number = x_tile_number + y_tile_number * 32;
+      let mut tilemap_address = tilemap_base + 0x800 * screen_index as u32 + 2 * tile_number as u32;
+
+      'outer: for _ in x_tile_number..32 {
+        let attributes = if !IS_ENGINE_B {
+          vram.read_engine_a_bg(tilemap_address) as u16 | (vram.read_engine_a_bg(tilemap_address) as u16) << 8
+        } else {
+          0 // TODO
+        };
+
+        let x_flip = (attributes >> 10) & 0x1 == 1;
+        let y_flip =  (attributes >> 11) & 0x1 == 1;
+        let palette_number = (attributes >> 12) & 0xf;
+        let tile_number = attributes & 0x3ff;
+
+        let tile_address = tile_base + tile_number as u32 * tile_size as u32;
+
+        for tile_x in x_pos_in_tile..8 {
+          let palette_index = if tile_size == 64 {
+            self.get_pixel_index_bpp8(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+          } else {
+            self.get_pixel_index_bpp4(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+          };
+
+          let palette_bank = if tile_size == 64 {
+            0
+          } else {
+            palette_number
+          };
+
+          println!("x_flip = {x_flip} y_flip = {y_flip} palette_number = {palette_number} tile_number = {tile_number}");
+
+          // self.bg_lines[bg_index][x as usize] = self.get_palette_color(palette_index as usize, palette_bank as usize, 0);
+
+          x += 1;
+
+          if x == SCREEN_WIDTH {
+            break 'outer;
+          }
+        }
+        x_pos_in_tile = 0;
+        tilemap_address += 2;
+      }
+    }
+
+
+  }
+
   pub fn render_line(&mut self, y: u16, vram: &mut VRam) {
     match self.dispcnt.display_mode {
-      DisplayMode::Mode0 => println!("in mode 0"),
-      DisplayMode::Mode1 => println!("in mode 1"),
+      DisplayMode::Mode0 => {
+        let color = Color {
+          r: 0xff,
+          g: 0xff,
+          b: 0xff
+        };
+
+        for x in 0..SCREEN_WIDTH {
+          self.set_pixel(x as usize, y as usize, color);
+        }
+      },
+      DisplayMode::Mode1 => self.render_normal_line(y, vram),
       DisplayMode::Mode2 => {
-        for x in 0..WIDTH {
-          let index = 2 * (y as usize * WIDTH as usize + x as usize);
+        for x in 0..SCREEN_WIDTH {
+          let index = 2 * (y as usize * SCREEN_WIDTH as usize + x as usize);
           let bank = vram.get_lcdc_bank(self.dispcnt.vram_block);
 
           let color = bank[index] as u16 | (bank[(index + 1) as usize] as u16) << 8;
@@ -84,13 +290,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           self.set_pixel(x as usize, y as usize, color);
         }
-      },
-      DisplayMode::Mode3 => println!("in mode 3"),
+      }
+      DisplayMode::Mode3 => todo!() // no one seems to have implemented this
     }
   }
 
   pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-    let i: usize = 3 * (x + y * WIDTH as usize);
+    let i: usize = 3 * (x + y * SCREEN_WIDTH as usize);
 
     self.pixels[i] = color.r;
     self.pixels[i + 1] = color.g;
@@ -178,6 +384,33 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x52 => self.bldalpha.write(value),
       0x54 => self.bldy.write(value),
       _ => panic!("invalid address given to engine write register method")
+    }
+  }
+
+  fn get_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+    let tile_x = if x_flip { 7 - tile_x } else { tile_x };
+    let tile_y = if y_flip { 7 - tile_y } else { tile_y };
+
+    if !IS_ENGINE_B {
+      vram.read_engine_a_bg(address + tile_x as u32 + (tile_y as u32) * 8)
+    } else {
+      0
+    }
+    // self.vram[(address + tile_x as u32 + (tile_y as u32) * 8) as usize]
+  }
+
+  fn get_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+    let tile_x = if x_flip { 7 - tile_x } else { tile_x };
+    let tile_y = if y_flip { 7 - tile_y } else { tile_y };
+
+    let address = address + (tile_x / 2) as u32 + (tile_y as u32) * 4;
+
+    let byte = vram.read_engine_a_bg(address);
+
+    if tile_x & 0b1 == 1 {
+      byte >> 4
+    } else {
+      byte & 0xf
     }
   }
 }
