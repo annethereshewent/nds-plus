@@ -1,16 +1,16 @@
 pub struct CartridgeControlRegister {
-  key1_gap1_length: u32,
-  key2_encrypt_data: bool,
-  key2_apply_seed: bool,
-  key1_gap2_length: u32,
-  key2_encrypt_command: bool,
-  data_word_status: bool,
-  data_block_size: u32,
-  transfer_clock_rate: bool,
-  key1_gap_clocks: bool,
-  release_reset: bool,
-  data_direction: bool,
-  block_start_status: bool
+  pub key1_gap1_length: u32,
+  pub key2_encrypt_data: bool,
+  pub key2_apply_seed: bool,
+  pub key1_gap2_length: u32,
+  pub key2_encrypt_command: bool,
+  pub data_word_status: bool,
+  pub data_block_size: u32,
+  pub transfer_clock_rate: bool,
+  pub key1_gap_clocks: bool,
+  pub release_reset: bool,
+  pub data_direction: bool,
+  pub block_start_status: bool
 }
 
 impl CartridgeControlRegister {

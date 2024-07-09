@@ -271,7 +271,7 @@ impl Bus {
 
         self.arm9.dma_fill[channel as usize] = value;
       }
-      0x400_01a4 => self.cartridge.write_control(value, 0xffffffff, self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a4 => self.cartridge.write_control(value, 0xffffffff, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
@@ -394,8 +394,8 @@ impl Bus {
         self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value);
       }
       0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm9),
-      0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, self.exmem.nds_access_rights == AccessRights::Arm9),
-      0x400_01a6 => self.cartridge.write_control((value as u32) << 16, 0xffff, self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a6 => self.cartridge.write_control((value as u32) << 16, 0xffff, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a8 => {
         self.cartridge.write_command(value as u8, 0, self.exmem.nds_access_rights == AccessRights::Arm9);
         self.cartridge.write_command((value >> 8) as u8, 1, self.exmem.nds_access_rights == AccessRights::Arm9);

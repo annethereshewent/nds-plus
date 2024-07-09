@@ -93,20 +93,6 @@ impl Bus {
     let mut scheduler = Scheduler::new();
 
     let mut bus = Self {
-      arm7: Arm7Bus {
-        timers: Timers::new(false),
-        bios7: bios7_bytes,
-        dma: dma_channels7,
-        wram: vec![0; WRAM_SIZE].into_boxed_slice(),
-        postflg: skip_bios,
-        interrupt_master_enable: false,
-        ipcsync: IPCSyncRegister::new(),
-        ipcfifocnt: IPCFifoControlRegister::new(),
-        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
-        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
-        spicnt: SPIControlRegister::new(),
-        extkeyin: ExternalKeyInputRegister::new()
-      },
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: bios9_bytes,
@@ -134,13 +120,27 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(firmware_bytes),
-      cartridge: Cartridge::new(rom_bytes),
+      cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       scheduler: scheduler,
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
       exmem: ExternalMemory::new(),
-      touchscreen: Touchscreen::new()
+      touchscreen: Touchscreen::new(),
+      arm7: Arm7Bus {
+        timers: Timers::new(false),
+        bios7: bios7_bytes,
+        dma: dma_channels7,
+        wram: vec![0; WRAM_SIZE].into_boxed_slice(),
+        postflg: skip_bios,
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        spicnt: SPIControlRegister::new(),
+        extkeyin: ExternalKeyInputRegister::new()
+      },
     };
 
     if skip_bios {
