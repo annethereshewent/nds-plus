@@ -12,6 +12,15 @@ impl Bus {
 
   pub fn arm7_io_write_32(&mut self, address: u32, val: u32) {
     match address {
+      0x400_0100..=0x400_010e => {
+        self.arm7_io_write_16(address, val as u16);
+        self.arm7_io_write_16(address, (val >> 16) as u16);
+      }
+
+      0x400_01a4 => {
+        self.arm7_io_write_16(address, val as u16);
+        self.arm7_io_write_16(address + 2, (val >> 16) as u16);
+      }
       0x400_0208 => self.arm7.interrupt_master_enable = val != 0,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
@@ -64,6 +73,7 @@ impl Bus {
     // println!("reading from arm7 io address {:x}", address);
     match address {
       0x400_0180 => self.arm7.ipcsync.read(),
+      0x400_01a4 => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
@@ -96,6 +106,12 @@ impl Bus {
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01a2 => 0, // TODO, read spi data
+      0x400_01a4 => self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm7) as u16,
+      0x400_01a6 => (self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm7) >> 16) as u16,
+      0x400_01a8 => self.cartridge.command[0] as u16 | (self.cartridge.command[1] as u16) << 8,
+      0x400_01aa => self.cartridge.command[2] as u16 | (self.cartridge.command[3] as u16) << 8,
+      0x400_01ac => self.cartridge.command[4] as u16 | (self.cartridge.command[5] as u16) << 8,
+      0x400_01ae => self.cartridge.command[6] as u16 | (self.cartridge.command[7] as u16) << 8,
       0x400_01c0 => self.arm7.spicnt.read(),
       0x400_01c2 => self.read_spi_data() as u16,
       0x400_0204 => self.exmem.read(false),
@@ -188,16 +204,34 @@ impl Bus {
       0x400_0100 => self.arm7.timers.t[0].reload_timer_value(value),
       0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
       0x400_0104 => self.arm7.timers.t[0].reload_timer_value(value),
+      0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0134 => (), // RCNT
       0x400_0138 => {
         println!("ignoring writes to rtc register");
       }
-      0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm7), // only the first 8 bits matter
+      0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a6 => self.cartridge.write_control(value as u32, 0xffff, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a8 => {
+        self.cartridge.write_command(value as u8, 0, self.exmem.nds_access_rights == AccessRights::Arm7);
+        self.cartridge.write_command((value >> 8) as u8, 1, self.exmem.nds_access_rights == AccessRights::Arm7);
+      }
+      0x400_01aa => {
+        self.cartridge.write_command(value as u8, 2, self.exmem.nds_access_rights == AccessRights::Arm7);
+        self.cartridge.write_command((value >> 8) as u8, 3, self.exmem.nds_access_rights == AccessRights::Arm7);
+      }
+      0x400_01ac => {
+        self.cartridge.write_command(value as u8, 4, self.exmem.nds_access_rights == AccessRights::Arm7);
+        self.cartridge.write_command((value >> 8) as u8, 5, self.exmem.nds_access_rights == AccessRights::Arm7);
+      }
+      0x400_01ae => {
+        self.cartridge.write_command(value as u8, 6, self.exmem.nds_access_rights == AccessRights::Arm7);
+        self.cartridge.write_command((value >> 8) as u8, 7, self.exmem.nds_access_rights == AccessRights::Arm7);
+      }
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
@@ -218,17 +252,9 @@ impl Bus {
         self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
       }
       0x400_0214 => {
-        // let mut value = self.arm7.interrupt_request.bits() & 0xffff0000;
-
-        // value |= value as u32;
-
         self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !value as u32);
       }
       0x400_0216 => {
-        // let mut value = self.arm7.interrupt_request.bits() & 0xffff;
-
-        // value |= (value as u32) << 16;
-
         self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16));
       }
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,

@@ -9,8 +9,6 @@ use std::{cell::RefCell, rc::Rc};
 
 use bus::Bus;
 
-use self::registers::interrupt_request_register::InterruptRequestRegister;
-
 pub mod arm_instructions;
 pub mod thumb_instructions;
 pub mod cycle_lookup_tables;
@@ -295,8 +293,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn check_interrupts(&mut self) {
-    // TODO: fix this hacky shit. rust complains about borrowing and ownership if i don't do it like this. probably because
-    // i'm not doing something right lmao
     let (interrupt_master_enable, interrupt_request, interrupt_enable) = if IS_ARM9 {
       (self.bus.borrow().arm9.interrupt_master_enable, self.bus.borrow().arm9.interrupt_request, self.bus.borrow().arm9.interrupt_enable)
     } else {
@@ -309,7 +305,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn step(&mut self, cycles: usize) {
-
     while self.cycles < cycles {
       self.check_interrupts();
       self.bus.borrow_mut().check_dma(IS_ARM9);

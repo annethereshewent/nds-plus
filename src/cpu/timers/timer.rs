@@ -1,5 +1,3 @@
-use std::{rc::Rc, cell::Cell};
-
 use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
 
 pub const CYCLE_LUT: [u32; 4] = [1, 64, 256, 1024];
@@ -91,7 +89,13 @@ impl Timer {
     if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
       let current_cycles = scheduler.cycles;
 
-      let time_passed = (current_cycles - self.start_cycles) / self.prescalar_frequency as usize;
+      let prescalar = if self.prescalar_frequency != 0 {
+        self.prescalar_frequency
+      } else {
+        CYCLE_LUT[self.timer_ctl.prescalar_selection() as usize]
+      };
+
+      let time_passed = (current_cycles - self.start_cycles) / prescalar as usize;
 
       return time_passed as u16 + self.value;
     }
