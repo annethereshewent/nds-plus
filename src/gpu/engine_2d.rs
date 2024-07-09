@@ -339,7 +339,15 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  pub fn write_register(&mut self, address: u32, value: u16) {
+  pub fn write_register(&mut self, address: u32, value: u16, mask: Option<u16>) {
+    let mut value = 0;
+
+    if let Some(mask) = mask {
+      value = self.read_register(address) & mask;
+    }
+
+    value |= value;
+
     let bg_props = &mut self.bg_props;
 
     macro_rules! write_bg_reference_point {

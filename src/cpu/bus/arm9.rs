@@ -261,8 +261,8 @@ impl Bus {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
       0x400_0008..=0x400_005f => {
-        self.gpu.engine_a.write_register(address, value as u16);
-        self.gpu.engine_a.write_register(address + 2, (value >> 16) as u16);
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0064 => self.gpu.dispcapcnt.write(value),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, &mut self.scheduler),
@@ -328,8 +328,10 @@ impl Bus {
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
       0x400_1008..=0x400_105f => {
-        self.gpu.engine_b.write_register(address, value as u16);
-        self.gpu.engine_b.write_register(address + 2, (value >> 16) as u16);
+        // self.gpu.engine_b.write_register(address, value as u16);
+        // self.gpu.engine_b.write_register(address + 2, (value >> 16) as u16);
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       _ => panic!("write to unsupported io address: {:X}", address)
     }
@@ -346,7 +348,7 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
-      0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value),
+      0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
       0x400_006c => self.gpu.engine_a.master_brightness.write(value),
       0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
       0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
@@ -416,7 +418,7 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
-      0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value),
+      0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {
         panic!("register not implemented: {:X}", address)
@@ -435,6 +437,8 @@ impl Bus {
     // println!("im being called with address {:X}", address);
 
     match address {
+      0x400_004c => self.gpu.mosaic.write(value as u16, 0xff00),
+      0x400_004d => self.gpu.mosaic.write((value as u16) << 8, 0xff),
       0x400_01a8..=0x400_01af => {
         let byte = address - 0x400_01a8;
 
@@ -448,6 +452,15 @@ impl Bus {
       0x400_0247 => self.wramcnt.write(value),
       0x400_0248 => self.gpu.write_vramcnt(7, value),
       0x400_0249 => self.gpu.write_vramcnt(8, value),
+      0x400_1008..=0x400_105f => {
+        let actual_address = address & !(0b1);
+
+        if address & 0b1 == 0 {
+          self.gpu.engine_b.write_register(actual_address, value as u16, Some(0xff00));
+        } else {
+          self.gpu.engine_b.write_register(actual_address, (value as u16) << 8, Some(0xff));
+        }
+      }
       _ => panic!("8-bit write to unsupported io address {:x}", address)
     }
 
