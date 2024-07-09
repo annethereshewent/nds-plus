@@ -264,5 +264,8 @@ impl GPU {
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
       self.engine_a.render_line(self.vcount, &mut self.vram);
     }
+    if self.powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
+      self.engine_b.render_line(self.vcount, &mut self.vram);
+    }
   }
 }
