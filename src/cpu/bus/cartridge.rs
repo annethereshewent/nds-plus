@@ -90,6 +90,27 @@ impl Cartridge {
     }
   }
 
+  pub fn read_gamecard_bus(&mut self, scheduler: &mut Scheduler, has_access: bool, is_arm9: bool) -> u32 {
+    if has_access {
+      if self.control.data_word_status {
+        self.control.data_word_status = false;
+
+        self.rom_bytes_left -= 4;
+
+        if self.rom_bytes_left > 0 {
+          scheduler.schedule(EventType::WordTransfer(is_arm9), self.get_transfer_time() * 4);
+        } else {
+          // run immediately
+          scheduler.schedule(EventType::BlockFinished(is_arm9), 0);
+        }
+      }
+
+      return self.current_word;
+    }
+
+    0
+  }
+
   pub fn write_command(&mut self, command: u8, byte: usize, has_access: bool) {
     if has_access {
       self.command[byte] = command;
@@ -100,11 +121,8 @@ impl Cartridge {
     if has_access {
       self.control.write(value, mask, has_access);
 
-      println!("writing to da control with value {:x}", value);
-
       if (value >> 31) & 0b1 == 1 {
         // run a command
-        println!("executing a command");
         self.execute_command(scheduler, is_arm9);
       }
     }
@@ -171,15 +189,16 @@ impl Cartridge {
   }
 
   fn execute_encrypted_command(&mut self) {
-
+    todo!("oops not ready");
   }
 
   fn get_data(&mut self) {
     let mut address = u32::from_le_bytes(self.command[1..5].try_into().unwrap());
 
     if address < 0x8000 {
-      address = 0x800 + (address & 0x1ff);
+      address = 0x8000 + (address & 0x1ff);
     }
+
     // There is no alignment restriction for the address. However, the datastream
     // wraps to the begin of the current 4K block when address+length crosses a
     // 4K boundary (1000h bytes).
@@ -190,19 +209,17 @@ impl Cartridge {
       self.copy_rom((address as usize..block4k_end as usize));
       self.copy_rom(block4k_start as usize..(block4k_start as usize + leftover) as usize);
     } else {
-      self.copy_rom((address as usize)..self.rom_bytes_left);
+
+      self.copy_rom((address as usize)..(address as usize + self.rom_bytes_left));
     }
   }
 
   fn execute_unencrypted_command(&mut self) {
     let command = self.command[0];
 
-    println!("executing unencrypted command {:x}", command);
-
     match command {
       0 => {
         // copy header
-        println!("copying header, rom_bytes_left = {:x}", self.rom_bytes_left);
         self.copy_rom(0..self.rom_bytes_left);
       }
       0x3c => {

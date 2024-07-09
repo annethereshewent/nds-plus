@@ -11,7 +11,7 @@ impl Bus {
   }
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
-    println!("reading from arm9 io address {:x}", address);
+    // println!("reading from arm9 io address {:x}", address);
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.read(),
       0x400_00b0..=0x400_00ba => self.arm9.dma.read(0, (address - 0x400_00b0) as usize),
@@ -35,6 +35,7 @@ impl Bus {
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
       0x410_0000 => self.receive_from_fifo(true),
+      0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
       _ => panic!("unsupported io address received: {:X}", address)
     }
   }
@@ -89,7 +90,7 @@ impl Bus {
   }
 
   fn arm9_io_read_16(&mut self, address: u32) -> u16 {
-    println!("reading from arm9 io address {:X}", address);
+    // println!("reading from arm9 io address {:X}", address);
     // not sure if this is needed for the ds....
     // let address = if address & 0xfffe == 0x8000 {
     //   0x400_0800
@@ -112,10 +113,10 @@ impl Bus {
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a4 => self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm9) as u16,
-      0x400_01a8..=0x400_01af => {
-        println!("ignoring reads from read only write command register");
-        0
-      }
+      0x400_01a8 => self.cartridge.command[0] as u16 | (self.cartridge.command[1] as u16) << 8,
+      0x400_01aa => self.cartridge.command[2] as u16 | (self.cartridge.command[3] as u16) << 8,
+      0x400_01ac => self.cartridge.command[4] as u16 | (self.cartridge.command[5] as u16) << 8,
+      0x400_01ae => self.cartridge.command[6] as u16 | (self.cartridge.command[7] as u16) << 8,
       0x400_0204 => self.exmem.read(true),
       0x400_0208 => self.arm9.interrupt_master_enable as u16,
       0x400_0240..=0x400_0246 => {

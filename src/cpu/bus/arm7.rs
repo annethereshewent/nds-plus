@@ -61,19 +61,20 @@ impl Bus {
   }
 
   fn arm7_io_read_32(&mut self, address: u32) -> u32 {
-    println!("reading from arm7 io address {:x}", address);
+    // println!("reading from arm7 io address {:x}", address);
     match address {
       0x400_0180 => self.arm7.ipcsync.read(),
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
       0x410_0000 => self.receive_from_fifo(false),
+      0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm7, false),
       _ => panic!("unhandled io read to address {:x}", address)
     }
   }
 
   fn arm7_io_read_16(&mut self, address: u32) -> u16 {
-    println!("reading from arm7 io address {:x}", address);
+    // println!("reading from arm7 io address {:x}", address);
     // let address = if address & 0xfffe == 0x8000 {
     //   0x400_0800
     // } else {
