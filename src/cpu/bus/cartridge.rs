@@ -69,7 +69,8 @@ pub struct Cartridge {
   pub rom_bytes_left: usize,
   // TODO: maybe change this to an actual byte array instead of a u32
   pub out_fifo: VecDeque<u32>,
-  pub key1_encryption: Key1Encryption
+  pub key1_encryption: Key1Encryption,
+  pub spidata: u8
 }
 
 impl Cartridge {
@@ -82,7 +83,8 @@ impl Cartridge {
       command: [0; 8],
       rom_bytes_left: 0,
       out_fifo: VecDeque::new(),
-      key1_encryption: Key1Encryption::new(bios7)
+      key1_encryption: Key1Encryption::new(bios7),
+      spidata: 0
     }
   }
 
@@ -95,8 +97,12 @@ impl Cartridge {
   pub fn write_control(&mut self, value: u32, mask: u32, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool) {
     if has_access {
       self.control.write(value, mask, has_access);
-      if (value >> 31) & 0b1 == 1 && !self.control.block_start_status {
+
+      println!("writing to da control with value {:x}", value);
+
+      if (value >> 31) & 0b1 == 1 {
         // run a command
+        println!("executing a command");
         self.execute_command(scheduler, is_arm9);
       }
     }
@@ -126,6 +132,12 @@ impl Cartridge {
     }
   }
 
+  pub fn write_spidata(&mut self, val: u8, has_access: bool) {
+    if has_access {
+      // TODO
+    }
+  }
+
   fn copy_rom(&mut self, range: Range<usize>) {
     for address in range.step_by(4) {
       self.out_fifo.push_back(u32::from_le_bytes(self.rom[address..address+4].try_into().unwrap()));
@@ -133,7 +145,6 @@ impl Cartridge {
   }
 
   fn execute_encrypted_command(&mut self) {
-
   }
 
   fn get_data(&mut self) {

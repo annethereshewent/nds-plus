@@ -92,6 +92,7 @@ impl Bus {
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a2 => 0, // TODO, read spi data
       0x400_01c0 => self.arm7.spicnt.read(),
       0x400_01c2 => self.read_spi_data() as u16,
       0x400_0204 => self.exmem.read(false),
@@ -193,6 +194,7 @@ impl Bus {
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm7), // only the first 8 bits matter
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
