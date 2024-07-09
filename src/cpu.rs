@@ -453,7 +453,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
-    if !self.bus.borrow().is_halted(IS_ARM9) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
+    let use_irq_disable = IS_ARM9 || !self.bus.borrow_mut().is_halted(false);
+
+    if !use_irq_disable || !self.cpsr.contains(PSRRegister::IRQ_DISABLE)  {
       let lr = self.get_irq_return_address();
 
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);

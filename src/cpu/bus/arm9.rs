@@ -400,7 +400,7 @@ impl Bus {
       0x400_0184 => {
         self.arm9.ipcfifocnt.write(&mut self.arm9.interrupt_request,&mut self.arm7.ipcfifocnt.fifo, value);
       }
-      0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm9, None),
       0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a6 => self.cartridge.write_control((value as u32) << 16, 0xffff, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
@@ -439,6 +439,7 @@ impl Bus {
     match address {
       0x400_004c => self.gpu.mosaic.write(value as u16, 0xff00),
       0x400_004d => self.gpu.mosaic.write((value as u16) << 8, 0xff),
+      0x400_01a1 => self.cartridge.spicnt.write((value as u16) << 8, self.exmem.nds_access_rights == AccessRights::Arm9, Some(0xff)),
       0x400_01a8..=0x400_01af => {
         let byte = address - 0x400_01a8;
 

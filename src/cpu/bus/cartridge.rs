@@ -196,7 +196,7 @@ impl Cartridge {
     let mut address = u32::from_le_bytes(self.command[1..5].try_into().unwrap());
 
     if address < 0x8000 {
-      address = 0x8000 + (address & 0x1ff);
+      address = 0x8000 + (address & 0x1fff);
     }
 
     // There is no alignment restriction for the address. However, the datastream
@@ -209,7 +209,6 @@ impl Cartridge {
       self.copy_rom((address as usize..block4k_end as usize));
       self.copy_rom(block4k_start as usize..(block4k_start as usize + leftover) as usize);
     } else {
-
       self.copy_rom((address as usize)..(address as usize + self.rom_bytes_left));
     }
   }
