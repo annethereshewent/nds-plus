@@ -4,7 +4,7 @@ use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;
 use spicnt::SPICNT;
 
-use crate::{scheduler::Scheduler, util};
+use crate::{cpu::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::FLAG_GAME_CARD_TRANSFER_COMPLETE, interrupt_request_register::InterruptRequestRegister}}, scheduler::{EventType, Scheduler}, util};
 
 pub mod cartridge_control_register;
 pub mod spicnt;
@@ -69,6 +69,7 @@ pub struct Cartridge {
   pub rom_bytes_left: usize,
   // TODO: maybe change this to an actual byte array instead of a u32
   pub out_fifo: VecDeque<u32>,
+  pub current_word: u32,
   pub key1_encryption: Key1Encryption,
   pub spidata: u8
 }
@@ -84,7 +85,8 @@ impl Cartridge {
       rom_bytes_left: 0,
       out_fifo: VecDeque::new(),
       key1_encryption: Key1Encryption::new(bios7),
-      spidata: 0
+      spidata: 0,
+      current_word: 0
     }
   }
 
@@ -110,6 +112,7 @@ impl Cartridge {
 
   fn execute_command(&mut self, scheduler: &mut Scheduler, is_arm9: bool) {
     self.control.data_word_status = false;
+    self.control.block_start_status = true;
 
     // Data Block size   (0=None, 1..6=100h SHL (1..6) bytes, 7=4 bytes)
     self.rom_bytes_left = match self.control.data_block_size {
@@ -126,10 +129,33 @@ impl Cartridge {
     }
 
     if self.rom_bytes_left == 0 {
-      // schedule event in scheduler TODO
+      scheduler.schedule(EventType::BlockFinished(is_arm9), self.get_transfer_time() * 8);
     } else {
-      // schedule event in scheduler TODO
+      scheduler.schedule(EventType::WordTransfer(is_arm9), self.get_transfer_time() * 12);
     }
+  }
+
+  fn get_transfer_time(&self) -> usize {
+    if self.control.transfer_clock_rate {
+      8
+    } else {
+      5
+    }
+  }
+
+  pub fn on_word_transferred(&mut self, dma: &mut DmaChannels) {
+    self.control.data_word_status = true;
+    self.current_word = self.out_fifo.pop_front().unwrap();
+    dma.notify_cartridge_event();
+  }
+
+  pub fn on_block_finished(&mut self, interrupt_request: &mut InterruptRequestRegister) {
+    self.control.block_start_status = false;
+
+    if self.spicnt.transfer_ready_irq {
+      interrupt_request.insert(InterruptRequestRegister::GAME_CARD_TRANSFER_COMPLETE);
+    }
+
   }
 
   pub fn write_spidata(&mut self, val: u8, has_access: bool) {
@@ -145,6 +171,7 @@ impl Cartridge {
   }
 
   fn execute_encrypted_command(&mut self) {
+
   }
 
   fn get_data(&mut self) {

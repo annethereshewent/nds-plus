@@ -92,7 +92,7 @@ impl GPU {
       vram: VRam::new()
     };
 
-    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
+    scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
 
     gpu
   }
@@ -127,7 +127,7 @@ impl GPU {
   }
 
   pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
-    scheduler.schedule(EventType::HBLANK, CYCLES_PER_DOT * HBLANK_DOTS);
+    scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
 
     self.vcount += 1;
 
@@ -248,7 +248,7 @@ impl GPU {
   }
 
   pub fn schedule_next_line(&mut self, scheduler: &mut Scheduler) {
-    scheduler.schedule(EventType::NEXT_LINE, CYCLES_PER_DOT * DOTS_PER_LINE);
+    scheduler.schedule(EventType::NextLine, CYCLES_PER_DOT * DOTS_PER_LINE);
   }
 
   fn trigger_vblank(&mut self) {

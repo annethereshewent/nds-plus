@@ -105,9 +105,9 @@ impl Timer {
     self.prescalar_frequency = CYCLE_LUT[new_ctl.prescalar_selection() as usize];
 
     let event_type = if self.is_arm9 {
-      EventType::TIMER9(self.id)
+      EventType::Timer9(self.id)
     } else {
-      EventType::TIMER7(self.id)
+      EventType::Timer7(self.id)
     };
 
     scheduler.remove(event_type);

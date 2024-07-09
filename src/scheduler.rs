@@ -4,12 +4,14 @@ use priority_queue::PriorityQueue;
 
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub enum EventType {
-  HBLANK,
-  NEXT_LINE,
+  HBlank,
+  NextLine,
   DMA7(usize),
   DMA9(usize),
-  TIMER7(usize),
-  TIMER9(usize)
+  Timer7(usize),
+  Timer9(usize),
+  BlockFinished(bool),
+  WordTransfer(bool)
 }
 
 pub struct Scheduler {

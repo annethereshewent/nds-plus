@@ -61,6 +61,7 @@ impl Bus {
   }
 
   fn arm7_io_read_32(&mut self, address: u32) -> u32 {
+    println!("reading from arm7 io address {:x}", address);
     match address {
       0x400_0180 => self.arm7.ipcsync.read(),
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
@@ -72,6 +73,7 @@ impl Bus {
   }
 
   fn arm7_io_read_16(&mut self, address: u32) -> u16 {
+    println!("reading from arm7 io address {:x}", address);
     // let address = if address & 0xfffe == 0x8000 {
     //   0x400_0800
     // } else {

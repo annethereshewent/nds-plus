@@ -61,12 +61,16 @@ impl Nds {
       let mut dma_channels = [&mut bus.arm7.dma, &mut bus.arm9.dma];
 
       match event_type {
-        EventType::HBLANK => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::NEXT_LINE => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::HBlank => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::NextLine => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
         EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
-        EventType::TIMER7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request),
-        EventType::TIMER9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request)
+        EventType::Timer7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request),
+        EventType::Timer9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request),
+        EventType::BlockFinished(is_arm9) if is_arm9 => bus.cartridge.on_block_finished(&mut bus.arm9.interrupt_request),
+        EventType::WordTransfer(is_arm9) if is_arm9 => bus.cartridge.on_word_transferred(&mut bus.arm9.dma),
+        EventType::WordTransfer(_) => bus.cartridge.on_word_transferred(&mut bus.arm7.dma),
+        EventType::BlockFinished(_) => bus.cartridge.on_block_finished(&mut bus.arm7.interrupt_request)
       }
     }
 

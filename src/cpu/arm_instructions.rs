@@ -100,12 +100,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       s = 0;
     }
 
-    // if self.pc.wrapping_sub(8) == 0x2000B4C || self.pc.wrapping_sub(8) == 0x2000B40 || self.pc.wrapping_sub(8) == 0x2000b48 {
-    //   println!("operand1 = {:x} operand2 = {:x}", operand1, operand2);
-    //   println!("rn = {rn} rd = {rd}");
-    //   println!("{} r{rd}, {operand2}", self.get_op_name(op_code as u8));
-    // }
-
 
     // finally do the operation on the two operands and store in rd
     let (result, should_update) = self.execute_alu_op(op_code, operand1, operand2, &mut carry, &mut overflow);

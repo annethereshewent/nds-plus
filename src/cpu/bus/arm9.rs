@@ -11,6 +11,7 @@ impl Bus {
   }
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
+    println!("reading from arm9 io address {:x}", address);
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.read(),
       0x400_00b0..=0x400_00ba => self.arm9.dma.read(0, (address - 0x400_00b0) as usize),
@@ -88,6 +89,7 @@ impl Bus {
   }
 
   fn arm9_io_read_16(&mut self, address: u32) -> u16 {
+    println!("reading from arm9 io address {:X}", address);
     // not sure if this is needed for the ds....
     // let address = if address & 0xfffe == 0x8000 {
     //   0x400_0800

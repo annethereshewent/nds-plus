@@ -37,6 +37,14 @@ impl DmaChannels{
     }
   }
 
+  pub fn notify_cartridge_event(&mut self) {
+    for channel in &mut self.channels {
+      if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE) && channel.dma_control.dma_start_timing(self.is_arm9) == DmaTiming::DSCartridgeSlot {
+        channel.pending = true;
+      }
+    }
+  }
+
   pub fn write(&mut self, channel: usize, index: usize, val: u32, scheduler: &mut Scheduler) {
     match index {
       0x0 => self.channels[channel].source_address = val,
