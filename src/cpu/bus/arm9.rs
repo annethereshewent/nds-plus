@@ -286,10 +286,8 @@ impl Bus {
         self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
       }
       0x400_0240 => {
-        // need to write to 4 different registers
-        for i in 0..4 {
-          self.gpu.write_vramcnt(i, (value >> (8 * i)) as u8);
-        }
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0290 => {
         self.arm9.div_numerator &= 0xffffffff00000000;
@@ -404,44 +402,15 @@ impl Bus {
       0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_01a6 => self.cartridge.write_control((value as u32) << 16, 0xffff, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
-      0x400_01a8 => {
-        self.cartridge.write_command(value as u8, 0, self.exmem.nds_access_rights == AccessRights::Arm9);
-        self.cartridge.write_command((value >> 8) as u8, 1, self.exmem.nds_access_rights == AccessRights::Arm9);
-      }
-      0x400_01aa => {
-        self.cartridge.write_command(value as u8, 2, self.exmem.nds_access_rights == AccessRights::Arm9);
-        self.cartridge.write_command((value >> 8) as u8, 3, self.exmem.nds_access_rights == AccessRights::Arm9);
-      }
-      0x400_01ac => {
-        self.cartridge.write_command(value as u8, 4, self.exmem.nds_access_rights == AccessRights::Arm9);
-        self.cartridge.write_command((value >> 8) as u8, 5, self.exmem.nds_access_rights == AccessRights::Arm9);
-      }
-      0x400_01ae => {
-        self.cartridge.write_command(value as u8, 6, self.exmem.nds_access_rights == AccessRights::Arm9);
-        self.cartridge.write_command((value >> 8) as u8, 7, self.exmem.nds_access_rights == AccessRights::Arm9);
+      0x400_01a8..=0x400_01ae => {
+        self.arm9_io_write_8(address, value as u8);
+        self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0204 => self.exmem.write(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
-      0x400_0240..=0x400_0246 => {
-        let offset = address - 0x400_0240;
-
-        self.gpu.write_vramcnt(offset, value as u8);
-
-        if offset == 6 {
-          // this is kinda hacky... so if we're writing to 400_0246 with a 16 bit value, the upper 8 bits actually
-          // go to the wramcnt register instead of the next vramcnt register. TODO: fix this
-          self.wramcnt.write((value >> 8) as u8);
-        } else {
-          self.gpu.write_vramcnt(offset + 1, (value >> 8) as u8);
-        }
-      }
-      0x400_0248 => {
-        let base = 7;
-
-        // need to write to h and i vram registers
-        for i in 0..2 {
-          self.gpu.write_vramcnt(base + i, (value >> 8 * i) as u8);
-        }
+      0x400_0240..=0x400_0249 => {
+        self.arm9_io_write_8(address, value as u8);
+        self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
@@ -466,24 +435,20 @@ impl Bus {
     // println!("im being called with address {:X}", address);
 
     match address {
+      0x400_01a8..=0x400_01af => {
+        let byte = address - 0x400_01a8;
+
+        self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm9);
+      }
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 
         self.gpu.write_vramcnt(offset, value);
       }
+      0x400_0247 => self.wramcnt.write(value),
       0x400_0248 => self.gpu.write_vramcnt(7, value),
       0x400_0249 => self.gpu.write_vramcnt(8, value),
-      _ => {
-        let mut temp = self.arm9_mem_read_16(address & !(0b1));
-
-        temp = if address & 0b1 == 1 {
-          (temp & 0xff) | (value as u16) << 8
-        } else {
-          (temp & 0xff00) | value as u16
-        };
-
-        self.arm9_mem_write_16(address & !(0b1), temp);
-      }
+      _ => panic!("8-bit write to unsupported io address {:x}", address)
     }
 
     // todo: implement sound

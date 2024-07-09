@@ -24,6 +24,15 @@ const MAIN_MEMORY_SIZE: usize = 0x40_0000;
 const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
 
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum HaltMode {
+  None = 0,
+  GbaMode = 1,
+  Halt = 2,
+  Sleep = 3
+}
+
 pub struct Arm9Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
@@ -58,13 +67,13 @@ pub struct Arm7Bus {
   pub interrupt_request: InterruptRequestRegister,
   pub interrupt_enable: InterruptEnableRegister,
   pub spicnt: SPIControlRegister,
-  pub extkeyin: ExternalKeyInputRegister
+  pub extkeyin: ExternalKeyInputRegister,
+  pub haltcnt: HaltMode
 }
 
 pub struct Bus {
   pub arm9: Arm9Bus,
   pub arm7: Arm7Bus,
-  pub is_halted: bool,
   pub gpu: GPU,
   itcm: Box<[u8]>,
   dtcm: Box<[u8]>,
@@ -114,7 +123,6 @@ impl Bus {
         div_remainder: 0,
         dma_fill: [0; 4],
       },
-      is_halted: false,
       shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
@@ -139,7 +147,8 @@ impl Bus {
         interrupt_request: InterruptRequestRegister::from_bits_retain(0),
         interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
         spicnt: SPIControlRegister::new(),
-        extkeyin: ExternalKeyInputRegister::new()
+        extkeyin: ExternalKeyInputRegister::new(),
+        haltcnt: HaltMode::None
       },
     };
 
@@ -154,7 +163,7 @@ impl Bus {
     if is_arm9 {
       self.arm9.cp15.arm9_halted
     } else {
-      self.is_halted
+      self.arm7.haltcnt == HaltMode::Halt
     }
   }
 
@@ -326,6 +335,16 @@ impl Bus {
     }
 
     cpu_cycles
+  }
+
+  pub fn write_haltcnt(&mut self, value: u8) {
+    self.arm7.haltcnt = match (value >> 6) & 0x3 {
+      0 => HaltMode::None,
+      1 => HaltMode::GbaMode,
+      2 => HaltMode::Halt,
+      3 => HaltMode::Sleep,
+      _ => unreachable!()
+    };
   }
 
   fn skip_bios(&mut self) {

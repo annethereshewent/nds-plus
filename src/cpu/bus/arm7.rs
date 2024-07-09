@@ -216,21 +216,9 @@ impl Bus {
       0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm7), // only the first 8 bits matter
       0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01a6 => self.cartridge.write_control(value as u32, 0xffff, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
-      0x400_01a8 => {
-        self.cartridge.write_command(value as u8, 0, self.exmem.nds_access_rights == AccessRights::Arm7);
-        self.cartridge.write_command((value >> 8) as u8, 1, self.exmem.nds_access_rights == AccessRights::Arm7);
-      }
-      0x400_01aa => {
-        self.cartridge.write_command(value as u8, 2, self.exmem.nds_access_rights == AccessRights::Arm7);
-        self.cartridge.write_command((value >> 8) as u8, 3, self.exmem.nds_access_rights == AccessRights::Arm7);
-      }
-      0x400_01ac => {
-        self.cartridge.write_command(value as u8, 4, self.exmem.nds_access_rights == AccessRights::Arm7);
-        self.cartridge.write_command((value >> 8) as u8, 5, self.exmem.nds_access_rights == AccessRights::Arm7);
-      }
-      0x400_01ae => {
-        self.cartridge.write_command(value as u8, 6, self.exmem.nds_access_rights == AccessRights::Arm7);
-        self.cartridge.write_command((value >> 8) as u8, 7, self.exmem.nds_access_rights == AccessRights::Arm7);
+      0x400_01a8..=0x400_01ae => {
+        self.arm7_io_write_8(address, value as u8);
+        self.arm7_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
@@ -278,19 +266,14 @@ impl Bus {
     // println!("im being called with address {:X}", address);
 
     match address {
-      _ => {
-        let mut temp = self.arm7_mem_read_16(address & !(0b1));
+      0x400_0400..=0x400_051c => println!("ignoring writes to spu registers"),
+      0x400_01a8..=0x400_01af => {
+        let byte = address - 0x400_01a8;
 
-        temp = if address & 0b1 == 1 {
-          (temp & 0xff) | (value as u16) << 8
-        } else {
-          (temp & 0xff00) | value as u16
-        };
-
-        self.arm7_mem_write_16(address & !(0b1), temp);
+        self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm7);
       }
+      0x400_0301 => self.write_haltcnt(value),
+      _ => panic!("8-bit write to unsupported io address: {:x}", address)
     }
-    // todo: implement sound
   }
-
 }

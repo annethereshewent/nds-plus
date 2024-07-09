@@ -7,7 +7,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use bus::Bus;
+use bus::{Bus, HaltMode};
 
 pub mod arm_instructions;
 pub mod thumb_instructions;
@@ -453,7 +453,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
-    if (IS_ARM9 || !self.bus.borrow().is_halted) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
+    if !self.bus.borrow().is_halted(IS_ARM9) && !self.cpsr.contains(PSRRegister::IRQ_DISABLE) {
       let lr = self.get_irq_return_address();
 
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
@@ -465,7 +465,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if IS_ARM9 {
         bus.arm9.cp15.arm9_halted = false;
       } else {
-        bus.is_halted = false;
+        bus.arm7.haltcnt = HaltMode::None;
       }
     }
   }
