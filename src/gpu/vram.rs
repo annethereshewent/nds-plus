@@ -229,7 +229,13 @@ impl VRam {
           Self::add_mapping(&mut self.engine_a_bg_extended_palette, bank, size, 0);
         }
         Bank::BankF | Bank::BankG => {
+          let offset = match vramcnt.vram_offset {
+            0 => 0,
+            1 => 16 * 1024,
+            _ => panic!("invalid offset given")
+          };
 
+          Self::add_mapping(&mut self.engine_a_bg_extended_palette, bank, size, offset);
         }
         _ => panic!("invalid option given for mst = 4")
       }
@@ -245,7 +251,7 @@ impl VRam {
       }
       1 => match bank {
         Bank::BankA | Bank::BankB | Bank::BankC | Bank::BankD => {
-          let offset = 0x20000 * vramcnt.vram_offset as usize;
+          let offset = 0x2_0000 * vramcnt.vram_offset as usize;
 
           Self::remove_mapping(&mut self.engine_a_bg, bank, size, offset);
         }
@@ -260,7 +266,7 @@ impl VRam {
       }
       2 => match bank {
         Bank::BankA | Bank::BankB  => {
-          let offset = 0x20000 * ((vramcnt.vram_offset as usize) & 0x1);
+          let offset = 0x2_0000 * ((vramcnt.vram_offset as usize) & 0x1);
 
           Self::remove_mapping(&mut self.engine_a_obj, bank, size, offset);
         }
