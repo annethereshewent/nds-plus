@@ -22,6 +22,7 @@ impl Bus {
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
+      0x400_0240..=0x400_0246 | 0x400_0248..=0x400_0249 => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
       0x400_0290 => self.arm9.div_numerator as u32,
       0x400_0294 => (self.arm9.div_numerator >> 32) as u32,
       0x400_0298 => self.arm9.div_denomenator as u32,
@@ -34,6 +35,7 @@ impl Bus {
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
+      0x400_4000..=0x400_4010 => 0,
       0x410_0000 => self.receive_from_fifo(true),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
       _ => panic!("unsupported io address received: {:X}", address)
@@ -267,7 +269,7 @@ impl Bus {
       0x400_0064 => self.gpu.dispcapcnt.write(value),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, &mut self.scheduler),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, &mut self.scheduler),
-      0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00d2) as usize, value, &mut self.scheduler),
+      0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00c8) as usize, value, &mut self.scheduler),
       0x400_00d4..=0x400_00de => self.arm9.dma.write(3, (address - 0x400_00d4) as usize, value, &mut self.scheduler),
       0x400_00e0..=0x400_00ec => {
         let channel = (address - 0x400_00e0) / 4;
@@ -394,7 +396,11 @@ impl Bus {
       }
       0x400_0100 => self.arm9.timers.t[0].reload_timer_value(value),
       0x400_0102 => self.arm9.timers.t[0].write_timer_control(value, &mut self.scheduler),
-      0x400_0104 => self.arm9.timers.t[0].reload_timer_value(value),
+      0x400_0104 => self.arm9.timers.t[1].reload_timer_value(value),
+      0x400_0106 => self.arm9.timers.t[1].write_timer_control(value, &mut self.scheduler),
+      0x400_0108 => self.arm9.timers.t[2].reload_timer_value(value),
+      0x400_010a => self.arm9.timers.t[2].write_timer_control(value, &mut self.scheduler),
+      0x400_010c => self.arm9.timers.t[3].reload_timer_value(value),
       0x400_010e => self.arm9.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0180 => self.arm9.ipcsync.write(&mut self.arm7.ipcsync, &mut self.arm7.interrupt_request, value),
       0x400_0184 => {
@@ -445,6 +451,7 @@ impl Bus {
 
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm9);
       }
+      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 

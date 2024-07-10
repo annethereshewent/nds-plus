@@ -96,6 +96,7 @@ impl Bus {
       0x400_0006 => self.gpu.vcount,
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
+      0x400_0130 => self.key_input_register.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
       0x400_0136 => self.arm7.extkeyin.bits(),
       0x400_0138 => {
