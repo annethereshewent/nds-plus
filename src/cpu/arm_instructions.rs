@@ -90,7 +90,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.ror(immediate, amount, false, true, &mut carry)
     } else {
       // if (0xffff_0278..=0xffff_0284).contains(&self.pc.wrapping_sub(8)) {
-      //   println!("using register for 2nd operand from register r{} with value {:X}", instr & 0xf, self.r[(instr & 0xf) as usize]);
+      //  println!("using register for 2nd operand from register r{} with value {:X}", instr & 0xf, self.r[(instr & 0xf) as usize]);
       // }
       self.get_data_processing_register_operand(instr, rn, &mut operand1, &mut carry)
     };
@@ -548,7 +548,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       };
 
       // if self.pc.wrapping_sub(8) == 0x2000b48 {
-      //   println!("loaded value {:x} from address {:x} into register r{rd}", value, address);
+      // println!("loaded value {:x} from address {:x} into register r{rd}", value, address);
       // }
 
       if rd == PC_REGISTER as u32 {
@@ -757,7 +757,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
      */
     let should_writeback = if register_list >> rn & 0b1 == 1 {
       if !IS_ARM9 {
-        l == 0 && !base_is_first
+        // l == 0 && !base_is_first
+        // we already take care of base_is_first in the register_list below
+        l == 0
       } else {
         // the documentation says write back old base on stores, but the armwrestler tests fail if it's done that way.
         // somehow they seem to pass if you *always* writeback on stores. will have to investigate into this further
