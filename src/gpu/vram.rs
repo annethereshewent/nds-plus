@@ -400,7 +400,7 @@ impl VRam {
       }
       3 => match bank {
         Bank::BankI => {
-          size = 0x8000;
+          size = 0x2000;
 
           Self::remove_mapping(&mut self.engine_b_obj_extended_palette, bank, size, 0);
         }
