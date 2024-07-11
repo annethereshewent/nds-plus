@@ -13,3 +13,4 @@ pub mod window_vertical_register;
 pub mod brightness_register;
 pub mod color_effects_register;
 pub mod display_capture_control_register;
+pub mod display_3d_control_register;

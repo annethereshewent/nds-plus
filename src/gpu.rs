@@ -1,6 +1,6 @@
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_capture_control_register::DisplayCaptureControlRegister, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{display_3d_control_register::Display3dControlRegister, display_capture_control_register::DisplayCaptureControlRegister, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam};
 
 use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::{interrupt_request_register::InterruptRequestRegister, mosaic_register::MosaicRegister}}, scheduler::{EventType, Scheduler}};
@@ -68,7 +68,8 @@ pub struct GPU {
   pub vram: VRam,
   pub vcount: u16,
   pub dispcapcnt: DisplayCaptureControlRegister,
-  pub mosaic: MosaicRegister
+  pub mosaic: MosaicRegister,
+  pub disp3dcnt: Display3dControlRegister
 }
 
 impl GPU {
@@ -91,7 +92,8 @@ impl GPU {
       vcount: 0,
       frame_finished: false,
       vram: VRam::new(),
-      mosaic: MosaicRegister::new()
+      mosaic: MosaicRegister::new(),
+      disp3dcnt: Display3dControlRegister::from_bits_retain(0)
     };
 
     scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);

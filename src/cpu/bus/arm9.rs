@@ -1,4 +1,4 @@
-use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::{bg_control_register::BgControlRegister, power_control_register1::PowerControlRegister1, window_in_register::WindowInRegister, window_out_register::WindowOutRegister}};
+use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::{bg_control_register::BgControlRegister, display_3d_control_register::Display3dControlRegister, power_control_register1::PowerControlRegister1, window_in_register::WindowInRegister, window_out_register::WindowOutRegister}};
 
 use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
@@ -270,7 +270,9 @@ impl Bus {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
+      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value),
       0x400_0064 => self.gpu.dispcapcnt.write(value),
+      0x400_006c => self.gpu.engine_a.master_brightness.write(value as u16),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, None, &mut self.scheduler),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, None, &mut self.scheduler),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00c8) as usize, value, None, &mut self.scheduler),
@@ -386,7 +388,7 @@ impl Bus {
       0x400_00d4..=0x400_00de => {
         let actual_addr = address & !(0x3);
 
-        if address & 0b1 != 2 {
+        if address & 0x3 != 2 {
           self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
         } else {
           self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
