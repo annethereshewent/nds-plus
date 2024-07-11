@@ -1,5 +1,5 @@
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Debug)]
   pub struct BgControlRegister: u16 {
     const MOSAIC = 0b1 << 6;
     const PALETTES = 0b1 << 7;

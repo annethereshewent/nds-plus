@@ -264,8 +264,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             palette_number
           };
 
-          println!("x_flip = {x_flip} y_flip = {y_flip} palette_number = {palette_number} tile_number = {tile_number}");
-
           // self.bg_lines[bg_index][x as usize] = self.get_palette_color(palette_index as usize, palette_bank as usize, 0);
 
           x += 1;
@@ -365,6 +363,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         bg_props[$i].$coordinate = new_value;
         bg_props[$i].$internal = new_value;
       }}
+    }
+
+    if (0x08..=0x0e).contains(&(address & 0xff)) {
+      println!("writing to bgcnt with value {:016b}", value);
     }
 
     match address & 0xff {
