@@ -215,8 +215,8 @@ impl Bus {
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm7, None),
       0x400_01a2 => self.cartridge.write_spidata(value as u8, self.exmem.nds_access_rights == AccessRights::Arm7), // only the first 8 bits matter
-      0x400_01a4 => self.cartridge.write_control(value as u32, 0xffff0000, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
-      0x400_01a6 => self.cartridge.write_control(value as u32, 0xffff, &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a4 => self.cartridge.write_control(value as u32, Some(0xffff0000), &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
+      0x400_01a6 => self.cartridge.write_control((value as u32) << 16, Some(0xffff), &mut self.scheduler, false, self.exmem.nds_access_rights == AccessRights::Arm7),
       0x400_01a8..=0x400_01ae => {
         self.arm7_io_write_8(address, value as u8);
         self.arm7_io_write_8(address + 1, (value >> 8) as u8);

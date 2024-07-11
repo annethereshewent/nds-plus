@@ -53,24 +53,32 @@ impl CartridgeControlRegister {
     }
 
     self.key1_gap1_length |
-    (self.key2_encrypt_data as u32) << 13 |
-    self.key1_gap2_length << 16 |
-    (self.key2_encrypt_command as u32) << 22 |
-    (self.data_word_status as u32) << 23 |
-    self.data_block_size << 24 |
-    (self.transfer_clock_rate as u32) << 27 |
-    (self.key1_gap_clocks as u32) << 28 |
-    (self.release_reset as u32) << 29 |
-    (self.data_direction as u32) << 30 |
-    (self.block_start_status as u32) << 31
+      (self.key2_encrypt_data as u32) << 13 |
+      self.key1_gap2_length << 16 |
+      (self.key2_encrypt_command as u32) << 22 |
+      (self.data_word_status as u32) << 23 |
+      self.data_block_size << 24 |
+      (self.transfer_clock_rate as u32) << 27 |
+      (self.key1_gap_clocks as u32) << 28 |
+      (self.release_reset as u32) << 29 |
+      (self.data_direction as u32) << 30 |
+      (self.block_start_status as u32) << 31
   }
 
-  pub fn write(&mut self, val: u32, mask: u32, has_access: bool) {
+  pub fn write(&mut self, val: u32, mask: Option<u32>, has_access: bool) {
     if !has_access {
       return;
     }
 
-    let value = self.read(has_access) & mask | val;
+    // let value = (self.read(has_access) & mask) | val;
+
+    let mut value = 0;
+
+    if let Some(mask) = mask {
+      value &= mask;
+    }
+
+    value |= val;
 
     self.key1_gap1_length = value & 0x1fff;
     self.key2_encrypt_data = (value >> 13) & 0b1 == 1;

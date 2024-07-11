@@ -4,7 +4,7 @@ use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;
 use spicnt::SPICNT;
 
-use crate::{cpu::{dma::dma_channels::DmaChannels, registers::{interrupt_enable_register::FLAG_GAME_CARD_TRANSFER_COMPLETE, interrupt_request_register::InterruptRequestRegister}}, scheduler::{EventType, Scheduler}, util};
+use crate::{cpu::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}, util};
 
 pub mod cartridge_control_register;
 pub mod spicnt;
@@ -117,7 +117,7 @@ impl Cartridge {
     }
   }
 
-  pub fn write_control(&mut self, value: u32, mask: u32, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool) {
+  pub fn write_control(&mut self, value: u32, mask: Option<u32>, scheduler: &mut Scheduler, is_arm9: bool, has_access: bool) {
     if has_access {
       self.control.write(value, mask, has_access);
 
@@ -164,6 +164,7 @@ impl Cartridge {
   pub fn on_word_transferred(&mut self, dma: &mut DmaChannels) {
     self.control.data_word_status = true;
     self.current_word = self.out_fifo.pop_front().unwrap();
+
     dma.notify_cartridge_event();
   }
 
@@ -193,7 +194,7 @@ impl Cartridge {
   }
 
   fn get_data(&mut self) {
-    let mut address = u32::from_le_bytes(self.command[1..5].try_into().unwrap());
+    let mut address = u32::from_be_bytes(self.command[1..5].try_into().unwrap());
 
     if address < 0x8000 {
       address = 0x8000 + (address & 0x1fff);
