@@ -351,6 +351,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x4a => self.winout.bits(),
       0x4c => 0, // TODO, see below
       0x50 => self.bldcnt.value,
+      0x52 => self.bldalpha.read(),
+      0x54 => self.bldy.read(),
+      0x56..=0x5f => 0,
       _ => panic!("invalid address given to engine read register method")
     }
   }

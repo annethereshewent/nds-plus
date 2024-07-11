@@ -15,4 +15,8 @@ impl AlphaBlendRegister {
     self.eva = (value & 0b11111) as u8;
     self.evb = ((value >> 8) & 0b11111 ) as u8;
   }
+
+  pub fn read(&self) -> u16 {
+    self.eva as u16 | (self.evb as u16) << 8
+  }
 }

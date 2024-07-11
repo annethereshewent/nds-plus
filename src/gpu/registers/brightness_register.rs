@@ -14,4 +14,8 @@ impl BrightnessRegister {
   pub fn write(&mut self, value: u16) {
     self.evy = cmp::min(16, (value & 0b11111) as u8);
   }
+
+  pub fn read(&self) -> u16 {
+    self.evy as u16
+  }
 }

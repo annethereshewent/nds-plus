@@ -105,6 +105,7 @@ impl Bus {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.vcount,
       0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
+      0x400_0060 => self.gpu.disp3dcnt.bits() as u16,
       0x400_006c => self.gpu.engine_a.master_brightness.read(),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0b11);
@@ -173,7 +174,8 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
-      0x400_1008..=0x400_1005f => self.gpu.engine_b.read_register(address),
+      0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
+      0x400_4000..=0x400_4fff => 0,
       _ => {
         panic!("register not implemented: {:X}", address);
       }
@@ -343,6 +345,7 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_1060..=0x400_1068 => (),
+      0x400_4000..=0x400_4fff => (),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value as u16),
       _ => panic!("write to unsupported io address: {:X}", address)
     }
@@ -427,6 +430,7 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
+      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {
