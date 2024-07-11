@@ -254,8 +254,8 @@ impl Bus {
       0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
       0x660_0000..=0x67f_ffff => self.gpu.vram.write_engine_b_obj(address, val),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
-      0x700_0000..=0x700_3fff => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
-      0x700_4000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
+      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
       0x800_0000..=0x8ff_ffff => (), // todo: fix this
       _ => {
         panic!("writing to unsupported address: {:X}", address);
