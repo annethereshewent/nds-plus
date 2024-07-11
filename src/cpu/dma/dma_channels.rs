@@ -45,12 +45,32 @@ impl DmaChannels{
     }
   }
 
-  pub fn write(&mut self, channel: usize, index: usize, val: u32, scheduler: &mut Scheduler) {
+  pub fn write(&mut self, channel: usize, index: usize, val: u32, mask: Option<u32>, scheduler: &mut Scheduler) {
+
     match index {
-      0x0 => self.channels[channel].source_address = val,
-      0x4 => self.channels[channel].destination_address = val,
-      0x8 => self.channels[channel].word_count = val & 0x1fffff,
-      0xa => self.channels[channel].write_control(val, scheduler),
+      0x0 => {
+        let mut value = 0;
+
+        if let Some(mask) = mask {
+          value &= mask;
+        }
+
+        value |= val;
+
+        self.channels[channel].source_address = value;
+      }
+      0x4 => {
+        let mut value = 0;
+
+        if let Some(mask) = mask {
+          value &= mask;
+        }
+
+        value |= val;
+
+        self.channels[channel].destination_address = value;
+      }
+      0x8 => self.channels[channel].write_control(val, mask, scheduler),
       _ => panic!("invalid index given for dma write method")
     }
   }
@@ -59,8 +79,7 @@ impl DmaChannels{
     match index {
       0x0 => self.channels[channel].source_address,
       0x4 => self.channels[channel].destination_address,
-      0x8 => self.channels[channel].word_count,
-      0xa => self.channels[channel].dma_control.bits() as u32,
+      0x8 => self.channels[channel].dma_control.bits(),
       _ => panic!("invalid index given for dma write method")
     }
   }

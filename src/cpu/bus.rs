@@ -401,9 +401,7 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       match self.arm7.spicnt.device {
         DeviceSelect::Touchscreen => self.touchscreen.write(value),
-        DeviceSelect::Firmware => {
-          println!("ignoring writes to firmware (let's see if this doesn't break things too badly)")
-        },
+        DeviceSelect::Firmware => (),
         _ => ()
       }
     }
@@ -413,7 +411,7 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       return match self.arm7.spicnt.device {
         DeviceSelect::Firmware => {
-          println!("ignoring reads from firmware");
+          // println!("ignoring reads from firmware");
           0
         }
         DeviceSelect::Touchscreen => self.touchscreen.read(),

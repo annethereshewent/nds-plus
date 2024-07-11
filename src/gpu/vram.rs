@@ -176,19 +176,6 @@ impl VRam {
   }
 
   pub fn write_engine_a_bg(&mut self, address: u32, val: u8) {
-    // let index = address as usize / BLOCK_SIZE;
-
-    // let mask = ENGINE_A_BG_BLOCKS - 1;
-
-    // let bank_enums = &self.engine_a_bg[index & mask];
-
-    // for bank_enum in bank_enums {
-    //   let bank = &mut self.banks[*bank_enum as usize];
-
-    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
-
-    //   bank[address] = val;
-    // }
     Self::write_mapping(&mut self.banks,&mut self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address, val);
   }
 
@@ -212,6 +199,7 @@ impl VRam {
     let mut value = 0;
 
     let bank_enums = &region[index & mask];
+
     for bank_enum in bank_enums.iter() {
       let bank = &banks[*bank_enum as usize];
 
@@ -224,41 +212,15 @@ impl VRam {
   }
 
   pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
-    // let index = address as usize / BLOCK_SIZE;
-
-    // let mask = ENGINE_B_BG_BLOCKS - 1;
-
-    // let bank_enums = &self.engine_b_bg[index & mask];
-
-    // for bank_enum in bank_enums {
-    //   let bank = &mut self.banks[*bank_enum as usize];
-
-    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
-
-    //   bank[address] = val;
-    // }
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
   }
 
   pub fn read_engine_a_bg(&self, address: u32) -> u8 {
-    // let index = address as usize / BLOCK_SIZE;
+    Self::read_mapping(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
+  }
 
-    // let mut value = 0;
-
-    // let mask = ENGINE_A_BG_BLOCKS - 1;
-
-    // let bank_enums = &self.engine_a_bg[index & mask];
-    // for bank_enum in bank_enums.iter() {
-    //   let bank = &self.banks[*bank_enum as usize];
-
-    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
-
-    //   value |= bank[address as usize];
-    // }
-
-    // value
-
-    Self::read_mapping(&self.banks,&self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
+  pub fn read_engine_b_bg(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {

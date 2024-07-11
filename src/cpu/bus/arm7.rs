@@ -100,7 +100,7 @@ impl Bus {
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
       0x400_0136 => self.arm7.extkeyin.bits(),
       0x400_0138 => {
-        println!("ignoring reads to RTC register");
+        // println!("ignoring reads to RTC register");
         0
       }
       0x400_0180 => self.arm7.ipcsync.read() as u16,
@@ -124,7 +124,7 @@ impl Bus {
       0x400_0300 => self.arm7.postflg as u16,
       0x400_0304 => self.gpu.powcnt2.bits(),
       0x400_0400..=0x400_051c => {
-        println!("ignoring reads from spu registers");
+        // println!("ignoring reads from spu registers");
         0
       }
       _ => {
@@ -209,7 +209,7 @@ impl Bus {
       0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0134 => (), // RCNT
       0x400_0138 => {
-        println!("ignoring writes to rtc register");
+        // println!("ignoring writes to rtc register");
       }
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
@@ -248,7 +248,7 @@ impl Bus {
       }
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
-      0x400_0400..=0x400_051c => println!("ignoring writes to sound registers"),
+      0x400_0400..=0x400_051c => (), // println!("ignoring writes to sound registers"),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
@@ -267,7 +267,7 @@ impl Bus {
     // println!("im being called with address {:X}", address);
 
     match address {
-      0x400_0400..=0x400_051c => println!("ignoring writes to spu registers"),
+      0x400_0400..=0x400_051c => (), // println!("ignoring writes to spu registers"),
       0x400_01a8..=0x400_01af => {
         let byte = address - 0x400_01a8;
 

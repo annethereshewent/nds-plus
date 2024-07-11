@@ -29,7 +29,6 @@ pub struct DmaChannel {
   pub internal_destination_address: u32,
   internal_count: u32,
   pub dma_control: DmaControlRegister,
-  pub word_count: u32,
   pub pending: bool,
   pub running: bool,
   fifo_mode: bool,
@@ -41,7 +40,6 @@ impl DmaChannel {
     Self {
       source_address: 0,
       destination_address: 0,
-      word_count: 0,
       dma_control: DmaControlRegister::from_bits_retain(0),
       pending: false,
       internal_count: 0,
@@ -112,13 +110,21 @@ impl DmaChannel {
   }
 
 
-  pub fn write_control(&mut self, value: u32, scheduler: &mut Scheduler) {
-    let dma_control = DmaControlRegister::from_bits_retain(value);
+  pub fn write_control(&mut self, value: u32, mask: Option<u32>, scheduler: &mut Scheduler) {
+    let mut val = 0;
+
+    if let Some(mask) = mask {
+      val &= mask;
+    }
+
+    val |= value;
+
+    let dma_control = DmaControlRegister::from_bits_retain(val);
 
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
       self.internal_destination_address = self.destination_address;
       self.internal_source_address = self.source_address;
-      self.internal_count = self.word_count;
+      self.internal_count = self.dma_control.word_count();
 
       self.running = true;
 

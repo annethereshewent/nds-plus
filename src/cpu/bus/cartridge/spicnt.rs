@@ -33,16 +33,16 @@ impl SPICNT {
     }
   }
 
-  pub fn write(&mut self, val: u16, has_access: bool, mask: Option<u16>) {
+  pub fn write(&mut self, value: u16, has_access: bool, mask: Option<u16>) {
 
     if has_access {
-      let mut value = 0;
+      let mut val = 0;
 
       if let Some(mask) = mask {
-        value = self.read(has_access) & mask;
+        val = self.read(has_access) & mask;
       }
 
-      value |= val;
+      val |= value;
 
       self.baudrate = match val & 0x3 {
         0 => Baudrate::Mhz4,

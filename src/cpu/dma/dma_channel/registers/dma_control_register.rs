@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DmaTiming {
   Immediately,
   Vblank,
@@ -15,21 +15,24 @@ pub enum DmaTiming {
 bitflags! {
   #[derive(Copy, Clone)]
   pub struct DmaControlRegister: u32 {
-    const DMA_REPEAT = 0b1 << 9;
-    const DMA_TRANSFER_TYPE = 0b1 << 10;
-    const GAME_PAK_DRQ = 0b1 << 11;
-    const IRQ_ENABLE = 0b1 << 14;
-    const DMA_ENABLE = 0b1 << 15;
+    const DMA_REPEAT = 0b1 << 25;
+    const DMA_TRANSFER_TYPE = 0b1 << 26;
+    const IRQ_ENABLE = 0b1 << 30;
+    const DMA_ENABLE = 0b1 << 31;
   }
 }
 
 impl DmaControlRegister {
   pub fn dest_addr_control(&self) -> u32 {
-    (self.bits() >> 5) & 0b11
+    (self.bits() >> 21) & 0x3
   }
 
   pub fn source_addr_control(&self) -> u32 {
-    (self.bits() >> 7) & 0b11
+    (self.bits() >> 23) & 0x3
+  }
+
+  pub fn word_count(&self) -> u32 {
+    self.bits() & 0x1fffff
   }
 
   pub fn dma_start_timing(&self, is_arm9: bool) -> DmaTiming {

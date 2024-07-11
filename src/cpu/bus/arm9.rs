@@ -105,7 +105,46 @@ impl Bus {
       0x400_0006 => self.gpu.vcount,
       0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
       0x400_006c => self.gpu.engine_a.master_brightness.read(),
-      0x400_00ba => self.arm9.dma.channels[0].dma_control.bits() as u16,
+      0x400_00b0..=0x400_00ba => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm9.dma.read(0, (actual_addr - 0x400_00b0) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00bc..=0x400_00c6 => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm9.dma.read(1, (actual_addr - 0x400_00bc) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00c8..=0x400_00d2 => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm9.dma.read(2, (actual_addr - 0x400_00c8) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00d4..=0x400_00de => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm9.dma.read(3, (actual_addr - 0x400_00d4) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
       0x400_0100 => self.arm9.timers.t[0].read_timer_value(&self.scheduler),
       0x400_0130 => self.key_input_register.bits(),
       0x400_0300 => self.arm9.postflg as u16,
@@ -133,46 +172,6 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
-      0x400_00b0..=0x400_00ba => {
-        let actual_addr = address & !(0b1);
-        let value = self.arm9.dma.read(0, (actual_addr - 0x400_00b0) as usize);
-
-        if address & 0b1 == 0 {
-          value as u16
-        } else {
-          (value >> 16) as u16
-        }
-      }
-      0x400_00bc..=0x400_00c6 => {
-        let actual_addr = address & !(0b1);
-        let value = self.arm9.dma.read(1, (actual_addr - 0x400_00bc) as usize);
-
-        if address & 0b1 == 0 {
-          value as u16
-        } else {
-          (value >> 16) as u16
-        }
-      }
-      0x400_00c8..=0x400_00d2 => {
-        let actual_addr = address & !(0b1);
-        let value = self.arm9.dma.read(2, (actual_addr - 0x400_00c8) as usize);
-
-        if address & 0b1 == 0 {
-          value as u16
-        } else {
-          (value >> 16) as u16
-        }
-      }
-      0x400_00d4..=0x400_00de => {
-        let actual_addr = address & !(0b1);
-        let value = self.arm9.dma.read(3, (actual_addr - 0x400_00d4) as usize);
-
-        if address & 0b1 == 0 {
-          value as u16
-        } else {
-          (value >> 16) as u16
-        }
-      }
       0x400_1008..=0x400_1005f => self.gpu.engine_b.read_register(address),
       _ => {
         panic!("register not implemented: {:X}", address);
@@ -271,10 +270,10 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0064 => self.gpu.dispcapcnt.write(value),
-      0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, &mut self.scheduler),
-      0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, &mut self.scheduler),
-      0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00c8) as usize, value, &mut self.scheduler),
-      0x400_00d4..=0x400_00de => self.arm9.dma.write(3, (address - 0x400_00d4) as usize, value, &mut self.scheduler),
+      0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, None, &mut self.scheduler),
+      0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, None, &mut self.scheduler),
+      0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00c8) as usize, value, None, &mut self.scheduler),
+      0x400_00d4..=0x400_00de => self.arm9.dma.write(3, (address - 0x400_00d4) as usize, value, None, &mut self.scheduler),
       0x400_00e0..=0x400_00ec => {
         let channel = (address - 0x400_00e0) / 4;
 
@@ -356,46 +355,40 @@ impl Bus {
       0x400_0006 => (),
       0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
       0x400_006c => self.gpu.engine_a.master_brightness.write(value),
-      0x400_00b0 => self.arm9.dma.channels[0].write_source(value as u32, 0xffff0000),
-      0x400_00ba => self.arm9.dma.channels[0].write_control(value as u32, &mut self.scheduler),
       0x400_00b0..=0x400_00ba => {
-        let actual_addr = address & !(0b1);
-        let dma_value = self.arm9.dma.read(0, (actual_addr - 0x400_00b0) as usize);
+        let actual_addr = address & !(0x3);
 
-        if address & 0b1 == 0 {
-          self.arm9.dma.write(0, (actual_addr - 0x400_00b0) as usize, (dma_value & !0xffff000) | value as u32, &mut self.scheduler);
+        if address & 0x3 != 2 {
+          self.arm9.dma.write(0, (actual_addr - 0x400_00b0) as usize,  value as u32, Some(0xffff0000), &mut self.scheduler);
         } else {
-          self.arm9.dma.write(0, (actual_addr - 0x400_00b0) as usize, (dma_value & !0xffff) | (value as u32) << 16, &mut self.scheduler);
+          self.arm9.dma.write(0, (actual_addr - 0x400_00b0) as usize,  (value as u32) << 16, Some(0xffff), &mut self.scheduler);
         }
       }
       0x400_00bc..=0x400_00c6 => {
-        let actual_addr = address & !(0b1);
-        let dma_value = self.arm9.dma.read(1, (actual_addr - 0x400_00bc) as usize);
+        let actual_addr = address & !(0x3);
 
-        if address & 0b1 == 0 {
-          self.arm9.dma.write(1, (actual_addr - 0x400_00bc) as usize, (dma_value & !0xffff000) | value as u32, &mut self.scheduler);
+        if address & 0x3 != 2 {
+          self.arm9.dma.write(1, (actual_addr - 0x400_00bc) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
         } else {
-          self.arm9.dma.write(1, (actual_addr - 0x400_00bc) as usize, (dma_value & !0xffff) | (value as u32) << 16, &mut self.scheduler);
+          self.arm9.dma.write(1, (actual_addr - 0x400_00bc) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
         }
       }
       0x400_00c8..=0x400_00d2 => {
-        let actual_addr = address & !(0b1);
-        let dma_value = self.arm9.dma.read(2, (actual_addr - 0x400_00c8) as usize);
+        let actual_addr = address & !(0x3);
 
-        if address & 0b1 == 0 {
-          self.arm9.dma.write(2, (actual_addr - 0x400_00c8) as usize, (dma_value & !0xffff000) | value as u32, &mut self.scheduler);
+        if address & 0x3 != 2 {
+          self.arm9.dma.write(2, (actual_addr - 0x400_00c8) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
         } else {
-          self.arm9.dma.write(2, (actual_addr - 0x400_00c8) as usize, (dma_value & !0xffff) | (value as u32) << 16, &mut self.scheduler);
+          self.arm9.dma.write(2, (actual_addr - 0x400_00c8) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
         }
       }
       0x400_00d4..=0x400_00de => {
-        let actual_addr = address & !(0b1);
-        let dma_value = self.arm9.dma.read(3, (actual_addr - 0x400_00d4) as usize);
+        let actual_addr = address & !(0x3);
 
-        if address & 0b1 == 0 {
-          self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, (dma_value & !0xffff000) | value as u32, &mut self.scheduler);
+        if address & 0b1 != 2 {
+          self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
         } else {
-          self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, (dma_value & !0xffff) | (value as u32) << 16, &mut self.scheduler);
+          self.arm9.dma.write(3, (actual_addr - 0x400_00d4) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
         }
       }
       0x400_0100 => self.arm9.timers.t[0].reload_timer_value(value),
