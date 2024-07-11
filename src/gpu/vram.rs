@@ -156,8 +156,6 @@ impl VRam {
   }
 
   fn add_mapping(region: &mut Vec<HashSet<Bank>>, bank: Bank, size: usize, offset: usize) {
-    println!("block size = {BLOCK_SIZE}, size = {size}");
-    println!("bank = {:?}", bank);
     for address in (0..size).step_by(BLOCK_SIZE) {
       region[(address + offset) / BLOCK_SIZE].insert(bank);
     }
@@ -169,16 +167,53 @@ impl VRam {
     }
   }
 
-  pub fn read_engine_a_bg(&self, address: u32) -> u8 {
+  pub fn write_engine_a_obj(&mut self, address: u32, val: u8) {
+    Self::write_mapping(&mut self.banks, &mut self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address, val);
+  }
+
+  pub fn write_engine_b_obj(&mut self, address: u32, val: u8) {
+    Self::write_mapping(&mut self.banks, &mut self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address, val);
+  }
+
+  pub fn write_engine_a_bg(&mut self, address: u32, val: u8) {
+    // let index = address as usize / BLOCK_SIZE;
+
+    // let mask = ENGINE_A_BG_BLOCKS - 1;
+
+    // let bank_enums = &self.engine_a_bg[index & mask];
+
+    // for bank_enum in bank_enums {
+    //   let bank = &mut self.banks[*bank_enum as usize];
+
+    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
+
+    //   bank[address] = val;
+    // }
+    Self::write_mapping(&mut self.banks,&mut self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address, val);
+  }
+
+  fn write_mapping(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: u8) {
+    let index = address as usize / BLOCK_SIZE;
+
+    let bank_enums = &region[index & mask];
+
+    for bank_enum in bank_enums {
+      let bank = &mut banks[*bank_enum as usize];
+
+      let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
+
+      bank[address] = val;
+    }
+  }
+
+  fn read_mapping(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u8 {
     let index = address as usize / BLOCK_SIZE;
 
     let mut value = 0;
 
-    let mask = ENGINE_A_BG_BLOCKS - 1;
-
-    let bank_enums = &self.engine_a_bg[index & mask];
+    let bank_enums = &region[index & mask];
     for bank_enum in bank_enums.iter() {
-      let bank = &self.banks[*bank_enum as usize];
+      let bank = &banks[*bank_enum as usize];
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
@@ -186,6 +221,44 @@ impl VRam {
     }
 
     value
+  }
+
+  pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
+    // let index = address as usize / BLOCK_SIZE;
+
+    // let mask = ENGINE_B_BG_BLOCKS - 1;
+
+    // let bank_enums = &self.engine_b_bg[index & mask];
+
+    // for bank_enum in bank_enums {
+    //   let bank = &mut self.banks[*bank_enum as usize];
+
+    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
+
+    //   bank[address] = val;
+    // }
+    Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
+  }
+
+  pub fn read_engine_a_bg(&self, address: u32) -> u8 {
+    // let index = address as usize / BLOCK_SIZE;
+
+    // let mut value = 0;
+
+    // let mask = ENGINE_A_BG_BLOCKS - 1;
+
+    // let bank_enums = &self.engine_a_bg[index & mask];
+    // for bank_enum in bank_enums.iter() {
+    //   let bank = &self.banks[*bank_enum as usize];
+
+    //   let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
+
+    //   value |= bank[address as usize];
+    // }
+
+    // value
+
+    Self::read_mapping(&self.banks,&self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
   }
 
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {
@@ -328,8 +401,6 @@ impl VRam {
       3 => match bank {
         Bank::BankI => {
           size = 0x8000;
-
-          println!("it's somehow this guy lmao");
 
           Self::remove_mapping(&mut self.engine_b_obj_extended_palette, bank, size, 0);
         }

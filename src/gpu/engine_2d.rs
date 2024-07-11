@@ -278,8 +278,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         tilemap_address += 2;
       }
     }
-
-
   }
 
   pub fn render_line(&mut self, y: u16, vram: &mut VRam) {
