@@ -20,6 +20,8 @@ const ENGINE_A_BG_BLOCKS: usize = 512 / 16;
 const ENGINE_B_BG_BLOCKS: usize = 128 / 16;
 const ENGINE_B_OBJ_BLOCKS: usize = 128 / 16;
 const EXTENDED_PALETTE_BLOCKS: usize = 32 / 16;
+const ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS: usize = 16 / 16;
+const ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS: usize = 16 / 16;
 const ARM7_WRAM_BLOCKS: usize = 2;
 
 const BLOCK_SIZE: usize = 16 * 1024;
@@ -33,8 +35,9 @@ pub struct VRam {
   engine_b_bg: Vec<HashSet<Bank>>,
   arm7_wram: Vec<HashSet<Bank>>,
   engine_a_bg_extended_palette: Vec<HashSet<Bank>>,
-  engine_b_bg_extended_palette: Vec<HashSet<Bank>>
-
+  engine_b_bg_extended_palette: Vec<HashSet<Bank>>,
+  engine_a_obj_extended_palette: Vec<HashSet<Bank>>,
+  engine_b_obj_extended_palette: Vec<HashSet<Bank>>
 }
 
 pub const BANK_SIZES: [usize; 9] = [
@@ -70,7 +73,9 @@ impl VRam {
       engine_b_bg_extended_palette: Self::create_vec(EXTENDED_PALETTE_BLOCKS),
       engine_a_bg: Self::create_vec(ENGINE_A_BG_BLOCKS),
       engine_b_bg: Self::create_vec(ENGINE_B_BG_BLOCKS),
-      engine_b_obj: Self::create_vec(ENGINE_B_OBJ_BLOCKS)
+      engine_b_obj: Self::create_vec(ENGINE_B_OBJ_BLOCKS),
+      engine_a_obj_extended_palette: Self::create_vec(ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS),
+      engine_b_obj_extended_palette: Self::create_vec(ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS)
     }
   }
 
@@ -238,6 +243,14 @@ impl VRam {
           Self::add_mapping(&mut self.engine_a_bg_extended_palette, bank, size, offset);
         }
         _ => panic!("invalid option given for mst = 4")
+      }
+      5 => match bank {
+        Bank::BankF | Bank::BankG => {
+          size = 0x2000;
+
+          Self::add_mapping(&mut self.engine_a_obj_extended_palette, bank, size, 0);
+        }
+        _ => panic!("invalid option given for mst = 5")
       }
       _ => todo!("mst = {} not yet implemented", vramcnt.vram_mst)
     }
