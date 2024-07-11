@@ -555,7 +555,7 @@ impl Bus {
       if let Some(value) = send_control.fifo.pop_front() {
 
         *previous_value = value;
-        if send_control.enabled && send_control.send_empty_irq && send_control.fifo.is_empty() {
+        if send_control.enabled && send_control.send_empty_irq && receive_control.fifo.is_empty() {
           interrupt_request.insert(InterruptRequestRegister::IPC_SEND_FIFO_EMPTY);
         }
         value

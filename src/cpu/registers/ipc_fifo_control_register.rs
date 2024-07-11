@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use super::interrupt_request_register::InterruptRequestRegister;
 
+#[derive(Debug)]
 pub struct IPCFifoControlRegister {
   pub send_empty_irq: bool,
   pub fifo: VecDeque<u32>,
@@ -54,11 +55,13 @@ impl IPCFifoControlRegister {
   }
 
   pub fn write(
-      &mut self,
-      interrupt_request: &mut InterruptRequestRegister,
-      receive_fifo: &mut VecDeque<u32>,
-      val: u16
-    ) {
+    &mut self,
+    interrupt_request: &mut InterruptRequestRegister,
+    receive_fifo: &mut VecDeque<u32>,
+    val: u16
+  ) {
+
+
     let previous_send_empty_irq = self.send_empty_irq;
     let previous_receive_not_empty_irq = self.receive_not_empty_irq;
 

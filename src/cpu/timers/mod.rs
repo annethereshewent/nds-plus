@@ -1,5 +1,7 @@
 use std::{rc::Rc, cell::Cell};
 
+use crate::scheduler::Scheduler;
+
 use self::timer::{Timer, TimerControl};
 
 use super::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister};
@@ -30,14 +32,14 @@ impl Timers {
   //   }
   // }
 
-  pub fn handle_overflow(&mut self, timer_id: usize, dma: &mut DmaChannels, interrupt_request: &mut InterruptRequestRegister) {
+  pub fn handle_overflow(&mut self, timer_id: usize, dma: &mut DmaChannels, interrupt_request: &mut InterruptRequestRegister, scheduler: &mut Scheduler) {
     if timer_id != 3 {
       let next_timer_id = timer_id + 1;
 
       let next_timer = &mut self.t[next_timer_id];
 
-      if next_timer.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) && next_timer.count_up_timer(interrupt_request) {
-        self.handle_overflow(next_timer_id, dma, interrupt_request);
+      if next_timer.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) && next_timer.count_up_timer(interrupt_request, scheduler) {
+        self.handle_overflow(next_timer_id, dma, interrupt_request, scheduler);
       }
     }
 

@@ -65,8 +65,18 @@ impl Nds {
         EventType::NextLine => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
         EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
-        EventType::Timer7(timer_id) => bus.arm7.timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request),
-        EventType::Timer9(timer_id) => bus.arm9.timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request),
+        EventType::Timer7(timer_id) => {
+          let timers = &mut bus.arm7.timers;
+
+          timers.t[timer_id].handle_overflow(&mut bus.arm7.interrupt_request, &mut bus.scheduler);
+          timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request, &mut bus.scheduler);
+        }
+        EventType::Timer9(timer_id) => {
+          let timers = &mut bus.arm9.timers;
+
+          timers.t[timer_id].handle_overflow(&mut bus.arm9.interrupt_request, &mut bus.scheduler);
+          timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request, &mut bus.scheduler);
+        }
         EventType::BlockFinished(is_arm9) if is_arm9 => bus.cartridge.on_block_finished(&mut bus.arm9.interrupt_request),
         EventType::WordTransfer(is_arm9) if is_arm9 => bus.cartridge.on_word_transferred(&mut bus.arm9.dma),
         EventType::WordTransfer(_) => bus.cartridge.on_word_transferred(&mut bus.arm7.dma),
