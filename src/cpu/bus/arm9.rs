@@ -335,12 +335,15 @@ impl Bus {
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
+      0x400_1004 => (),
       0x400_1008..=0x400_105f => {
         // self.gpu.engine_b.write_register(address, value as u16);
         // self.gpu.engine_b.write_register(address + 2, (value >> 16) as u16);
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
+      0x400_1060..=0x400_1068 => (),
+      0x400_106c => self.gpu.engine_b.master_brightness.write(value as u16),
       _ => panic!("write to unsupported io address: {:X}", address)
     }
   }

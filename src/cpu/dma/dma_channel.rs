@@ -9,7 +9,7 @@ pub mod registers;
 const FIFO_REGISTER_A: u32 = 0x400_00a0;
 const FIFO_REGISTER_B: u32 = 0x400_00a4;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct DmaParams {
   pub fifo_mode: bool,
   pub count: u32,
@@ -114,7 +114,7 @@ impl DmaChannel {
     let mut val = 0;
 
     if let Some(mask) = mask {
-      val &= mask;
+      val = self.dma_control.bits() & mask;
     }
 
     val |= value;
@@ -124,7 +124,7 @@ impl DmaChannel {
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
       self.internal_destination_address = self.destination_address;
       self.internal_source_address = self.source_address;
-      self.internal_count = self.dma_control.word_count();
+      self.internal_count = dma_control.word_count();
 
       self.running = true;
 
