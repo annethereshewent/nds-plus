@@ -420,10 +420,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x46 => self.winv[1].write(value),
       0x48 => self.winin = WindowInRegister::from_bits_retain(value),
       0x4a => self.winout = WindowOutRegister::from_bits_retain(value),
-      0x4c => (), // TODO (but probably not lmao, mosaic is pointless)
+      0x4c..=0x4e => (), // TODO (but probably not lmao, mosaic is pointless),
       0x50 => self.bldcnt.write(value),
       0x52 => self.bldalpha.write(value),
       0x54 => self.bldy.write(value),
+      0x56..=0x5f => (),
       _ => panic!("invalid address given to engine write register method")
     }
   }

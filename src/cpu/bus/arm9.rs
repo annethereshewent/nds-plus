@@ -18,6 +18,7 @@ impl Bus {
       0x400_00bc..=0x400_00c6 => self.arm9.dma.read(1, (address - 0x400_00bc) as usize),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.read(2, (address - 0x400_00c8) as usize),
       0x400_00d4..=0x400_00de => self.arm9.dma.read(3, (address - 0x400_00d4) as usize),
+      0x400_00e0..=0x400_00ec => self.arm9.dma_fill[((address - 0x400_00e0)/4) as usize],
       0x400_01a4 => self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm9),
       0x400_0208 => self.arm9.interrupt_master_enable as u32,
       0x400_0210 => self.arm9.interrupt_enable.bits(),
