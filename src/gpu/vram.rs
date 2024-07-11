@@ -22,6 +22,8 @@ const ENGINE_B_OBJ_BLOCKS: usize = 128 / 16;
 const EXTENDED_PALETTE_BLOCKS: usize = 32 / 16;
 const ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS: usize = 16 / 16;
 const ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS: usize = 16 / 16;
+const TEXTURE_BLOCKS: usize = 512 / 16;
+const TEXTURE_PALETTE_BLOCKS: usize = 96 / 16;
 const ARM7_WRAM_BLOCKS: usize = 2;
 
 const BLOCK_SIZE: usize = 16 * 1024;
@@ -37,7 +39,9 @@ pub struct VRam {
   engine_a_bg_extended_palette: Vec<HashSet<Bank>>,
   engine_b_bg_extended_palette: Vec<HashSet<Bank>>,
   engine_a_obj_extended_palette: Vec<HashSet<Bank>>,
-  engine_b_obj_extended_palette: Vec<HashSet<Bank>>
+  engine_b_obj_extended_palette: Vec<HashSet<Bank>>,
+  textures: Vec<HashSet<Bank>>,
+  texture_palette: Vec<HashSet<Bank>>
 }
 
 pub const BANK_SIZES: [usize; 9] = [
@@ -75,7 +79,9 @@ impl VRam {
       engine_b_bg: Self::create_vec(ENGINE_B_BG_BLOCKS),
       engine_b_obj: Self::create_vec(ENGINE_B_OBJ_BLOCKS),
       engine_a_obj_extended_palette: Self::create_vec(ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS),
-      engine_b_obj_extended_palette: Self::create_vec(ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS)
+      engine_b_obj_extended_palette: Self::create_vec(ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS),
+      textures: Self::create_vec(TEXTURE_BLOCKS),
+      texture_palette: Self::create_vec(TEXTURE_PALETTE_BLOCKS)
     }
   }
 
@@ -150,6 +156,8 @@ impl VRam {
   }
 
   fn add_mapping(region: &mut Vec<HashSet<Bank>>, bank: Bank, size: usize, offset: usize) {
+    println!("block size = {BLOCK_SIZE}, size = {size}");
+    println!("bank = {:?}", bank);
     for address in (0..size).step_by(BLOCK_SIZE) {
       region[(address + offset) / BLOCK_SIZE].insert(bank);
     }
@@ -221,6 +229,26 @@ impl VRam {
         Bank::BankH => Self::add_mapping(&mut self.engine_b_bg_extended_palette, bank, size, 0),
         _ => panic!("invalid bank given for mst = {}", vramcnt.vram_mst)
       }
+      3 => match bank {
+        Bank::BankI => {
+          size = 0x2000;
+
+          Self::add_mapping(&mut self.engine_b_obj_extended_palette, bank, size, 0);
+        }
+        Bank::BankA | Bank::BankB | Bank::BankC | Bank::BankD => {
+          let offset = 128 * 1024 * vramcnt.vram_offset as usize;
+
+          Self::add_mapping(&mut self.textures, bank, size, offset);
+        }
+        Bank::BankE => Self::add_mapping(&mut self.texture_palette, bank, size, 0),
+        Bank::BankF | Bank::BankG => {
+          let index = (vramcnt.vram_offset & 0b1) + ((vramcnt.vram_offset >> 1) & 0b1) * 4;
+          let offset = 16 * 1204 * index as usize;
+
+          Self::add_mapping(&mut self.texture_palette, bank, size, offset);
+        }
+        _ => panic!("invalid bank given for mst = 3")
+      }
       4 => match bank {
         Bank::BankC => {
           Self::add_mapping(&mut self.engine_b_bg, bank, size, 0);
@@ -268,7 +296,7 @@ impl VRam {
 
           Self::remove_mapping(&mut self.engine_a_bg, bank, size, offset);
         }
-        Bank::BankE => Self::add_mapping(&mut self.engine_a_bg, bank, size, 0),
+        Bank::BankE => Self::remove_mapping(&mut self.engine_a_bg, bank, size, 0),
         Bank::BankF | Bank::BankG => {
           //(4000h*OFS.0)+(10000h*OFS.1)
           let offset = 0x4000 * ((vramcnt.vram_offset as usize) & 0x1) + 0x10000 * (((vramcnt.vram_offset as usize) >> 1) & 0x1);
@@ -296,6 +324,59 @@ impl VRam {
         }
         Bank::BankH => Self::remove_mapping(&mut self.engine_b_bg_extended_palette, bank, size, 0),
         _ => panic!("invalid option given")
+      }
+      3 => match bank {
+        Bank::BankI => {
+          size = 0x8000;
+
+          println!("it's somehow this guy lmao");
+
+          Self::remove_mapping(&mut self.engine_b_obj_extended_palette, bank, size, 0);
+        }
+        Bank::BankA | Bank::BankB | Bank::BankC | Bank::BankD => {
+          let offset = 128 * 1024 * vramcnt.vram_offset as usize;
+
+          Self::remove_mapping(&mut self.textures, bank, size, offset);
+        }
+        Bank::BankE => Self::remove_mapping(&mut self.texture_palette, bank, size, 0),
+        Bank::BankF | Bank::BankG => {
+          let index = (vramcnt.vram_offset & 0b1) + ((vramcnt.vram_offset >> 1) & 0b1) * 4;
+          let offset = 16 * 1204 * index as usize;
+
+          Self::remove_mapping(&mut self.texture_palette, bank, size, offset);
+        }
+        _ => panic!("invalid bank given for mst = 3")
+      }
+      4 => match bank {
+        Bank::BankC => {
+          Self::remove_mapping(&mut self.engine_b_bg, bank, size, 0);
+        }
+        Bank::BankD => {
+          Self::remove_mapping(&mut self.engine_b_obj, bank, size, 0);
+        }
+        Bank::BankE => {
+          size = 0x8000;
+
+          Self::remove_mapping(&mut self.engine_a_bg_extended_palette, bank, size, 0);
+        }
+        Bank::BankF | Bank::BankG => {
+          let offset = match vramcnt.vram_offset {
+            0 => 0,
+            1 => 16 * 1024,
+            _ => panic!("invalid offset given")
+          };
+
+          Self::remove_mapping(&mut self.engine_a_bg_extended_palette, bank, size, offset);
+        }
+        _ => panic!("invalid option given for mst = 4")
+      }
+      5 => match bank {
+        Bank::BankF | Bank::BankG => {
+          size = 0x2000;
+
+          Self::remove_mapping(&mut self.engine_a_obj_extended_palette, bank, size, 0);
+        }
+        _ => panic!("invalid option given for mst = 5")
       }
       _ => todo!("unimplemented")
     };
