@@ -75,7 +75,7 @@ impl CartridgeControlRegister {
     let mut value = 0;
 
     if let Some(mask) = mask {
-      value &= mask;
+      value = self.read(has_access) & mask;
     }
 
     value |= val;

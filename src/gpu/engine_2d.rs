@@ -336,13 +336,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   pub fn write_register(&mut self, address: u32, value: u16, mask: Option<u16>) {
-    let mut value = 0;
+    let mut val = 0;
 
     if let Some(mask) = mask {
-      value = self.read_register(address) & mask;
+      val = self.read_register(address) & mask;
     }
 
-    value |= value;
+    val |= value;
 
     let bg_props = &mut self.bg_props;
 
@@ -363,10 +363,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         bg_props[$i].$coordinate = new_value;
         bg_props[$i].$internal = new_value;
       }}
-    }
-
-    if (0x08..=0x0e).contains(&(address & 0xff)) {
-      println!("writing to bgcnt with value {:016b}", value);
     }
 
     match address & 0xff {
