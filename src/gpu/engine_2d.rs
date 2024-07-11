@@ -177,8 +177,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   fn finalize_scanline(&mut self, y: u16) {
     for x in 0..SCREEN_WIDTH {
-      if let Some(color) = self.bg_lines[2][x as usize] {
-        self.set_pixel(x as usize, y as usize, color);
+      for i in 0..4 {
+        if self.bg_mode_enabled(i) {
+          if let Some(color) = self.bg_lines[i][x as usize] {
+            self.set_pixel(x as usize, y as usize, color);
+            break;
+          }
+        }
       }
     }
   }
