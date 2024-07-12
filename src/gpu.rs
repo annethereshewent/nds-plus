@@ -133,6 +133,9 @@ impl GPU {
   pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
     scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
 
+    self.engine_a.clear_obj_lines();
+    self.engine_b.clear_obj_lines();
+
     self.vcount += 1;
 
     if self.vcount == NUM_LINES {
@@ -153,8 +156,6 @@ impl GPU {
       }
 
       self.frame_finished = true;
-      self.engine_a.clear_obj_lines();
-      self.engine_b.clear_obj_lines();
 
       self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
     }

@@ -154,7 +154,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       master_brightness: MasterBrightnessRegister::new(),
       bg_palette_ram: [0; 0x200],
       obj_palette_ram: [0; 0x200],
-      obj_lines: vec![ObjectPixel::new(); (SCREEN_WIDTH * SCREEN_HEIGHT) as usize].into_boxed_slice()
+      obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice()
     }
   }
 
@@ -272,8 +272,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       // render objects
-      let obj_index = x + y * SCREEN_WIDTH;
-      if let Some(color) = self.obj_lines[obj_index as usize].color {
+      if let Some(color) = self.obj_lines[x as usize].color {
         self.set_pixel(x as usize, y as usize, color);
       }
     }
@@ -298,7 +297,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       if obj_attributes.rotation_flag {
         // self.render_affine_object(obj_attributes);
       } else {
-        // render object normally
         self.render_normal_object(obj_attributes, y, vram);
       }
     }
@@ -325,7 +323,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
 
-    let y_pos_in_sprite: i16 = y as i16 - y_coordinate;
+    let y_pos_in_sprite = y as i16 - y_coordinate;
 
     if y_pos_in_sprite < 0 || y_pos_in_sprite as u32 >= obj_height || obj_attributes.obj_mode == 3 {
       return;
@@ -337,16 +335,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       8
     } else {
       4
-    };
-
-    let tile_width = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
-      obj_width / 8
-    } else {
-      if obj_attributes.palette_flag {
-        16
-      } else {
-        32
-      }
     };
 
     let mut palette_bank = if !obj_attributes.palette_flag {
@@ -366,9 +354,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         break;
       }
 
-      let obj_line_index = (screen_x as u16 + y * SCREEN_WIDTH) as usize;
-
-      if self.obj_lines[obj_line_index].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
+      if self.obj_lines[screen_x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
         continue;
       }
 
@@ -396,7 +382,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       } else {
         (
           32 << self.dispcnt.tile_obj_boundary as u32,
-          (y_pos_in_sprite as u32 / 8 * tile_width + x_pos_in_sprite) / 8,
+          (y_pos_in_sprite as u32 / 8 * obj_width + x_pos_in_sprite) / 8,
         )
       };
 
@@ -421,7 +407,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           }
           self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
         };
-        self.obj_lines[obj_line_index] = ObjectPixel {
+        self.obj_lines[screen_x as usize] = ObjectPixel {
           priority: obj_attributes.priority,
           color,
           is_window: obj_attributes.obj_mode == 2,
@@ -753,9 +739,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    let address = (palette_bank * 16 + index) * 2;
-
-    Some(Color::from(self.obj_palette_ram[address] as u16 | (self.obj_palette_ram[address + 1] as u16) << 8))
+    Self::get_palette_color(index, palette_bank, &self.obj_palette_ram)
   }
 
   fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
