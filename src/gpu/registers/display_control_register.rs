@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum BgMode {
   Mode0 = 0,
   Mode1 = 1,
