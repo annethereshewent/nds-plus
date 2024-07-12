@@ -3,7 +3,7 @@ use crate::gpu::{registers::{bg_control_register::BgControlRegister, display_con
 use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT};
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Layer {
   index: usize,
   priority: usize
@@ -715,6 +715,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
 
+
       // finally do outside window layers
       let mut outside_layers: Vec<usize> = Vec::new();
       for bg in &sorted {
@@ -731,7 +732,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       }
     } else {
       // render like normal by priority
-
       for x in 0..SCREEN_WIDTH {
         if !occupied[x as usize] {
           self.finalize_pixel(x, y, &sorted);
@@ -769,7 +769,17 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let layer_color = if let Some(layer) = top_layer {
       if layer.index < 4 {
-        self.bg_lines[layer.index][x as usize]
+        if self.bg_lines[layer.index][x as usize].is_some() {
+          self.bg_lines[layer.index][x as usize]
+        } else if let Some(layer) = bottom_layer {
+          if layer.index < 4 {
+            self.bg_lines[layer.index][x as usize]
+          } else {
+            self.obj_lines[x as usize].color
+          }
+        } else {
+          None
+        }
       } else {
         self.obj_lines[x as usize].color
       }
@@ -782,6 +792,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     if let Some(color) = layer_color {
       self.set_pixel(x as usize, y as usize, color);
     } else {
+
       self.set_pixel(x as usize, y as usize, default_color);
     }
 
