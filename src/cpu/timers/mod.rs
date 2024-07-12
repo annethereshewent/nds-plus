@@ -19,19 +19,6 @@ impl Timers {
     }
   }
 
-  // pub fn tick(&mut self, cycles: u32, dma: &mut DmaChannels) {
-  //   for i in 0..self.t.len() {
-  //     let timer = &mut self.t[i];
-
-  //     let timer_overflowed = timer.tick(cycles);
-
-  //     let timer_id = timer.id;
-  //     if timer_overflowed {
-  //       self.handle_overflow(timer_id, dma);
-  //     }
-  //   }
-  // }
-
   pub fn handle_overflow(&mut self, timer_id: usize, dma: &mut DmaChannels, interrupt_request: &mut InterruptRequestRegister, scheduler: &mut Scheduler) {
     if timer_id != 3 {
       let next_timer_id = timer_id + 1;

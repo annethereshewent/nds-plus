@@ -83,6 +83,7 @@ impl Bus {
       }
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       // 0x700_0000..=0x7ff_ffff => 0,
       0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
@@ -292,9 +293,7 @@ impl Bus {
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
-      0x400_0214 => {
-        self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
-      }
+      0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value),
       0x400_0240 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
