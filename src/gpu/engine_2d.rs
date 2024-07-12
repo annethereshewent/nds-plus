@@ -4,17 +4,13 @@ use super::{
     bg_control_register::BgControlRegister,
     brightness_register::BrightnessRegister,
     color_effects_register::ColorEffectsRegister,
-    display_control_register::{
-      BgMode, DisplayControlRegister,
-      DisplayControlRegisterFlags, DisplayMode
-    },
+    display_control_register::DisplayControlRegister,
     master_brightness_register::MasterBrightnessRegister,
     window_horizontal_register::WindowHorizontalRegister,
     window_in_register::WindowInRegister,
     window_out_register::WindowOutRegister,
     window_vertical_register::WindowVerticalRegister
   },
-  vram::VRam,
   BgProps,
   SCREEN_HEIGHT,
   SCREEN_WIDTH

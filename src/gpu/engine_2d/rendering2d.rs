@@ -3,6 +3,21 @@ use crate::gpu::{registers::{bg_control_register::BgControlRegister, display_con
 use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT};
 
 
+#[derive(Copy, Clone)]
+struct Layer {
+  index: usize,
+  priority: usize
+}
+
+impl Layer {
+  pub fn new(index: usize, priority: usize) -> Self {
+    Self {
+      index,
+      priority
+    }
+  }
+}
+
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   fn render_affine_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
     let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
@@ -635,20 +650,141 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn finalize_scanline(&mut self, y: u16) {
-    for x in 0..SCREEN_WIDTH {
-      for i in 0..4 {
-        if self.bg_mode_enabled(i) {
-          if let Some(color) = self.bg_lines[i][x as usize] {
-            self.set_pixel(x as usize, y as usize, color);
-            break;
+    // for x in 0..SCREEN_WIDTH {
+    //   for i in 0..4 {
+    //     if self.bg_mode_enabled(i) {
+    //       if let Some(color) = self.bg_lines[i][x as usize] {
+    //         self.set_pixel(x as usize, y as usize, color);
+    //         break;
+    //       }
+    //     }
+    //   }
+    //   // render objects
+    //   if let Some(color) = self.obj_lines[x as usize].color {
+    //     self.set_pixel(x as usize, y as usize, color);
+    //   }
+    // }
+
+    let mut sorted: Vec<usize> = Vec::new();
+
+    for i in 0..=3 {
+      if self.bg_mode_enabled(i) {
+        sorted.push(i);
+      }
+    }
+
+    sorted.sort_by_key(|key| (self.bgcnt[*key].bg_priority(), *key));
+
+    let mut occupied = [false; SCREEN_WIDTH as usize];
+
+    if self.dispcnt.windows_enabled() {
+      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_WINDOW0) {
+        let mut sorted_window_layers: Vec<usize> = Vec::new();
+        if y >= self.winv[0].y1 && y < self.winv[0].y2 {
+
+          for bg in &sorted {
+            if self.winin.window0_bg_enable() >> bg & 0b1 == 1 {
+              sorted_window_layers.push(*bg);
+            }
+          }
+
+          for x in self.winh[0].x1..self.winh[0].x2 {
+            if !occupied[x as usize] {
+             self.finalize_pixel(x, y, &sorted_window_layers);
+             occupied[x as usize] = true;
+            }
           }
         }
       }
-      // render objects
-      if let Some(color) = self.obj_lines[x as usize].color {
-        self.set_pixel(x as usize, y as usize, color);
+
+      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_WINDOW1) {
+        let mut sorted_window_layers: Vec<usize> = Vec::new();
+        if y >= self.winv[1].y1 && y < self.winv[1].y2 {
+          for bg in &sorted {
+            if self.winin.window1_bg_enable() >> bg & 0b1 == 1 {
+              sorted_window_layers.push(*bg);
+            }
+          }
+
+          for x in self.winh[1].x1..self.winh[1].x2 {
+            if !occupied[x as usize] {
+              self.finalize_pixel(x, y, &sorted_window_layers);
+              occupied[x as usize] = true;
+            }
+          }
+        }
+      }
+
+      // finally do outside window layers
+      let mut outside_layers: Vec<usize> = Vec::new();
+      for bg in &sorted {
+        if self.winout.outside_window_background_enable_bits() >> bg & 0b1 == 1 {
+          outside_layers.push(*bg);
+        }
+      }
+
+      for x in 0..SCREEN_WIDTH {
+        if !occupied[x as usize] {
+          self.finalize_pixel(x, y, &outside_layers);
+          occupied[x as usize] = true;
+        }
+      }
+    } else {
+      // render like normal by priority
+
+      for x in 0..SCREEN_WIDTH {
+        if !occupied[x as usize] {
+          self.finalize_pixel(x, y, &sorted);
+          occupied[x as usize] = true;
+        }
       }
     }
+  }
+
+  fn finalize_pixel(&mut self, x: u16, y: u16, sorted_layers: &Vec<usize>) {
+    let mut bottom_layer: Option<Layer> = None;
+    let mut top_layer: Option<Layer> = None;
+
+    for bg in sorted_layers {
+      if self.bg_lines[*bg][x as usize].is_some() {
+        if top_layer.is_none() {
+          top_layer = Some(Layer::new(*bg, self.bgcnt[*bg].bg_priority() as usize));
+        } else {
+          bottom_layer = Some(Layer::new(*bg, self.bgcnt[*bg].bg_priority() as usize));
+          break;
+        }
+      }
+    }
+
+    let obj_layer = Layer::new(4, self.obj_lines[x as usize].priority as usize);
+
+    if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
+      if top_layer.is_none() || obj_layer.priority <= top_layer.unwrap().priority {
+        bottom_layer = top_layer;
+        top_layer = Some(obj_layer);
+      } else if bottom_layer.is_none() || obj_layer.priority <= bottom_layer.unwrap().priority {
+        bottom_layer = Some(obj_layer);
+      }
+    }
+
+    let layer_color = if let Some(layer) = top_layer {
+      if layer.index < 4 {
+        self.bg_lines[layer.index][x as usize]
+      } else {
+        self.obj_lines[x as usize].color
+      }
+    } else {
+      None
+    };
+
+    let default_color = Color::from((self.bg_palette_ram[0] as u16) | (self.bg_palette_ram[1] as u16) << 8);
+
+    if let Some(color) = layer_color {
+      self.set_pixel(x as usize, y as usize, color);
+    } else {
+      self.set_pixel(x as usize, y as usize, default_color);
+    }
+
   }
 
   fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {

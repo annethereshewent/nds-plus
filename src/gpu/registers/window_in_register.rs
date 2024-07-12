@@ -9,10 +9,10 @@ bitflags! {
 
 impl WindowInRegister {
   pub fn window0_bg_enable(&self) -> u16 {
-    self.bits() & 0b1111
+    self.bits() & 0xf
   }
 
   pub fn window1_bg_enable(&self) -> u16 {
-    (self.bits() >> 8) & 0b1111
+    (self.bits() >> 8) & 0xf
   }
 }

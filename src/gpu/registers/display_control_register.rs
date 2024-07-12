@@ -84,6 +84,10 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
     self.value
   }
 
+  pub fn windows_enabled(&self) -> bool {
+    self.flags.contains(DisplayControlRegisterFlags::DISPLAY_WINDOW0) || self.flags.contains(DisplayControlRegisterFlags::DISPLAY_WINDOW1)
+  }
+
 }
 
 bitflags! {
