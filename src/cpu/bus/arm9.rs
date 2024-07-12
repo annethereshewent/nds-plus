@@ -148,6 +148,14 @@ impl Bus {
           (value >> 16) as u16
         }
       }
+      0x400_00e0 => self.arm9.dma_fill[0] as u16,
+      0x400_00e2 => (self.arm9.dma_fill[0] >> 16) as u16,
+      0x400_00e4 => self.arm9.dma_fill[1] as u16,
+      0x400_00e6 => (self.arm9.dma_fill[1] >> 16) as u16,
+      0x400_00e8 => self.arm9.dma_fill[2] as u16,
+      0x400_00ea => (self.arm9.dma_fill[2] >> 16) as u16,
+      0x400_00ec => self.arm9.dma_fill[3] as u16,
+      0x400_00ee => (self.arm9.dma_fill[3] >> 16) as u16,
       0x400_0100 => self.arm9.timers.t[0].read_timer_value(&self.scheduler),
       0x400_0130 => self.key_input_register.bits(),
       0x400_0300 => self.arm9.postflg as u16,
