@@ -22,6 +22,7 @@ use super::{
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 const ATTRIBUTE_SIZE: usize = 8;
+const AFFINE_SIZE: u16 = 3 * 2;
 
 #[derive(Debug)]
 struct OamAttributes {
@@ -257,6 +258,115 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     self.finalize_scanline(y);
   }
 
+  fn get_obj_affine_params(&self, affine_index: u16) -> (i16, i16, i16, i16) {
+    let mut offset = affine_index * 32 + AFFINE_SIZE;
+
+    let dx = self.oam_read_16(offset as usize) as i16;
+    offset += 2 + AFFINE_SIZE;
+    let dmx = self.oam_read_16(offset as usize) as i16;
+    offset += 2 + AFFINE_SIZE;
+    let dy = self.oam_read_16(offset as usize) as i16;
+    offset += 2 + AFFINE_SIZE;
+    let dmy = self.oam_read_16(offset as usize) as i16;
+
+    (dx, dmx, dy, dmy)
+  }
+
+
+  fn render_affine_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
+    let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
+
+    let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
+
+    let (bbox_width, bbox_height) = if obj_attributes.double_sized_flag {
+      (2 * obj_width, 2 * obj_height)
+    } else {
+      (obj_width, obj_height)
+    };
+
+    let y_pos_in_sprite = y as i16 - y_coordinate;
+
+    if y_pos_in_sprite < 0 || y_pos_in_sprite as u32 >= bbox_height || obj_attributes.obj_mode == 3 {
+      return;
+    }
+
+    let tile_number = obj_attributes.tile_number;
+
+    let palette_bank = if !obj_attributes.palette_flag {
+      obj_attributes.palette_number
+    } else {
+      0
+    };
+
+    // get affine matrix
+    let (dx, dmx, dy, dmy) = self.get_obj_affine_params(obj_attributes.rotation_param_selection);
+
+    let half_height = bbox_height / 2;
+    let half_width: i16 = bbox_width as i16 / 2;
+
+    let iy = y as i16 - (y_coordinate + half_height as i16);
+
+    for ix in (-half_width)..(half_width) {
+      let x = x_coordinate + half_width + ix;
+
+      if x < 0 {
+        continue;
+      }
+
+      if x as u16 >= SCREEN_WIDTH {
+        break;
+      }
+
+      if self.obj_lines[x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
+        continue;
+      }
+
+      let transformed_x = (dx * ix + dmx * iy) >> 8;
+      let transformed_y = (dy * ix + dmy * iy) >> 8;
+
+      let texture_x = transformed_x + obj_width as i16 / 2;
+      let texture_y = transformed_y + obj_height as i16 / 2;
+
+      if texture_x >= 0 && texture_x < obj_width as i16 && texture_y >= 0 && texture_y < obj_height as i16 {
+        // finally queue the pixel!
+
+        let tile_x = texture_x % 8;
+        let tile_y = texture_y % 8;
+
+        let bit_depth = if obj_attributes.palette_flag {
+          8
+        } else {
+          4
+        };
+
+        let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width, tile_number as u32);
+
+        let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
+
+        let palette_index = if obj_attributes.palette_flag {
+          self.get_obj_pixel_index_bpp8(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+        } else {
+          self.get_obj_pixel_index_bpp4(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+        };
+
+        let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+          self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+        } else {
+          self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+        };
+
+        if palette_index != 0 {
+          self.obj_lines[x as usize] = ObjectPixel {
+            priority: obj_attributes.priority,
+            color,
+            is_window: obj_attributes.obj_mode == 2,
+            is_transparent: obj_attributes.obj_mode == 1
+          }
+        }
+      }
+    }
+  }
+
   fn render_extended_line(&mut self, bg_index: usize) {
 
   }
@@ -295,7 +405,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         continue;
       }
       if obj_attributes.rotation_flag {
-        // self.render_affine_object(obj_attributes);
+        self.render_affine_object(obj_attributes, y, vram);
       } else {
         self.render_normal_object(obj_attributes, y, vram);
       }
@@ -316,6 +426,20 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     };
 
     (return_x, return_y)
+  }
+
+  fn get_boundary_and_offset(&self, x_pos_in_sprite: u32, y_pos_in_sprite: u32, bit_depth: u32, obj_width: u32, tile_number: u32) -> (u32, u32) {
+    if !self.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
+      (
+        32 as u32,
+        y_pos_in_sprite as u32 / 8 * 0x80 / (bit_depth as u32) + (x_pos_in_sprite  as u32) / 8,
+      )
+    } else {
+      (
+        32 << self.dispcnt.tile_obj_boundary as u32,
+        (y_pos_in_sprite as u32 / 8 * obj_width + x_pos_in_sprite) / 8,
+      )
+    }
   }
 
   fn render_normal_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
@@ -374,17 +498,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let y_pos_in_tile = y_pos_in_sprite % 8;
 
       // let tile_address = tile_base as u32 + (x_pos_in_sprite / 8  + (y_pos_in_sprite as u32 / 8) * tile_width) * tile_size;
-      let (boundary, offset) = if !self.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
-        (
-          32 as u32,
-          y_pos_in_sprite as u32 / 8 * 0x80 / (bit_depth as u32) + (x_pos_in_sprite  as u32) / 8,
-        )
-      } else {
-        (
-          32 << self.dispcnt.tile_obj_boundary as u32,
-          (y_pos_in_sprite as u32 / 8 * obj_width + x_pos_in_sprite) / 8,
-        )
-      };
+      let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width, tile_number as u32);
 
       let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
