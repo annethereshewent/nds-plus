@@ -231,6 +231,14 @@ impl VRam {
     Self::read_mapping(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
+  pub fn read_engine_a_extended_palette(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  }
+
+  pub fn read_engine_b_extended_palette(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  }
+
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {
     let mut size = BANK_SIZES[bank as usize];
     match vramcnt.vram_mst {

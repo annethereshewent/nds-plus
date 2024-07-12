@@ -67,7 +67,7 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
       _ => unreachable!("can't happen")
     };
 
-    self.tile_obj_boundary = (value >> 18) & 0x3;
+    self.tile_obj_boundary = (value >> 20) & 0x3;
 
     if !IS_ENGINE_B {
       self.vram_block = (value >> 18) & 0x3;

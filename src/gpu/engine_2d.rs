@@ -65,7 +65,7 @@ impl ObjectPixel {
   }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Color {
   pub r: u8,
   pub g: u8,
@@ -87,6 +87,10 @@ impl Color {
       g,
       b
     }
+  }
+
+  pub fn into_rgb15(&self) -> u16 {
+    self.r as u16 | (self.g as u16) << 5 |  (self.b as u16) << 5
   }
 }
 
@@ -251,7 +255,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       // render objects
-      if let Some(color) = self.obj_lines[x as usize].color {
+      let obj_index = x + y * SCREEN_WIDTH;
+      if let Some(color) = self.obj_lines[obj_index as usize].color {
         self.set_pixel(x as usize, y as usize, color);
       }
     }
@@ -304,24 +309,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
 
     let tile_number = obj_attributes.tile_number;
-    let tile_base: u32 = 0x1_0000 + tile_number as u32 * 32;
 
-    let bg_mode = self.dispcnt.bg_mode;
-
-    let vram_obj_start = if (bg_mode as usize) < 3 {
-      VRAM_OBJECT_START_TILE
+    let bit_depth = if obj_attributes.palette_flag {
+      8
     } else {
-      VRAM_OBJECT_START_BITMAP
-    };
-
-    if tile_base < vram_obj_start {
-      return;
-    }
-
-    let tile_size = if obj_attributes.palette_flag {
-      64
-    } else {
-      32
+      4
     };
 
     let tile_width = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
@@ -334,7 +326,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       }
     };
 
-    let palette_bank = if !obj_attributes.palette_flag {
+    let mut palette_bank = if !obj_attributes.palette_flag {
       obj_attributes.palette_number
     } else {
       0
@@ -372,18 +364,43 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let x_pos_in_tile = x_pos_in_sprite % 8;
       let y_pos_in_tile = y_pos_in_sprite % 8;
 
-      let tile_address = tile_base + (x_pos_in_sprite / 8 + (y_pos_in_sprite as u32 / 8) * tile_width) * tile_size;
+      // let tile_address = tile_base as u32 + (x_pos_in_sprite / 8  + (y_pos_in_sprite as u32 / 8) * tile_width) * tile_size;
+      let (boundary, offset) = if !self.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
+        (
+          32 as u32,
+          y_pos_in_sprite as u32 / 8 * 0x80 / (bit_depth as u32) + (x_pos_in_sprite  as u32) / 8,
+        )
+      } else {
+        (
+          32 << self.dispcnt.tile_obj_boundary as u32,
+          (y_pos_in_sprite as u32 / 8 * tile_width + x_pos_in_sprite) / 8,
+        )
+      };
 
-      let palette_index = if obj_attributes.palette_flag {
+      let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
+
+      //println!("obj address = {:x} for coordinates {screen_x},{y}", tile_address);
+
+      let palette_index = if bit_depth == 8 {
         self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
       } else {
         self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
       };
 
       if palette_index != 0 {
+        // need to determine whether to look at extended palette or regular obj palette
+        let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+          self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+        } else {
+          if bit_depth == 8 {
+            palette_bank = 0;
+          }
+
+          self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+        };
         self.obj_lines[obj_line_index] = ObjectPixel {
           priority: obj_attributes.priority,
-          color: self.get_obj_palette_color(palette_index as usize, palette_bank as usize),
+          color,
           is_window: obj_attributes.obj_mode == 2,
           is_transparent: obj_attributes.obj_mode == 1
         };
@@ -713,7 +730,21 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    Self::get_palette_color(index, palette_bank, &self.obj_palette_ram)
+    let address = palette_bank * 16 + index;
+    Some(Color::from(self.obj_palette_ram[address] as u16 | (self.obj_palette_ram[address + 1] as u16) << 8))
+  }
+
+  fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
+    let address = palette_bank * 256 + index;
+
+
+    let color = if !IS_ENGINE_B {
+      (vram.read_engine_a_extended_palette(address) as u16) | (vram.read_engine_a_extended_palette(address + 1) as u16) << 8
+    } else {
+      (vram.read_engine_b_extended_palette(address) as u16) | (vram.read_engine_b_extended_palette(address + 1) as u16) << 8
+    };
+
+    Some(Color::from(color))
   }
 
   fn get_obj_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
