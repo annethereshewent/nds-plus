@@ -1,10 +1,27 @@
-use super::{registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::{BgMode, DisplayControlRegister, DisplayControlRegisterFlags, DisplayMode}, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, vram::VRam, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH};
+use super::{
+  registers::{
+    alpha_blend_register::AlphaBlendRegister,
+    bg_control_register::BgControlRegister,
+    brightness_register::BrightnessRegister,
+    color_effects_register::ColorEffectsRegister,
+    display_control_register::{
+      BgMode, DisplayControlRegister,
+      DisplayControlRegisterFlags, DisplayMode
+    },
+    master_brightness_register::MasterBrightnessRegister,
+    window_horizontal_register::WindowHorizontalRegister,
+    window_in_register::WindowInRegister,
+    window_out_register::WindowOutRegister,
+    window_vertical_register::WindowVerticalRegister
+  },
+  vram::VRam,
+  BgProps,
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH
+};
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 const ATTRIBUTE_SIZE: usize = 8;
-
-const VRAM_OBJECT_START_TILE: u32 = 0x1_0000;
-const VRAM_OBJECT_START_BITMAP: u32 = 0x1_4000;
 
 #[derive(Debug)]
 struct OamAttributes {
@@ -743,7 +760,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
     let address = (palette_bank * 256 + index) * 2;
-
 
     let color = if !IS_ENGINE_B {
       (vram.read_engine_a_extended_palette(address) as u16) | (vram.read_engine_a_extended_palette(address + 1) as u16) << 8
