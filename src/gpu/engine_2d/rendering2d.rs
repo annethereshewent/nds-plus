@@ -1,7 +1,16 @@
-use crate::gpu::{registers::{bg_control_register::BgControlRegister, display_control_register::{BgMode, DisplayControlRegisterFlags, DisplayMode}}, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
+use std::cmp;
+
+use crate::gpu::{registers::{bg_control_register::BgControlRegister, color_effects_register::ColorEffect, display_control_register::{BgMode, DisplayControlRegisterFlags, DisplayMode}, window_in_register::WindowInRegister, window_out_register::WindowOutRegister}, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT};
 
+enum WindowType {
+  Zero = 0,
+  One = 1,
+  Obj = 2,
+  Out = 3,
+  None = 4
+}
 
 #[derive(Copy, Clone, Debug)]
 struct Layer {
@@ -627,7 +636,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           let color = bank[index] as u16 | (bank[(index + 1) as usize] as u16) << 8;
 
-          let color = Color::from(color);
+          let color = Color::from_rgb15(color);
 
           self.set_pixel(x as usize, y as usize, color);
         }
@@ -690,7 +699,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           for x in self.winh[0].x1..self.winh[0].x2 {
             if !occupied[x as usize] {
-             self.finalize_pixel(x, y, &sorted_window_layers);
+             self.finalize_pixel(x, y, &sorted_window_layers, WindowType::Zero);
              occupied[x as usize] = true;
             }
           }
@@ -708,7 +717,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           for x in self.winh[1].x1..self.winh[1].x2 {
             if !occupied[x as usize] {
-              self.finalize_pixel(x, y, &sorted_window_layers);
+              self.finalize_pixel(x, y, &sorted_window_layers, WindowType::One);
               occupied[x as usize] = true;
             }
           }
@@ -724,24 +733,55 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
 
-      for x in 0..SCREEN_WIDTH {
-        if !occupied[x as usize] {
-          self.finalize_pixel(x, y, &outside_layers);
-          occupied[x as usize] = true;
+      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ_WINDOW) {
+        for x in 0..SCREEN_WIDTH {
+          if !occupied[x as usize] {
+            if self.obj_lines[x as usize].is_window {
+              self.finalize_pixel(x, y, &outside_layers, WindowType::Obj);
+            } else {
+              self.finalize_pixel(x, y, &outside_layers, WindowType::Out)
+            }
+            occupied[x as usize] = true;
+          }
+        }
+      } else {
+        for x in 0..SCREEN_WIDTH {
+          if !occupied[x as usize] {
+            self.finalize_pixel(x, y, &outside_layers, WindowType::Out);
+            occupied[x as usize] = true;
+          }
         }
       }
     } else {
       // render like normal by priority
       for x in 0..SCREEN_WIDTH {
         if !occupied[x as usize] {
-          self.finalize_pixel(x, y, &sorted);
+          self.finalize_pixel(x, y, &sorted, WindowType::None);
           occupied[x as usize] = true;
         }
       }
     }
   }
 
-  fn finalize_pixel(&mut self, x: u16, y: u16, sorted_layers: &Vec<usize>) {
+  fn display_window_obj(&self, window_type: &WindowType) -> bool {
+    match window_type {
+      WindowType::Zero => {
+        self.winin.contains(WindowInRegister::Window0ObjEnable)
+      }
+      WindowType::One => {
+        self.winin.contains(WindowInRegister::Window1ObjEnable)
+      }
+      WindowType::Obj => {
+        self.winout.contains(WindowOutRegister::ObjWindowObjEnable)
+      }
+      WindowType::Out => {
+        self.winout.contains(WindowOutRegister::OutsideWindowObjEnable)
+      }
+      WindowType::None => true
+    }
+  }
+
+  fn finalize_pixel(&mut self, x: u16, y: u16, sorted_layers: &Vec<usize>, window_type: WindowType) {
     let mut bottom_layer: Option<Layer> = None;
     let mut top_layer: Option<Layer> = None;
 
@@ -758,7 +798,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let obj_layer = Layer::new(4, self.obj_lines[x as usize].priority as usize);
 
-    if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
+    if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) && self.display_window_obj(&window_type) {
       if top_layer.is_none() || obj_layer.priority <= top_layer.unwrap().priority {
         bottom_layer = top_layer;
         top_layer = Some(obj_layer);
@@ -767,35 +807,134 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       }
     }
 
-    let layer_color = if let Some(layer) = top_layer {
+    let (top_layer_color, top_layer) = if let Some(layer) = top_layer {
       if layer.index < 4 {
         if self.bg_lines[layer.index][x as usize].is_some() {
-          self.bg_lines[layer.index][x as usize]
+          (self.bg_lines[layer.index][x as usize], Some(layer))
         } else if let Some(layer) = bottom_layer {
           if layer.index < 4 {
-            self.bg_lines[layer.index][x as usize]
+            (self.bg_lines[layer.index][x as usize], Some(layer))
           } else {
-            self.obj_lines[x as usize].color
+            (self.obj_lines[x as usize].color, Some(layer))
           }
         } else {
-          None
+          (None, None)
         }
       } else {
-        self.obj_lines[x as usize].color
+        (self.obj_lines[x as usize].color, Some(layer))
       }
     } else {
-      None
+      (None, None)
     };
 
-    let default_color = Color::from((self.bg_palette_ram[0] as u16) | (self.bg_palette_ram[1] as u16) << 8);
+    let mut default_color = Color::from((self.bg_palette_ram[0] as u16) | (self.bg_palette_ram[1] as u16) << 8);
 
-    if let Some(color) = layer_color {
-      self.set_pixel(x as usize, y as usize, color);
+    if let Some(mut top_layer_color) = top_layer_color {
+      // this is safe to do, as we've verified the top layer and color above
+      let top_layer = top_layer.unwrap();
+      // do further processing if needed
+
+      if top_layer.index == 4 {
+        if self.obj_lines[x as usize].is_transparent && bottom_layer.is_some() && self.bldcnt.bg_second_pixels[bottom_layer.unwrap().index] {
+          let bottom_layer = bottom_layer.unwrap();
+
+          if let Some(color2) = self.bg_lines[bottom_layer.index][x as usize] {
+            top_layer_color = self.blend_colors(top_layer_color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16);
+          }
+        }
+      } else if self.bldcnt.bg_first_pixels[top_layer.index] && self.should_apply_effects(&window_type) {
+        top_layer_color = self.process_pixel(x as usize, y, top_layer_color, bottom_layer);
+      }
+
+      self.set_pixel(x as usize, y as usize, top_layer_color.to_rgb24());
     } else {
 
-      self.set_pixel(x as usize, y as usize, default_color);
+      self.set_pixel(x as usize, y as usize, default_color.to_rgb24());
     }
 
+  }
+
+  fn blend_colors(&self, color: Color, color2: Color, eva: u16, evb: u16) -> Color {
+    let r = cmp::min(31, (color.r as u16 * eva + color2.r as u16 * evb) >> 4) as u8;
+    let g = cmp::min(31, (color.g as u16 * eva + color2.g as u16 * evb) >> 4) as u8;
+    let b = cmp::min(31, (color.b as u16 * eva + color2.b as u16 * evb) >> 4) as u8;
+
+    Color {
+      r,
+      g,
+      b
+    }
+  }
+
+  fn process_pixel(&mut self, x: usize,  y: u16, color: Color, bottom_layer: Option<Layer>) -> Color {
+    match self.bldcnt.color_effect {
+      ColorEffect::AlphaBlending => {
+        let layer = if self.is_bottom_layer_blended(bottom_layer) {
+          bottom_layer
+        } else {
+          None
+        };
+
+        if let Some(blend_layer) = layer {
+          if let Some(color2) = self.bg_lines[blend_layer.index][x] {
+            self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+          } else {
+            color
+          }
+        } else {
+          color
+        }
+      }
+      ColorEffect::Brighten => {
+          let white = Color {
+            r: 0xff,
+            g: 0xff,
+            b: 0xff
+          };
+          self.blend_colors(color, white, (16 - self.bldy.evy) as u16, self.bldy.evy as u16)
+
+      }
+      ColorEffect::Darken => {
+        let black = Color {
+          r: 0,
+          g: 0,
+          b: 0
+        };
+
+        self.blend_colors(color, black, (16 - self.bldy.evy) as u16, self.bldy.evy as u16)
+      }
+      ColorEffect::None => {
+        color
+      }
+    }
+  }
+
+  fn is_bottom_layer_blended(&self, bottom_layer: Option<Layer>) -> bool {
+    // (bottom_layer < 4 && bottom_layer >= 0 && self.bldcnt.bg_second_pixels[bottom_layer as usize]) || (bottom_layer == 4 && self.bldcnt.obj_second_pixel)
+
+    if let Some(bottom_layer) = bottom_layer {
+      (bottom_layer.index < 4 && self.bldcnt.bg_second_pixels[bottom_layer.index]) || (bottom_layer.index == 4 && self.bldcnt.obj_second_pixel)
+    } else {
+      false
+    }
+  }
+
+  fn should_apply_effects(&self, window_type: &WindowType) -> bool {
+    match window_type {
+      WindowType::Zero => {
+        self.winin.contains(WindowInRegister::Window0ColorEffect)
+      }
+      WindowType::One => {
+        self.winin.contains(WindowInRegister::Window1ColorEffect)
+      }
+      WindowType::Obj => {
+        self.winout.contains(WindowOutRegister::ObjWIndowColorEffect)
+      }
+      WindowType::Out => {
+        self.winout.contains(WindowOutRegister::OutsideWindowColorEffect)
+      }
+      WindowType::None => true
+    }
   }
 
   fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
