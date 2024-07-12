@@ -67,7 +67,6 @@ pub struct Cartridge {
   pub header: Header,
   pub command: [u8; 8],
   pub rom_bytes_left: usize,
-  // TODO: maybe change this to an actual byte array instead of a u32
   pub out_fifo: VecDeque<u32>,
   pub current_word: u32,
   pub key1_encryption: Key1Encryption,
