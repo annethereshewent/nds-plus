@@ -153,6 +153,9 @@ impl GPU {
       }
 
       self.frame_finished = true;
+      self.engine_a.clear_obj_lines();
+      self.engine_b.clear_obj_lines();
+
       self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
     }
 

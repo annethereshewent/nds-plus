@@ -262,6 +262,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
+  pub fn clear_obj_lines(&mut self) {
+    for x in &mut self.obj_lines.iter_mut() {
+      *x = ObjectPixel::new();
+    }
+  }
+
   fn render_affine_line(&mut self, bg_index: usize) {
 
   }
@@ -379,13 +385,14 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
       let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
-      //println!("obj address = {:x} for coordinates {screen_x},{y}", tile_address);
+      // println!("tile address = {:x}, boundary = {:x} for coordinates {screen_x},{y}", tile_address, boundary);
 
       let palette_index = if bit_depth == 8 {
         self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
       } else {
         self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
       };
+
 
       if palette_index != 0 {
         // need to determine whether to look at extended palette or regular obj palette
@@ -395,7 +402,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           if bit_depth == 8 {
             palette_bank = 0;
           }
-
           self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
         };
         self.obj_lines[obj_line_index] = ObjectPixel {
@@ -730,12 +736,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    let address = palette_bank * 16 + index;
+    let address = (palette_bank * 16 + index) * 2;
+
     Some(Color::from(self.obj_palette_ram[address] as u16 | (self.obj_palette_ram[address + 1] as u16) << 8))
   }
 
   fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
-    let address = palette_bank * 256 + index;
+    let address = (palette_bank * 256 + index) * 2;
 
 
     let color = if !IS_ENGINE_B {
@@ -751,8 +758,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
-    // println!("reading from vram at address {:x}", address + tile_x as u32 + (tile_y as u32) * 8);
-
     if !IS_ENGINE_B {
       vram.read_engine_a_obj(address + tile_x as u32 + (tile_y as u32) * 8)
     } else {
@@ -765,8 +770,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
     let address = address + (tile_x / 2) as u32 + (tile_y as u32) * 4;
-
-    // println!("reading from vram at address {:x}", address);
 
     let byte = if !IS_ENGINE_B {
       vram.read_engine_a_obj(address)
