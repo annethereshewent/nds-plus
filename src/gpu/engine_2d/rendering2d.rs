@@ -378,7 +378,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             palette_number
           };
 
-          self.bg_lines[bg_index][x as usize] = self.get_bg_palette_color(palette_index as usize, palette_bank as usize);
+          self.bg_lines[bg_index][x as usize] = if is_bpp8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_bank as usize, vram)
+          } else {
+            self.get_bg_palette_color(palette_index as usize, palette_bank as usize)
+          };
 
           x += 1;
 
@@ -411,7 +415,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_palette_color(index: usize, palette_bank: usize, ram: &[u8]) -> Option<Color> {
-
     let value = if index == 0 || (palette_bank != 0 && index % 16 == 0) {
       COLOR_TRANSPARENT
     } else {
@@ -427,6 +430,24 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       None
     } else {
       Some(Color::from(value))
+    }
+  }
+
+  fn get_bg_extended_palette_color(&self, bg_index: usize, palette_index: usize, palette_bank: usize, vram: &VRam) -> Option<Color> {
+    let slot = if bg_index < 2 && self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
+      bg_index + 2
+    } else {
+      bg_index
+    };
+
+    let address = slot as u32 * 8 * 0x400 + palette_index as u32 * 2;
+
+    let color_raw = vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8;
+
+    if color_raw != 0 {
+      Some(Color::from(color_raw))
+    } else {
+      None
     }
   }
 
@@ -447,7 +468,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (vram.read_engine_b_extended_obj_palette(address) as u16) | (vram.read_engine_b_extended_obj_palette(address + 1) as u16) << 8
     };
 
-    Some(Color::from(color))
+    if color != 0 {
+      Some(Color::from(color))
+    } else {
+      None
+    }
   }
 
   fn get_obj_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
@@ -717,23 +742,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
 
           if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            let slot = if bg_index < 2 && self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
-              bg_index + 2
-            } else {
-              bg_index
-            };
-
-            let address = slot as u32 * 8 * 0x400 + palette_index as u32 * 2;
-
-            let color_raw = vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8;
-
-            if color_raw != 0 {
-              Some(Color::from(color_raw))
-            } else {
-              None
-            }
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, 0 as usize, vram)
           } else {
-            self.get_bg_palette_color(palette_index as usize, 0)
+            self.get_bg_palette_color(palette_index as usize, 0 as usize)
           }
         }
         AffineType::Normal => {
