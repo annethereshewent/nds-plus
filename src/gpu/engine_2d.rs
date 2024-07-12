@@ -194,7 +194,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_affine_line(3);
+          self.render_affine_line(3, y, vram);
         }
       }
       BgMode::Mode2 => {
@@ -206,7 +206,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         for i in 2..4 {
           if self.bg_mode_enabled(i) {
-            self.render_affine_line(i);
+            self.render_affine_line(i, y, vram);
           }
         }
       }
@@ -229,7 +229,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(2) {
-          self.render_affine_line(2);
+          self.render_affine_line(2, y, vram);
         }
 
         if self.bg_mode_enabled(3) {
@@ -394,7 +394,56 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn render_affine_line(&mut self, bg_index: usize) {
+  fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
+    let (dx, dy) = (self.bg_props[bg_index-2].dx, self.bg_props[bg_index-2].dy);
+
+    let (tilemap_base, tile_base) = if !IS_ENGINE_B {
+      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800 + self.dispcnt.screen_base * 0x1_0000, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000 + self.dispcnt.character_base * 0x1_0000)
+    } else {
+      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000)
+    };
+
+    let texture_size = 128 << self.bgcnt[bg_index].screen_size();
+
+    let (ref_x, ref_y) = (self.bg_props[bg_index - 2].internal_x, self.bg_props[bg_index - 2].internal_y);
+
+    for x in 0..SCREEN_WIDTH {
+      let mut transformed_x = (ref_x + x as i32 * dx as i32) >> 8;
+      let mut transformed_y = (ref_y + y as i32 * dy as i32) >> 8;
+
+      if transformed_x < 0 || transformed_x > texture_size || transformed_y < 0 || transformed_y > texture_size {
+        if self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
+          transformed_x = transformed_x % texture_size;
+          transformed_y = transformed_y % texture_size;
+        } else {
+          continue;
+        }
+      }
+
+      let x_tile_number = (transformed_x / 8);
+      let y_tile_number = (transformed_y / 8);
+
+      let x_pos_in_tile = transformed_x % 8;
+      let y_pos_in_tile = transformed_y % 8;
+
+      let tilemap_number = x_tile_number + y_tile_number  * (texture_size / 8);
+
+      let bit_depth = 8;
+
+      let tilemap_address = tilemap_base + tilemap_number as u32;
+
+      let tile_number = if !IS_ENGINE_B {
+        vram.read_engine_a_bg(tilemap_address)
+      } else {
+        vram.read_engine_b_bg(tilemap_address)
+      };
+
+      let tile_address = tile_base + tile_number as u32 * bit_depth as u32 * 8;
+
+      let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, false, false, vram);
+
+      self.bg_lines[bg_index][x as usize] = self.get_bg_palette_color(palette_index as usize, 0);
+    }
 
   }
   fn render_objects(&mut self, y: u16, vram: &VRam) {
@@ -449,7 +498,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let y_pos_in_sprite = y as i16 - y_coordinate;
 
-    if y_pos_in_sprite < 0 || y_pos_in_sprite as u32 >= obj_height || obj_attributes.obj_mode == 3 {
+    if y_pos_in_sprite < 0 || y_pos_in_sprite as u32 >= obj_height {
       return;
     }
 
