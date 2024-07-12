@@ -242,7 +242,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let obj_size = (attribute2 >> 14) & 0b11;
 
     let tile_number = attribute3 & 0x3ff;
-    let priority = (attribute3 >> 10) & 0b11;
+    let priority = (attribute3 >> 10) & 0x3;
     let palette_number = (attribute3 >> 12) & 0xf;
 
     OamAttributes {
@@ -313,12 +313,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       3 => (x_in_bg / 256) + ((y_in_bg / 256) * 2), // 512 x 512
       _ => unreachable!("not possible")
     };
-
-    // let tile_size: u32 = if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
-    //   64
-    // } else {
-    //   32
-    // };
 
     let is_bpp8 = self.bgcnt[bg_index].contains(BgControlRegister::PALETTES);
 
