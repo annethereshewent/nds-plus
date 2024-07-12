@@ -1,6 +1,69 @@
 use super::{registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::{BgMode, DisplayControlRegister, DisplayControlRegisterFlags, DisplayMode}, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, vram::VRam, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
+const ATTRIBUTE_SIZE: usize = 8;
+
+const VRAM_OBJECT_START_TILE: u32 = 0x1_0000;
+const VRAM_OBJECT_START_BITMAP: u32 = 0x1_4000;
+
+#[derive(Debug)]
+struct OamAttributes {
+  x_coordinate: u16,
+  y_coordinate: u16,
+  rotation_flag: bool,
+  double_sized_flag: bool,
+  obj_disable: bool,
+  obj_mode: u16,
+  obj_mosaic: bool,
+  palette_flag: bool,
+  obj_shape: u16,
+  obj_size: u16,
+  rotation_param_selection: u16,
+  horizontal_flip: bool,
+  vertical_flip: bool,
+  tile_number: u16,
+  priority: u16,
+  palette_number: u16
+}
+
+impl OamAttributes {
+  pub fn get_object_dimensions(&self) -> (u32, u32) {
+    match (self.obj_size, self.obj_shape) {
+      (0, 0) => (8, 8),
+      (1, 0) => (16, 16),
+      (2, 0) => (32, 32),
+      (3, 0) => (64, 64),
+      (0, 1) => (16, 8),
+      (1, 1) => (32, 8),
+      (2, 1) => (32, 16),
+      (3, 1) => (64, 32),
+      (0, 2) => (8, 16),
+      (1, 2) => (8, 32),
+      (2, 2) => (16, 32),
+      (3, 2) => (32, 64),
+      _ => (8, 8)
+    }
+  }
+}
+
+#[derive(Copy, Clone)]
+pub struct ObjectPixel {
+  pub priority: u16,
+  pub color: Option<Color>,
+  pub is_window: bool,
+  pub is_transparent: bool
+}
+
+impl ObjectPixel {
+  pub fn new() -> Self {
+    Self {
+      priority: 4,
+      color: None,
+      is_window: false,
+      is_transparent: false
+    }
+  }
+}
 
 #[derive(Copy, Clone)]
 pub struct Color {
@@ -43,6 +106,7 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub bgyofs: [u16; 4],
   pub bg_props: [BgProps; 2],
   bg_lines: [[Option<Color>; SCREEN_WIDTH as usize]; 4],
+  obj_lines: Box<[ObjectPixel]>,
   pub master_brightness: MasterBrightnessRegister,
   pub bg_palette_ram: [u8; 0x200],
   pub obj_palette_ram: [u8; 0x200]
@@ -68,7 +132,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
       master_brightness: MasterBrightnessRegister::new(),
       bg_palette_ram: [0; 0x200],
-      obj_palette_ram: [0; 0x200]
+      obj_palette_ram: [0; 0x200],
+      obj_lines: vec![ObjectPixel::new(); (SCREEN_WIDTH * SCREEN_HEIGHT) as usize].into_boxed_slice()
     }
   }
 
@@ -88,7 +153,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   pub fn render_normal_line(&mut self, y: u16, vram: &VRam) {
     if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
-      self.render_objects();
+      self.render_objects(y, vram);
     }
 
     match self.dispcnt.bg_mode {
@@ -185,13 +250,199 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           }
         }
       }
+      // render objects
+      if let Some(color) = self.obj_lines[x as usize].color {
+        self.set_pixel(x as usize, y as usize, color);
+      }
     }
   }
 
   fn render_affine_line(&mut self, bg_index: usize) {
 
   }
-  fn render_objects(&mut self) {
+  fn render_objects(&mut self, y: u16, vram: &VRam) {
+    for i in 0..128 {
+      let obj_attributes = self.get_attributes(i);
+
+      if obj_attributes.obj_disable {
+        continue;
+      }
+      if obj_attributes.rotation_flag {
+        // self.render_affine_object(obj_attributes);
+      } else {
+        // render object normally
+        self.render_normal_object(obj_attributes, y, vram);
+      }
+    }
+  }
+
+  fn get_obj_coordinates(&mut self, x: u16, y: u16) -> (i16, i16) {
+    let return_x: i16 = if x >= SCREEN_WIDTH {
+      x as i16 - 512
+    } else {
+      x as i16
+    };
+
+    let return_y: i16 = if y >= SCREEN_HEIGHT {
+      y as i16 - 256
+    } else {
+      y as i16
+    };
+
+    (return_x, return_y)
+  }
+
+  fn render_normal_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
+    let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
+
+    let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
+
+    let y_pos_in_sprite: i16 = y as i16 - y_coordinate;
+
+    if y_pos_in_sprite < 0 || y_pos_in_sprite as u32 >= obj_height || obj_attributes.obj_mode == 3 {
+      return;
+    }
+
+    let tile_number = obj_attributes.tile_number;
+    let tile_base: u32 = 0x1_0000 + tile_number as u32 * 32;
+
+    let bg_mode = self.dispcnt.bg_mode;
+
+    let vram_obj_start = if (bg_mode as usize) < 3 {
+      VRAM_OBJECT_START_TILE
+    } else {
+      VRAM_OBJECT_START_BITMAP
+    };
+
+    if tile_base < vram_obj_start {
+      return;
+    }
+
+    let tile_size = if obj_attributes.palette_flag {
+      64
+    } else {
+      32
+    };
+
+    let tile_width = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
+      obj_width / 8
+    } else {
+      if obj_attributes.palette_flag {
+        16
+      } else {
+        32
+      }
+    };
+
+    let palette_bank = if !obj_attributes.palette_flag {
+      obj_attributes.palette_number
+    } else {
+      0
+    };
+
+    for x in 0..obj_width {
+      let screen_x = x as i16 + x_coordinate;
+
+      if screen_x < 0 {
+        continue;
+      }
+
+      if screen_x >= SCREEN_WIDTH as i16 {
+        break;
+      }
+
+      let obj_line_index = (screen_x as u16 + y * SCREEN_WIDTH) as usize;
+
+      if self.obj_lines[obj_line_index].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
+        continue;
+      }
+
+      let x_pos_in_sprite = if obj_attributes.horizontal_flip {
+        obj_width - x - 1
+      } else {
+        x
+      };
+
+      let y_pos_in_sprite = if obj_attributes.vertical_flip {
+        (obj_height as i16 - y_pos_in_sprite - 1) as u16
+      } else {
+        y_pos_in_sprite as u16
+      };
+
+      let x_pos_in_tile = x_pos_in_sprite % 8;
+      let y_pos_in_tile = y_pos_in_sprite % 8;
+
+      let tile_address = tile_base + (x_pos_in_sprite / 8 + (y_pos_in_sprite as u32 / 8) * tile_width) * tile_size;
+
+      let palette_index = if obj_attributes.palette_flag {
+        self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
+      } else {
+        self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
+      };
+
+      if palette_index != 0 {
+        self.obj_lines[obj_line_index] = ObjectPixel {
+          priority: obj_attributes.priority,
+          color: self.get_obj_palette_color(palette_index as usize, palette_bank as usize),
+          is_window: obj_attributes.obj_mode == 2,
+          is_transparent: obj_attributes.obj_mode == 1
+        };
+      }
+    }
+  }
+
+  fn oam_read_16(&self, address: usize) -> u16 {
+    (self.oam[address] as u16) | (self.oam[address + 1] as u16) << 8
+  }
+
+  fn get_attributes(&self, i: usize) -> OamAttributes {
+    let oam_address = i * ATTRIBUTE_SIZE;
+
+    let attribute1 = self.oam_read_16(oam_address);
+    let attribute2 = self.oam_read_16(oam_address + 2);
+    let attribute3 = self.oam_read_16(oam_address + 4);
+
+    let y_coordinate = attribute1 & 0xff;
+    let rotation_flag = (attribute1 >> 8) & 0b1 == 1;
+    let double_sized_flag = rotation_flag && (attribute1 >> 9) & 0b1 == 1;
+    let obj_disable = !rotation_flag && (attribute1 >> 9) & 0b1 == 1;
+    let obj_mode = (attribute1 >> 10) & 0b11;
+    let obj_mosaic = (attribute1 >> 12) & 0b1 == 1;
+    let palette_flag = (attribute1 >> 13) & 0b1 == 1;
+    let obj_shape = (attribute1 >> 14) & 0b11;
+
+    let x_coordinate = attribute2 & 0x1ff;
+    let rotation_param_selection = if rotation_flag {
+      (attribute2 >> 9) & 0b11111
+    } else {
+      0
+    };
+    let horizontal_flip = !rotation_flag && (attribute2 >> 12) & 0b1 == 1;
+    let vertical_flip = !rotation_flag && (attribute2 >> 13) & 0b1 == 1;
+    let obj_size = (attribute2 >> 14) & 0b11;
+
+    let tile_number = attribute3 & 0b1111111111;
+    let priority = (attribute3 >> 10) & 0b11;
+    let palette_number = (attribute3 >> 12) & 0xf;
+
+    OamAttributes {
+      y_coordinate,
+      rotation_flag,
+      double_sized_flag,
+      obj_disable,
+      obj_mode,
+      obj_mosaic,
+      palette_flag,
+      obj_shape,
+      x_coordinate,
+      rotation_param_selection,
+      horizontal_flip,
+      vertical_flip,
+      obj_size,
+      tile_number,
+      priority,
+      palette_number
+    }
 
   }
 
@@ -274,9 +525,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         for tile_x in x_pos_in_tile..8 {
           let palette_index = if bit_depth == 8 {
-            self.get_pixel_index_bpp8(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+            self.get_bg_pixel_index_bpp8(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
           } else {
-            self.get_pixel_index_bpp4(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+            self.get_bg_pixel_index_bpp4(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
           };
 
           let palette_bank = if is_bpp8 {
@@ -285,7 +536,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             palette_number
           };
 
-          self.bg_lines[bg_index][x as usize] = self.get_bg_palette_color(palette_index as usize, palette_bank as usize, 0);
+          self.bg_lines[bg_index][x as usize] = self.get_bg_palette_color(palette_index as usize, palette_bank as usize);
 
           x += 1;
 
@@ -437,15 +688,15 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_bg_palette_color(&self, index: usize, palette_bank: usize, offset: usize) -> Option<Color> {
+  fn get_palette_color(index: usize, palette_bank: usize, ram: &[u8]) -> Option<Color> {
 
     let value = if index == 0 || (palette_bank != 0 && index % 16 == 0) {
       COLOR_TRANSPARENT
     } else {
-      let index = offset + 2 * index + 32 * palette_bank;
+      let index = 2 * index + 32 * palette_bank;
 
-      let lower = self.bg_palette_ram[index];
-      let upper = self.bg_palette_ram[index + 1];
+      let lower = ram[index];
+      let upper = ram[index + 1];
 
       ((lower as u16) | (upper as u16) << 8) & 0x7fff
     };
@@ -457,7 +708,49 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_bg_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
+    Self::get_palette_color(index, palette_bank, &self.bg_palette_ram)
+  }
+
+  fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
+    Self::get_palette_color(index, palette_bank, &self.obj_palette_ram)
+  }
+
+  fn get_obj_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+    let tile_x = if x_flip { 7 - tile_x } else { tile_x };
+    let tile_y = if y_flip { 7 - tile_y } else { tile_y };
+
+    // println!("reading from vram at address {:x}", address + tile_x as u32 + (tile_y as u32) * 8);
+
+    if !IS_ENGINE_B {
+      vram.read_engine_a_obj(address + tile_x as u32 + (tile_y as u32) * 8)
+    } else {
+      vram.read_engine_b_obj(address + tile_x as u32 + (tile_y as u32) * 8)
+    }
+  }
+
+  fn get_obj_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+    let tile_x = if x_flip { 7 - tile_x } else { tile_x };
+    let tile_y = if y_flip { 7 - tile_y } else { tile_y };
+
+    let address = address + (tile_x / 2) as u32 + (tile_y as u32) * 4;
+
+    // println!("reading from vram at address {:x}", address);
+
+    let byte = if !IS_ENGINE_B {
+      vram.read_engine_a_obj(address)
+    } else {
+      vram.read_engine_b_obj(address)
+    };
+
+    if tile_x & 0b1 == 1 {
+      byte >> 4
+    } else {
+      byte & 0xf
+    }
+  }
+
+  fn get_bg_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
@@ -470,7 +763,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_bg_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 

@@ -211,6 +211,14 @@ impl VRam {
     value
   }
 
+  pub fn read_engine_a_obj(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
+  }
+
+  pub fn read_engine_b_obj(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
+  }
+
   pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
   }
