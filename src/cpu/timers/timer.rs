@@ -28,31 +28,6 @@ impl Timer {
     }
   }
 
-  // pub fn tick(&mut self, cycles: u32) -> bool {
-  //   if self.running && !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
-  //     self.cycles += cycles;
-
-  //     let temp = if self.cycles >= self.prescalar_frequency {
-  //       let to_add = self.cycles / self.prescalar_frequency;
-  //       self.cycles = 0;
-  //       self.value.wrapping_add(to_add as u16)
-  //     } else {
-  //       self.value
-  //     };
-
-  //     // timer has overflown
-  //     if temp < self.value  {
-  //       self.handle_overflow();
-
-  //       return true;
-  //     } else {
-  //       self.value = temp;
-  //     }
-  //   }
-
-  //   false
-  // }
-
   pub fn count_up_timer(&mut self, interrupt_request: &mut InterruptRequestRegister, scheduler: &mut Scheduler) -> bool {
     let mut return_val = false;
 

@@ -1,5 +1,5 @@
 bitflags! {
-  #[derive(Copy, Clone, Debug)]
+  #[derive(Copy, Clone, Debug, PartialEq)]
   pub struct InterruptRequestRegister: u32 {
     const VBLANK = 0b1;
     const HBLANK = 0b1 << 1;
