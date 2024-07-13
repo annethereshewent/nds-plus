@@ -22,6 +22,7 @@ pub mod pixel_processing;
 const COLOR_TRANSPARENT: u16 = 0x8000;
 const ATTRIBUTE_SIZE: usize = 8;
 const AFFINE_SIZE: u16 = 3 * 2;
+const OBJ_PALETTE_OFFSET: usize = 0x200;
 
 #[derive(Debug)]
 struct OamAttributes {
@@ -141,8 +142,7 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   bg_lines: [[Option<Color>; SCREEN_WIDTH as usize]; 4],
   obj_lines: Box<[ObjectPixel]>,
   pub master_brightness: MasterBrightnessRegister,
-  pub bg_palette_ram: [u8; 0x200],
-  pub obj_palette_ram: [u8; 0x200]
+  pub palette_ram: [u8; 0x400],
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
@@ -164,24 +164,15 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bgcnt: [BgControlRegister::from_bits_retain(0); 4],
       bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
       master_brightness: MasterBrightnessRegister::new(),
-      bg_palette_ram: [0; 0x200],
-      obj_palette_ram: [0; 0x200],
+      palette_ram: [0; 0x400],
       obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice()
     }
   }
 
   pub fn write_palette_ram(&mut self, address: u32, byte: u8) {
-    let mut address = address & (2 * self.bg_palette_ram.len() - 1) as u32;
+    let index = (address as usize) & (self.palette_ram.len() - 1);
 
-    let ram = if address < self.bg_palette_ram.len() as u32 {
-      &mut self.bg_palette_ram
-    } else {
-      &mut self.obj_palette_ram
-    };
-
-    address = address & (ram.len() - 1) as u32;
-
-    ram[address as usize] = byte;
+    self.palette_ram[index as usize] = byte;
   }
 
   pub fn clear_obj_lines(&mut self) {

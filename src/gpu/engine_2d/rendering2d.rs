@@ -21,7 +21,7 @@ enum AffineType {
   Normal
 }
 
-use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT};
+use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT, OBJ_PALETTE_OFFSET};
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   fn render_affine_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
@@ -414,14 +414,14 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_palette_color(index: usize, palette_bank: usize, ram: &[u8]) -> Option<Color> {
+  fn get_palette_color(&self, index: usize, palette_bank: usize, offset: usize) -> Option<Color> {
     let value = if index == 0 || (palette_bank != 0 && index % 16 == 0) {
       COLOR_TRANSPARENT
     } else {
-      let index = 2 * index + 32 * palette_bank;
+      let index = 2 * index + 32 * palette_bank + offset;
 
-      let lower = ram[index];
-      let upper = ram[index + 1];
+      let lower = self.palette_ram[index];
+      let upper = self.palette_ram[index + 1];
 
       ((lower as u16) | (upper as u16) << 8) & 0x7fff
     };
@@ -452,11 +452,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_bg_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    Self::get_palette_color(index, palette_bank, &self.bg_palette_ram)
+    self.get_palette_color(index, palette_bank, 0)
   }
 
   fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    Self::get_palette_color(index, palette_bank, &self.obj_palette_ram)
+    self.get_palette_color(index, palette_bank, OBJ_PALETTE_OFFSET)
   }
 
   fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
@@ -722,7 +722,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // for extended 8bpp, palette_index = transformed_y * WIDTH + x,
       self.bg_lines[bg_index][x as usize] = match affine_type {
         AffineType::Extended => {
-          let bit_depth = 8;
+          let bit_depth = if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
+            8
+          } else {
+            4
+          };
 
           let tilemap_address = Self::get_affine_tilemap_address(tilemap_base, transformed_x, transformed_y, texture_size);
 
@@ -742,9 +746,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
 
           if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, 0 as usize, vram)
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
           } else {
-            self.get_bg_palette_color(palette_index as usize, 0 as usize)
+            self.get_bg_palette_color(palette_index as usize, palette_number as usize)
           }
         }
         AffineType::Normal => {

@@ -190,7 +190,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (None, None)
     };
 
-    let mut default_color = Color::from((self.bg_palette_ram[0] as u16) | (self.bg_palette_ram[1] as u16) << 8);
+    let mut default_color = Color::from((self.palette_ram[0] as u16) | (self.palette_ram[1] as u16) << 8);
 
     if let Some(mut top_layer_color) = top_layer_color {
       // this is safe to do, as we've verified the top layer and color above

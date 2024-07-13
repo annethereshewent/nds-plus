@@ -258,8 +258,8 @@ impl Bus {
         self.shared_wram[((address & arm9_mask) + arm9_offset) as usize] = val;
       }
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
-      0x500_0000..=0x5ff_ffff if address & 0x7ff < 0x400 => self.gpu.write_palette_a(address, val),
-      0x500_0000..=0x5ff_ffff => self.gpu.write_palette_b(address, val),
+      0x500_0000..=0x500_03ff => self.gpu.write_palette_a(address, val),
+      0x500_0400..=0x500_07ff => self.gpu.write_palette_b(address, val),
       0x600_0000..=0x61f_ffff => self.gpu.vram.write_engine_a_bg(address, val),
       0x620_0000..=0x63f_ffff => self.gpu.vram.write_engine_b_bg(address, val),
       0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
