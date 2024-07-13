@@ -122,8 +122,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       self.render_objects(y, vram);
     }
 
-    println!("{:?}", self.dispcnt.bg_mode);
-
     match self.dispcnt.bg_mode {
       BgMode::Mode0 => {
         for i in 0..4 {
@@ -209,16 +207,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // bpp8
       if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
-        println!("rendering extended direct");
         self.render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect);
       } else {
         // Extended8bpp
-        println!("rendering an extended 8bpp line!");
         self.render_affine_line(bg_index, y, vram, AffineType::Extended8bpp);
       }
     } else {
       // Extended
-      println!("rendering extended");
       self.render_affine_line(bg_index, y, vram, AffineType::Extended);
     }
   }
