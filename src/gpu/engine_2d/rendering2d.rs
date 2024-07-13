@@ -715,6 +715,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           transformed_x = transformed_x % texture_size;
           transformed_y = transformed_y % texture_size;
         } else {
+          self.bg_lines[bg_index][x as usize] = None;
           continue;
         }
       }
@@ -723,7 +724,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let y_pos_in_tile = transformed_y % 8;
 
       // formulas for extended lines:
-      // for extended 8bpp direct lines color = 2*(transformed_y * texture_size/8 + x);
+      // for extended 8bpp direct color = 2*(transformed_y * texture_size + x);
       // for extended 8bpp, palette_index = transformed_y * WIDTH + x,
       // for extended, get the attributes from vram and render accordingly
       self.bg_lines[bg_index][x as usize] = match affine_type {

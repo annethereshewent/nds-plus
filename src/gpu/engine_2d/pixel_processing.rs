@@ -47,6 +47,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     sorted.sort_by_key(|key| (self.bgcnt[*key].bg_priority(), *key));
 
+    if self.debug_on {
+      println!("{:?}", sorted);
+    }
+
     let mut occupied = [false; SCREEN_WIDTH as usize];
 
     if self.dispcnt.windows_enabled() {
@@ -190,7 +194,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (None, None)
     };
 
-    let mut default_color = Color::from((self.palette_ram[0] as u16) | (self.palette_ram[1] as u16) << 8);
+    let default_color = Color::to_rgb24((self.palette_ram[0] as u16) | (self.palette_ram[1] as u16) << 8);
 
     if let Some(mut top_layer_color) = top_layer_color {
       // this is safe to do, as we've verified the top layer and color above
@@ -211,8 +215,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
       self.set_pixel(x as usize, y as usize, top_layer_color.convert());
     } else {
-
-      self.set_pixel(x as usize, y as usize, default_color.convert());
+      self.set_pixel(x as usize, y as usize, default_color);
     }
 
   }

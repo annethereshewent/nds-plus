@@ -143,6 +143,7 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   obj_lines: Box<[ObjectPixel]>,
   pub master_brightness: MasterBrightnessRegister,
   pub palette_ram: [u8; 0x400],
+  pub debug_on: bool
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
@@ -165,7 +166,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
       master_brightness: MasterBrightnessRegister::new(),
       palette_ram: [0; 0x400],
-      obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice()
+      obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice(),
+      debug_on: false
     }
   }
 
