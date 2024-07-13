@@ -217,7 +217,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (low $coordinate:ident $internal:ident $i:expr) => {{
         let existing = bg_props[$i].$coordinate as u32;
 
-        let new_value = ((existing & 0xffff0000) + (value as u32)) as i32;
+        let new_value = ((existing & 0xffff0000) | (value as u32)) as i32;
 
         bg_props[$i].$coordinate = new_value;
         bg_props[$i].$internal = new_value;
