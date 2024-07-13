@@ -204,7 +204,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   fn render_extended_line(&mut self, bg_index: usize, vram: &VRam) {
     if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
-      // bpp8
       if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
         self.render_affine_line(bg_index, vram, AffineType::Extended8bppDirect);

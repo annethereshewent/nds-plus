@@ -72,7 +72,7 @@ impl Timer {
   }
 
   pub fn read_timer_value(&self, scheduler: &Scheduler) -> u16 {
-    if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+    if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) && self.timer_ctl.contains(TimerControl::ENABLED) {
       let current_cycles = scheduler.cycles;
 
       let prescalar = if self.prescalar_frequency != 0 {
