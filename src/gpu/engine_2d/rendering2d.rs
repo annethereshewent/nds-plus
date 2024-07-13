@@ -14,11 +14,13 @@ use crate::gpu::
   SCREEN_WIDTH
 };
 
+#[derive(PartialEq, Copy, Clone)]
 enum AffineType {
   Extended8bpp,
   Extended8bppDirect,
   Extended,
-  Normal
+  Normal,
+  Large
 }
 
 use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT, OBJ_PALETTE_OFFSET};
@@ -138,7 +140,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_affine_line(3, vram, AffineType::Normal);
+          self.render_affine_line(3, y, vram, AffineType::Normal);
         }
       }
       BgMode::Mode2 => {
@@ -150,7 +152,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         for i in 2..4 {
           if self.bg_mode_enabled(i) {
-            self.render_affine_line(i, vram, AffineType::Normal);
+            self.render_affine_line(i, y, vram, AffineType::Normal);
           }
         }
       }
@@ -162,7 +164,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, vram);
+          self.render_extended_line(3, y, vram);
         }
       }
       BgMode::Mode4 => {
@@ -173,11 +175,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(2) {
-          self.render_affine_line(2, vram, AffineType::Normal);
+          self.render_affine_line(2, y, vram, AffineType::Normal);
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, vram);
+          self.render_extended_line(3, y, vram);
         }
       }
       BgMode::Mode5 => {
@@ -188,32 +190,38 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(2) {
-          self.render_extended_line(2, vram);
+          self.render_extended_line(2, y, vram);
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, vram);
+          self.render_extended_line(3, y, vram);
         }
       }
-      BgMode::Mode6 => (), // TODO
+      BgMode::Mode6 => {
+        // TODO: 3d rendering
+        // if self.bg_mode_enabled(0) {
+        //   self.render_3d_line();
+        // }
+        self.render_affine_line(2, y, vram, AffineType::Large)
+      },
       _ => panic!("reserved option given for bg mode: 7")
     }
 
     self.finalize_scanline(y);
   }
 
-  fn render_extended_line(&mut self, bg_index: usize, vram: &VRam) {
+  fn render_extended_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
     if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
       if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
-        self.render_affine_line(bg_index, vram, AffineType::Extended8bppDirect);
+        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect);
       } else {
         // Extended8bpp
-        self.render_affine_line(bg_index, vram, AffineType::Extended8bpp);
+        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bpp);
       }
     } else {
       // Extended
-      self.render_affine_line(bg_index, vram, AffineType::Extended);
+      self.render_affine_line(bg_index, y, vram, AffineType::Extended);
     }
   }
 
@@ -691,12 +699,16 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn render_affine_line(&mut self, bg_index: usize, vram: &VRam, affine_type: AffineType) {
+  fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam, affine_type: AffineType) {
     let (dx, dy) = (self.bg_props[bg_index - 2].dx, self.bg_props[bg_index - 2].dy);
 
     let (tilemap_base, tile_base) = self.get_tile_base_addresses(bg_index);
 
-    let texture_size = 128 << self.bgcnt[bg_index].screen_size();
+    let texture_size = if affine_type != AffineType::Large {
+      128 << self.bgcnt[bg_index].screen_size()
+    } else {
+      512 << self.bgcnt[bg_index].screen_size() & 0b1
+    };
 
     let (mut ref_x, mut ref_y) = (self.bg_props[bg_index - 2].internal_x, self.bg_props[bg_index - 2].internal_y);
 
@@ -772,11 +784,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.get_bg_palette_color(palette_index as usize, 0)
         }
         AffineType::Extended8bppDirect => {
-          let address = 2 * (transformed_y * texture_size + x as i32);
+          let address = 2 * (transformed_y as u32 * texture_size as u32 + x as u32);
           let color_raw = if !IS_ENGINE_B {
-            vram.read_engine_a_bg(address as u32) as u16 | (vram.read_engine_a_bg((address  + 1) as u32) as u16) << 8
+            vram.read_engine_a_bg(address) as u16 | (vram.read_engine_a_bg(address  + 1) as u16) << 8
           } else {
-            vram.read_engine_b_bg(address as u32) as u16 | (vram.read_engine_b_bg((address + 1) as u32) as u16) << 8
+            vram.read_engine_b_bg(address) as u16 | (vram.read_engine_b_bg(address + 1) as u16) << 8
           };
 
           if color_raw == 0 {
@@ -787,6 +799,17 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
         AffineType::Extended8bpp => {
           let palette_address = transformed_y as u32 * SCREEN_WIDTH as u32 + x as u32;
+
+          let palette_index = if !IS_ENGINE_B {
+            vram.read_engine_a_bg(palette_address)
+          } else {
+            vram.read_engine_b_bg(palette_address)
+          };
+
+          self.get_bg_palette_color(palette_index as usize, 0)
+        }
+        AffineType::Large => {
+          let palette_address = y as u32 * texture_size as u32 + x as u32;
 
           let palette_index = if !IS_ENGINE_B {
             vram.read_engine_a_bg(palette_address)
