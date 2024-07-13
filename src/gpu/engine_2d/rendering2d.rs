@@ -122,6 +122,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       self.render_objects(y, vram);
     }
 
+    println!("{:?}", self.dispcnt.bg_mode);
+
     match self.dispcnt.bg_mode {
       BgMode::Mode0 => {
         for i in 0..4 {
@@ -207,13 +209,16 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // bpp8
       if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
+        println!("rendering extended direct");
         self.render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect);
       } else {
         // Extended8bpp
+        println!("rendering an extended 8bpp line!");
         self.render_affine_line(bg_index, y, vram, AffineType::Extended8bpp);
       }
     } else {
       // Extended
+      println!("rendering extended");
       self.render_affine_line(bg_index, y, vram, AffineType::Extended);
     }
   }
@@ -349,8 +354,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let bit_depth = if is_bpp8 { 8 } else { 4 };
 
     while x < SCREEN_WIDTH {
-      let tile_number = x_tile_number + y_tile_number * 32;
-      let mut tilemap_address = tilemap_base + 0x800 * screen_index as u32 + 2 * tile_number as u32;
+      let tilemap_number = x_tile_number + y_tile_number * 32;
+      let mut tilemap_address = tilemap_base + 0x800 * screen_index as u32 + 2 * tilemap_number as u32;
       'outer: for _ in x_tile_number..32 {
         let attributes = if !IS_ENGINE_B {
           vram.read_engine_a_bg(tilemap_address) as u16 | (vram.read_engine_a_bg(tilemap_address + 1) as u16) << 8
@@ -680,12 +685,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn get_affine_tilemap_address(tilemap_base: u32, transformed_x: i32, transformed_y: i32, texture_size: i32) -> u32 {
-    let x_tile_number = transformed_x / 8;
-    let y_tile_number = transformed_y / 8;
+    let x_tile_number = (transformed_x / 8) % (texture_size / 8);
+    let y_tile_number = (transformed_y / 8) % (texture_size / 8);
 
     let tilemap_number = x_tile_number + y_tile_number  * (texture_size / 8);
 
-    tilemap_base + tilemap_number as u32
+    tilemap_base + 2 * tilemap_number as u32
   }
 
   fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam, affine_type: AffineType) {
@@ -703,7 +708,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     for x in 0..SCREEN_WIDTH {
       let mut transformed_x = (ref_x + x as i32 * dx as i32) >> 8;
-      let mut transformed_y = (ref_y + y as i32 * dy as i32) >> 8;
+      let mut transformed_y = (ref_y + x as i32 * dy as i32) >> 8;
 
       if transformed_x < 0 || transformed_x > texture_size || transformed_y < 0 || transformed_y > texture_size {
         if self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
@@ -722,11 +727,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // for extended 8bpp, palette_index = transformed_y * WIDTH + x,
       self.bg_lines[bg_index][x as usize] = match affine_type {
         AffineType::Extended => {
-          let bit_depth = if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
-            8
-          } else {
-            4
-          };
+          let bit_depth = 8;
 
           let tilemap_address = Self::get_affine_tilemap_address(tilemap_base, transformed_x, transformed_y, texture_size);
 
@@ -746,9 +747,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
 
           if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, 0 as usize, vram)
           } else {
-            self.get_bg_palette_color(palette_index as usize, palette_number as usize)
+            self.get_bg_palette_color(palette_index as usize, 0 as usize)
           }
         }
         AffineType::Normal => {
@@ -769,7 +770,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.get_bg_palette_color(palette_index as usize, 0)
         }
         AffineType::Extended8bppDirect => {
-          let address = 2 * (transformed_y * texture_size + x as i32);
+          let address = 2 * (transformed_y * texture_size/8 + x as i32);
           let color_raw = if !IS_ENGINE_B {
             vram.read_engine_a_bg(address as u32) as u16 | (vram.read_engine_a_bg((address  + 1) as u32) as u16) << 8
           } else {
