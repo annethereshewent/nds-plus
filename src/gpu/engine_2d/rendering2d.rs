@@ -707,7 +707,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let texture_size = if affine_type != AffineType::Large {
       128 << self.bgcnt[bg_index].screen_size()
     } else {
-      512 << self.bgcnt[bg_index].screen_size() & 0b1
+      512 << (self.bgcnt[bg_index].screen_size() & 0b1)
     };
 
     let (mut ref_x, mut ref_y) = (self.bg_props[bg_index - 2].internal_x, self.bg_props[bg_index - 2].internal_y);
