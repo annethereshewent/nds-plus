@@ -213,6 +213,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         top_layer_color = self.process_pixel(x as usize, top_layer_color, bottom_layer);
       }
 
+      // lastly apply master brightness
+      top_layer_color = self.master_brightness.apply_effect(top_layer_color);
+
       self.set_pixel(x as usize, y as usize, top_layer_color.convert());
     } else {
       self.set_pixel(x as usize, y as usize, default_color);
