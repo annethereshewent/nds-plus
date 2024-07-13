@@ -209,10 +209,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         top_layer_color = self.process_pixel(x as usize, top_layer_color, bottom_layer);
       }
 
-      self.set_pixel(x as usize, y as usize, top_layer_color.to_rgb24());
+      self.set_pixel(x as usize, y as usize, top_layer_color.convert());
     } else {
 
-      self.set_pixel(x as usize, y as usize, default_color.to_rgb24());
+      self.set_pixel(x as usize, y as usize, default_color.convert());
     }
 
   }

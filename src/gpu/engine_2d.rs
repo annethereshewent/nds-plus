@@ -91,7 +91,7 @@ pub struct Color {
 }
 
 impl Color {
-  pub fn to_rgb24(&mut self) -> Self {
+  pub fn convert(&mut self) -> Self {
     self.r = (self.r << 3) | (self.r >> 2);
     self.g = (self.g << 3) | (self.g >> 2);
     self.b = (self.b << 3) | (self.b >> 2);
@@ -99,7 +99,7 @@ impl Color {
     *self
   }
 
-  pub fn from_rgb15(val: u16) -> Self {
+  pub fn to_rgb24(val: u16) -> Self {
     let mut r = (val & 0x1f) as u8;
     let mut g = ((val >> 5) & 0x1f) as u8;
     let mut b = ((val >> 10) & 0x1f) as u8;
