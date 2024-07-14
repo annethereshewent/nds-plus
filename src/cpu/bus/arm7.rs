@@ -25,7 +25,6 @@ impl Bus {
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0188 => self.send_to_fifo(false, val),
-      0x400_0400..=0x400_051c => (),
       _ => panic!("write to unsupported address: {:X}", address)
     }
   }
@@ -78,7 +77,6 @@ impl Bus {
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
-      0x400_0400..=0x400_051c => 0,
       0x410_0000 => self.receive_from_fifo(false),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm7, false),
       _ => panic!("unhandled io read to address {:x}", address)
@@ -125,10 +123,9 @@ impl Bus {
       }
       0x400_0300 => self.arm7.postflg as u16,
       0x400_0304 => self.gpu.powcnt2.bits(),
-      0x400_0400..=0x400_051c => {
-        // println!("ignoring reads from spu registers");
-        0
-      }
+      0x400_0400..=0x400_04ff => self.arm7.apu.read_channels(address),
+      0x400_0500 => self.arm7.apu.soundcnt.read(),
+      0x400_0508 => self.arm7.apu.sndcapcnt[0].read() as u16 | (self.arm7.apu.sndcapcnt[1].read() as u16) << 8,
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -246,7 +243,6 @@ impl Bus {
       0x400_0216 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16)),
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
-      0x400_0400..=0x400_051c => (), // println!("ignoring writes to sound registers"),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
@@ -266,7 +262,6 @@ impl Bus {
 
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
-      0x400_0400..=0x400_051c => (), // println!("ignoring writes to spu registers"),
       0x400_01a0 => self.cartridge.spicnt.write(value as u16, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff00)),
       0x400_01a1 => self.cartridge.spicnt.write((value as u16) << 8, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff)),
       0x400_01a8..=0x400_01af => {
@@ -275,6 +270,8 @@ impl Bus {
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm7);
       }
       0x400_0301 => self.write_haltcnt(value),
+      0x400_0500 => self.arm7.apu.soundcnt.write(value as u16, Some(0xff00)),
+      0x400_0501 => self.arm7.apu.soundcnt.write((value as u16) << 8, Some(0xff)),
       _ => panic!("8-bit write to unsupported io address: {:x}", address)
     }
   }
