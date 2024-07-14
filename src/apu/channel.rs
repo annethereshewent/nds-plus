@@ -41,6 +41,8 @@ impl Channel {
   }
 
   pub fn get_sample_address(&mut self, byte_width: u32, scheduler: &mut Scheduler) -> u32 {
+    let return_address = self.current_address;
+
     self.bytes_left -= byte_width;
 
     self.current_address += byte_width;
@@ -57,7 +59,7 @@ impl Channel {
       scheduler.schedule(EventType::StepAudio(self.id), -(self.timer_value as i16) as u16 as usize);
     }
 
-    self.current_address
+    return_address
   }
 
   pub fn set_sample_8(&mut self, sample: u8) {

@@ -1,5 +1,5 @@
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum SoundFormat {
   PCM8,
   PCM16,
@@ -7,7 +7,7 @@ pub enum SoundFormat {
   PSG
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum RepeatMode {
   Manual = 0,
   Loop = 1,
@@ -15,7 +15,7 @@ pub enum RepeatMode {
 }
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SoundChannelControlRegister {
   pub val: u32,
   pub volume_mul: u32,
