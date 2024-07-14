@@ -1,3 +1,5 @@
+pub mod registers;
+
 pub struct APU {
 
 }
