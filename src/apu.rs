@@ -29,6 +29,18 @@ impl APU {
     }
   }
 
+  pub fn write_sound_bias(&mut self, value: u16, mask: Option<u16>) {
+    let mut val = 0;
+
+    if let Some(mask) = mask {
+      val = self.sound_bias & mask;
+    }
+
+    val |= value;
+
+    self.sound_bias = val;
+  }
+
   fn read_channels_internal(&self, address: u32) -> u32 {
     let channel = (address >> 4) & 0xf;
     let register = if address & 0xf != 0xa {

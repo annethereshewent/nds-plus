@@ -251,6 +251,7 @@ impl Bus {
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, BitLength::Bit16),
+      0x400_0504 => self.arm7.apu.write_sound_bias(value, None),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
@@ -279,6 +280,8 @@ impl Bus {
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, BitLength::Bit8),
       0x400_0500 => self.arm7.apu.soundcnt.write(value as u16, Some(0xff00)),
       0x400_0501 => self.arm7.apu.soundcnt.write((value as u16) << 8, Some(0xff)),
+      0x400_0504 => self.arm7.apu.write_sound_bias(value as u16, Some(0xff00)),
+      0x400_0505 => self.arm7.apu.write_sound_bias(((value & 0x3) as u16) << 8, Some(0xff)),
       _ => panic!("8-bit write to unsupported io address: {:x}", address)
     }
   }

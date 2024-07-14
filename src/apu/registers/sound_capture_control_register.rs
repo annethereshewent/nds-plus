@@ -5,7 +5,9 @@ pub struct SoundCaptureControlRegister {
   pub use_channel: bool,
   pub one_shot: bool,
   pub is_pcm8: bool,
-  pub is_running: bool
+  pub is_running: bool,
+  pub destination_address: u32,
+  pub capture_length: u16
 }
 
 impl SoundCaptureControlRegister {
@@ -16,7 +18,9 @@ impl SoundCaptureControlRegister {
       use_channel: false,
       one_shot: false,
       is_pcm8: false,
-      is_running: false
+      is_running: false,
+      destination_address: 0,
+      capture_length: 0
     }
   }
 
