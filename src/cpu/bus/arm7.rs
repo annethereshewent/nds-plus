@@ -1,4 +1,4 @@
-use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register2::PowerControlRegister2};
+use crate::{apu::BitLength, cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register2::PowerControlRegister2};
 
 use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 
@@ -25,8 +25,8 @@ impl Bus {
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0188 => self.send_to_fifo(false, val),
-      0x400_0400..=0x400_04ff if address & 0xf < 0x8 => self.arm7.apu.write_channels(address, val, false),
-      0x400_0400..=0x400_04ff if address & 0xf == 0xc => self.arm7.apu.write_channels(address, val, false),
+      0x400_0400..=0x400_04ff if address & 0xf < 0x8 => self.arm7.apu.write_channels(address, val, BitLength::Bit32),
+      0x400_0400..=0x400_04ff if address & 0xf == 0xc => self.arm7.apu.write_channels(address, val, BitLength::Bit32),
       0x400_0400..=0x400_04ff => {
         self.arm7_io_write_16(address, val as u16);
         self.arm7_io_write_16(address + 2, (val >> 16) as u16);
@@ -250,7 +250,7 @@ impl Bus {
       0x400_0216 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16)),
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
-      0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, true),
+      0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, BitLength::Bit16),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
@@ -276,6 +276,7 @@ impl Bus {
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm7);
       }
       0x400_0301 => self.write_haltcnt(value),
+      0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, BitLength::Bit8),
       0x400_0500 => self.arm7.apu.soundcnt.write(value as u16, Some(0xff00)),
       0x400_0501 => self.arm7.apu.soundcnt.write((value as u16) << 8, Some(0xff)),
       _ => panic!("8-bit write to unsupported io address: {:x}", address)

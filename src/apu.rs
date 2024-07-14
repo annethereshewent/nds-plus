@@ -4,6 +4,14 @@ use registers::{sound_capture_control_register::SoundCaptureControlRegister, sou
 pub mod registers;
 pub mod channel;
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum BitLength {
+  Bit8,
+  Bit16,
+  Bit32
+}
+
+
 pub struct APU {
   pub soundcnt: SoundControlRegister,
   pub sound_bias: u16,
@@ -23,35 +31,81 @@ impl APU {
 
   fn read_channels_internal(&self, address: u32) -> u32 {
     let channel = (address >> 4) & 0xf;
-    let register = (address & !(0x3)) & 0xf;
+    let register = if address & 0xf != 0xa {
+      (address & !(0x3)) & 0xf
+    } else {
+      0xa
+    };
 
     match register {
       0x0 => self.channels[channel as usize].read_control(),
       0x4 => self.channels[channel as usize].source_address,
-      0x8 => self.channels[channel as usize].timer_value,
+      0x8 => self.channels[channel as usize].timer_value as u32,
+      0xa => self.channels[channel as usize].loop_start as u32,
+      0xc => self.channels[channel as usize].sound_length,
       _ => panic!("channel register not implemented yet: {:X}", register),
-      // 0x8 => 0, // self.channels[channel as usize].timer_value as u32
-      // 0xa => 0, // self.channels[channel as usize].l() as u32,
-      // 0xc => 0, // self.channels[channel as usize].
     }
   }
 
-  pub fn write_channels(&mut self, address: u32, val: u32, use_mask: bool) {
-    let mut value = 0;
+  pub fn write_channels(&mut self, address: u32, val: u32, bit_length: BitLength) {
 
-    if use_mask {
-      let mask = if address & 0x3 == 2 {
-        0xffff
-      } else {
-        0xffff0000
-      };
 
-      value = self.read_channels_internal(address) & mask;
+    // if use_mask {
+    //   let mask = if address & 0x3 == 2 {
+    //     0xffff
+    //   } else {
+    //     0xffff0000
+    //   };
+
+    //   value = self.read_channels_internal(address) & mask;
+    // }
+
+    let value = if bit_length == BitLength::Bit32 {
+      val
+    } else {
+      let old_value = self.read_channels_internal(address);
+
+      match bit_length {
+        BitLength::Bit32 => val,
+        BitLength::Bit16 => {
+          if address & 0x3 == 2 {
+            old_value & 0xffff | (val << 16)
+          } else {
+            old_value & 0xffff0000 | val
+          }
+        }
+        BitLength::Bit8 => {
+          match address & 0x3 {
+            0 => old_value & 0xffffff00 | val,
+            1 => old_value & 0xffff00ff | (val << 8),
+            2 => old_value & 0xff00ffff | (val << 16),
+            3 => old_value & 0x00ffffff | (val << 24),
+            _ => unreachable!()
+          }
+        }
+      }
+    };
+
+    let channel = (address >> 4) & 0xf;
+    // let register = (address & !(0x3)) & 0xf;
+
+    let register = if address & 0xf != 0xa {
+      (address & !(0x3)) & 0xf
+    } else {
+      0xa
+    };
+
+    match register {
+      0x0 => self.channels[channel as usize].write_control(value),
+      0x4 => self.channels[channel as usize].source_address = value & 0x7ffffff,
+      0x8 => {
+        self.channels[channel as usize].timer_value = value as u16;
+        // TODO: schedule something here
+      }
+      0xa => self.channels[channel as usize].loop_start = value as u16,
+      0xc => self.channels[channel as usize].sound_length = value & 0x3fffff,
+      _ => panic!("invalid register given for apu write_channels: {:x}", register)
     }
-
-    value |= val;
-
-
   }
 
   pub fn read_channels(&self, address: u32) -> u16 {

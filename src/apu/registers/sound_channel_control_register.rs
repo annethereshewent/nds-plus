@@ -35,18 +35,7 @@ impl SoundChannelControlRegister {
     }
   }
 
-  pub fn write(&mut self, value: u32, mask: Option<u32>) {
-    let mut val = 0;
-
-    if let Some(mask) = mask {
-      val = self.val & mask;
-    }
-
-    val |= value;
-
-
-    self.val = val;
-
+  pub fn write(&mut self, val: u32) {
     self.volume_mul = val & 0x7f;
     self.volume_div = (val >> 8) & 0x3;
     self.hold_sample = (val >> 15) & 0b1 == 1;
