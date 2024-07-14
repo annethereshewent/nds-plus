@@ -48,18 +48,6 @@ impl APU {
   }
 
   pub fn write_channels(&mut self, address: u32, val: u32, bit_length: BitLength) {
-
-
-    // if use_mask {
-    //   let mask = if address & 0x3 == 2 {
-    //     0xffff
-    //   } else {
-    //     0xffff0000
-    //   };
-
-    //   value = self.read_channels_internal(address) & mask;
-    // }
-
     let value = if bit_length == BitLength::Bit32 {
       val
     } else {
@@ -87,8 +75,6 @@ impl APU {
     };
 
     let channel = (address >> 4) & 0xf;
-    // let register = (address & !(0x3)) & 0xf;
-
     let register = if address & 0xf != 0xa {
       (address & !(0x3)) & 0xf
     } else {
