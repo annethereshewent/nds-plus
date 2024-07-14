@@ -1,4 +1,4 @@
-use crate::{cpu::{bus::Bus, CPU}, scheduler::Scheduler};
+use crate::scheduler::Scheduler;
 
 use super::dma_channel::{registers::dma_control_register::{DmaControlRegister, DmaTiming}, DmaChannel, DmaParams};
 

@@ -1,5 +1,3 @@
-use std::{cell::{Cell, Ref, RefCell}, rc::Rc};
-
 use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
 use num_integer::Roots;

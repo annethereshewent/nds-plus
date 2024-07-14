@@ -1,6 +1,6 @@
 use registers::dma_control_register::DmaTiming;
 
-use crate::{cpu::{bus::Bus, MemoryAccess, CPU}, scheduler::{EventType, Scheduler}};
+use crate::scheduler::{EventType, Scheduler};
 
 use self::registers::dma_control_register::DmaControlRegister;
 

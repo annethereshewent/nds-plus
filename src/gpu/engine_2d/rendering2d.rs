@@ -203,8 +203,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         //   self.render_3d_line();
         // }
         self.render_affine_line(2, y, vram, AffineType::Large)
-      },
-      _ => panic!("reserved option given for bg mode: 7")
+      }
     }
 
     self.finalize_scanline(y);
@@ -382,7 +381,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           };
 
           self.bg_lines[bg_index][x as usize] = if is_bpp8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_bank as usize, vram)
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
           } else {
             self.get_bg_palette_color(palette_index as usize, palette_bank as usize)
           };
@@ -443,7 +442,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bg_index
     };
 
-    let address = slot as u32 * 8 * 0x400 + palette_index as u32 * 2;
+    let address = slot as u32 * 8 * 0x400 + (palette_index + palette_bank * 256) as u32 * 2;
 
 
     let color_raw = if !IS_ENGINE_B {
@@ -766,7 +765,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
 
           if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, 0 as usize, vram)
+            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
           } else {
             self.get_bg_palette_color(palette_index as usize, 0 as usize)
           }

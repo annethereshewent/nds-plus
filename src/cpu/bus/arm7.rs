@@ -1,4 +1,4 @@
-use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::FIFO_CAPACITY}, gpu::registers::power_control_register2::PowerControlRegister2};
+use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register2::PowerControlRegister2};
 
 use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 

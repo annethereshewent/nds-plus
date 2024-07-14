@@ -1,6 +1,6 @@
 use crate::cpu::{PC_REGISTER, PSRRegister, LR_REGISTER, OperatingMode};
 
-use super::{bus::cp15::{CP15, CP15_INDEX}, MemoryAccess, CPU};
+use super::{bus::cp15::CP15_INDEX, MemoryAccess, CPU};
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   pub fn populate_arm_lut(&mut self) {
@@ -743,7 +743,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     // armv7, only writeback if rn is not in the list
     // armv9, rn is the only register, or it's the last register in the list
 
-    let base_is_first = register_list.trailing_zeros() == rn;
+    // let base_is_first = register_list.trailing_zeros() == rn;
 
     // quick 8 register example
     // 8 registers 00100000 r5 is the last register, 7 - 2 = 5

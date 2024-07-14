@@ -1,5 +1,3 @@
-use std::{rc::Rc, cell::Cell};
-
 use crate::scheduler::Scheduler;
 
 use self::timer::{Timer, TimerControl};
