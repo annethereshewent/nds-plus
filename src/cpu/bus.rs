@@ -206,6 +206,9 @@ impl Bus {
       }
     }
 
+    // 2 idle cycles
+    cpu_cycles += 2;
+
     // update internal destination and source address for the dma channel as well.
     let channel = &mut self.arm9.dma.channels[i];
 
