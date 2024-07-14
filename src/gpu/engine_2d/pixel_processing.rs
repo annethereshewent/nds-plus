@@ -47,10 +47,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     sorted.sort_by_key(|key| (self.bgcnt[*key].bg_priority(), *key));
 
-    if self.debug_on && IS_ENGINE_B {
-      println!("{:?}", sorted);
-    }
-
     let mut occupied = [false; SCREEN_WIDTH as usize];
 
     if self.dispcnt.windows_enabled() {

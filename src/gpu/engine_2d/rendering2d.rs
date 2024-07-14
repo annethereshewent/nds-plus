@@ -445,7 +445,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let address = slot as u32 * 8 * 0x400 + palette_index as u32 * 2;
 
-    let color_raw = vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8;
+
+    let color_raw = if !IS_ENGINE_B {
+      vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8
+    } else {
+      vram.read_engine_b_extended_bg_palette(address) as u16 | (vram.read_engine_b_extended_bg_palette(address + 1) as u16) << 8
+    };
 
     if color_raw != 0 {
       Some(Color::from(color_raw))
