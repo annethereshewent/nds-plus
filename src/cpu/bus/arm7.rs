@@ -266,8 +266,6 @@ impl Bus {
       address
     };
 
-    // println!("im being called with address {:X}", address);
-
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
       0x400_01a0 => self.cartridge.spicnt.write(value as u16, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff00)),
