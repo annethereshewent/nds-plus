@@ -4,7 +4,7 @@ use num_integer::Roots;
 use spi::SPI;
 use touchscreen::Touchscreen;
 
-use crate::{apu::APU, gpu::GPU, scheduler::Scheduler};
+use crate::{apu::{channel::ChannelType, APU}, gpu::GPU, scheduler::Scheduler};
 
 use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_key_input_register::ExternalKeyInputRegister, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
 
@@ -475,6 +475,22 @@ impl Bus {
 
     // return back 0 for the deselected cpu
     0
+  }
+
+  pub fn step_audio(&mut self, channel_id: usize) {
+    let channel = &mut self.arm7.apu.channels[channel_id];
+
+    match channel.get_channel_type() {
+      ChannelType::Normal => {
+
+      }
+      ChannelType::PSG => {
+
+      }
+      ChannelType::Noise => {
+
+      }
+    }
   }
 
   pub fn write_sqrtcnt(&mut self, value: u16) {

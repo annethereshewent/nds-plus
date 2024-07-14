@@ -1,6 +1,8 @@
 use channel::Channel;
 use registers::{sound_capture_control_register::SoundCaptureControlRegister, sound_control_register::SoundControlRegister};
 
+use crate::scheduler::{EventType, Scheduler};
+
 pub mod registers;
 pub mod channel;
 
@@ -24,9 +26,19 @@ impl APU {
     Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
-      channels: [Channel::new(); 16],
+      channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2]
     }
+  }
+
+  pub fn create_channels() -> [Channel; 16] {
+    let mut vec = Vec::with_capacity(16);
+
+    for i in 0..16 {
+      vec.push(Channel::new(i));
+    }
+
+    vec.try_into().unwrap_or_else(|vec: Vec<Channel>| panic!("expected a vec of length 16 but got a vec of length {}", vec.len()))
   }
 
   pub fn write_sound_bias(&mut self, value: u16, mask: Option<u16>) {
@@ -59,7 +71,7 @@ impl APU {
     }
   }
 
-  pub fn write_channels(&mut self, address: u32, val: u32, bit_length: BitLength) {
+  pub fn write_channels(&mut self, address: u32, val: u32, scheduler: &mut Scheduler, bit_length: BitLength) {
     let value = if bit_length == BitLength::Bit32 {
       val
     } else {
@@ -86,7 +98,7 @@ impl APU {
       }
     };
 
-    let channel = (address >> 4) & 0xf;
+    let channel_id = (address >> 4) & 0xf;
     let register = if address & 0xf != 0xa {
       (address & !(0x3)) & 0xf
     } else {
@@ -94,14 +106,32 @@ impl APU {
     };
 
     match register {
-      0x0 => self.channels[channel as usize].write_control(value),
-      0x4 => self.channels[channel as usize].source_address = value & 0x7ffffff,
-      0x8 => {
-        self.channels[channel as usize].timer_value = value as u16;
-        // TODO: schedule something here
+      0x0 => {
+        let previous_control = self.channels[channel_id as usize].soundcnt;
+
+        self.channels[channel_id as usize].write_control(value);
+        let channel = &mut self.channels[channel_id as usize];
+
+        if !previous_control.is_started &&
+          channel.soundcnt.is_started &&
+          channel.timer_value > 0 &&
+          channel.loop_start as u32 + channel.sound_length > 0
+        {
+          scheduler.schedule(EventType::StepAudio(channel.id), -(channel.timer_value as i16) as u16 as usize);
+        } else if !channel.soundcnt.is_started {
+          scheduler.remove(EventType::StepAudio(channel_id as usize));
+        }
       }
-      0xa => self.channels[channel as usize].loop_start = value as u16,
-      0xc => self.channels[channel as usize].sound_length = value & 0x3fffff,
+      0x4 => self.channels[channel_id as usize].source_address = value & 0x7ffffff,
+      0x8 => {
+        self.channels[channel_id as usize].write_timer(value as u16, scheduler);
+
+        if bit_length == BitLength::Bit32 {
+          self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
+        }
+      }
+      0xa => self.channels[channel_id as usize].loop_start = value as u16,
+      0xc => self.channels[channel_id as usize].sound_length = value & 0x3fffff,
       _ => panic!("invalid register given for apu write_channels: {:x}", register)
     }
   }

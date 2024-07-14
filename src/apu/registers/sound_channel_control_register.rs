@@ -9,15 +9,15 @@ pub enum SoundFormat {
 
 #[derive(Copy, Clone)]
 pub struct SoundChannelControlRegister {
-  val: u32,
-  volume_mul: u32,
-  volume_div: u32,
-  hold_sample: bool,
-  panning: u32,
-  wave_duty: u32,
-  repeat_mode: u32,
-  format: SoundFormat,
-  is_started: bool
+  pub val: u32,
+  pub volume_mul: u32,
+  pub volume_div: u32,
+  pub hold_sample: bool,
+  pub panning: u32,
+  pub wave_duty: u32,
+  pub repeat_mode: u32,
+  pub format: SoundFormat,
+  pub is_started: bool
 }
 
 impl SoundChannelControlRegister {
