@@ -14,7 +14,9 @@ pub struct Channel {
   pub timer_value: u16,
   pub loop_start: u16,
   pub sound_length: u32,
-  pub id: usize
+  pub id: usize,
+  pub bytes_left: u32,
+  pub current_address: u32
 }
 
 impl Channel {
@@ -25,7 +27,9 @@ impl Channel {
       timer_value: 0,
       loop_start: 0,
       sound_length: 0,
-      id
+      id,
+      bytes_left: 0,
+      current_address: 0
     }
   }
 

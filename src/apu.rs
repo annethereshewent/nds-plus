@@ -159,16 +159,29 @@ impl APU {
           scheduler.remove(EventType::StepAudio(channel_id as usize));
         }
       }
-      0x4 => self.channels[channel_id as usize].source_address = value & 0x7ffffff,
+      0x4 => {
+        self.channels[channel_id as usize].source_address = value & 0x7ff_ffff;
+        self.channels[channel_id as usize].current_address = self.channels[channel_id as usize].source_address;
+      }
       0x8 => {
         self.channels[channel_id as usize].write_timer(value as u16, scheduler);
 
         if bit_length == BitLength::Bit32 {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
+
+          self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
         }
       }
-      0xa => self.channels[channel_id as usize].loop_start = value as u16,
-      0xc => self.channels[channel_id as usize].sound_length = value & 0x3fffff,
+      0xa => {
+        self.channels[channel_id as usize].loop_start = value as u16;
+
+        self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
+      }
+      0xc => {
+        self.channels[channel_id as usize].sound_length = value & 0x3f_ffff;
+
+        self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
+      }
       _ => panic!("invalid register given for apu write_channels: {:x}", register)
     }
   }
