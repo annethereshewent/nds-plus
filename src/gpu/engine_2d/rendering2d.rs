@@ -83,37 +83,41 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       if texture_x >= 0 && texture_x < obj_width as i16 && texture_y >= 0 && texture_y < obj_height as i16 {
         // finally queue the pixel!
 
-        let tile_x = texture_x % 8;
-        let tile_y = texture_y % 8;
-
-        let bit_depth = if obj_attributes.palette_flag {
-          8
+        if obj_attributes.obj_mode == 3 {
+          self.render_bitmap_object(x as usize, texture_x as u32, texture_y as u32, obj_width, &obj_attributes, vram);
         } else {
-          4
-        };
+          let tile_x = texture_x % 8;
+          let tile_y = texture_y % 8;
 
-        let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width);
+          let bit_depth = if obj_attributes.palette_flag {
+            8
+          } else {
+            4
+          };
 
-        let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
+          let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width);
 
-        let palette_index = if obj_attributes.palette_flag {
-          self.get_obj_pixel_index_bpp8(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
-        } else {
-          self.get_obj_pixel_index_bpp4(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
-        };
+          let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
-        let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-          self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
-        } else {
-          self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
-        };
+          let palette_index = if obj_attributes.palette_flag {
+            self.get_obj_pixel_index_bpp8(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+          } else {
+            self.get_obj_pixel_index_bpp4(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+          };
 
-        if palette_index != 0 {
-          self.obj_lines[x as usize] = ObjectPixel {
-            priority: obj_attributes.priority,
-            color,
-            is_window: obj_attributes.obj_mode == 2,
-            is_transparent: obj_attributes.obj_mode == 1
+          let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+            self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+          } else {
+            self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+          };
+
+          if palette_index != 0 {
+            self.obj_lines[x as usize] = ObjectPixel {
+              priority: obj_attributes.priority,
+              color,
+              is_window: obj_attributes.obj_mode == 2,
+              is_transparent: obj_attributes.obj_mode == 1
+            }
           }
         }
       }
@@ -558,6 +562,55 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     (return_x, return_y)
   }
 
+  fn render_bitmap_object(&mut self, x: usize, x_pos_in_sprite: u32, y_pos_in_sprite: u32, obj_width: u32, obj_attributes: &OamAttributes, vram: &VRam) {
+    // 1d object
+    let (tile_base, width) = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
+      // means the object is a square which isnt allowed in 1d mode
+      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
+        return;
+      }
+      let boundary = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_1D_BOUNDARY) {
+        256
+      } else {
+        128
+      };
+
+      (obj_attributes.tile_number * boundary, obj_width)
+    } else {
+      let mut mask_x = 0xf;
+      let mut width = 128;
+
+      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
+        mask_x = 0x1f;
+        width = 256;
+      }
+
+      // 2D_BitmapVramAddress = (TileNo AND MaskX)*10h + (TileNo AND NOT MaskX)*80h
+      ((obj_attributes.tile_number & mask_x) * 0x10 + (obj_attributes.tile_number & !mask_x) * 0x80, width)
+    };
+
+    let tile_address = tile_base as u32 + 2 * (x_pos_in_sprite + y_pos_in_sprite * width);
+
+    let color_raw = if !IS_ENGINE_B {
+      (vram.read_engine_a_obj(tile_address) as u16) | (vram.read_engine_a_obj(tile_address) as u16) << 8
+    } else {
+      (vram.read_engine_b_obj(tile_address) as u16) | (vram.read_engine_b_obj(tile_address) as u16) << 8
+    };
+
+    let color = if color_raw == 0 {
+      None
+    } else {
+      Some(Color::from(color_raw))
+    };
+
+    self.obj_lines[x] = ObjectPixel {
+      priority: obj_attributes.priority,
+      color,
+      is_window: obj_attributes.obj_mode == 2,
+      is_transparent: obj_attributes.obj_mode == 1
+    };
+  }
+
   fn render_normal_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
     let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
 
@@ -610,36 +663,40 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         y_pos_in_sprite as u16
       };
 
-      let x_pos_in_tile = x_pos_in_sprite % 8;
-      let y_pos_in_tile = y_pos_in_sprite % 8;
-
-      let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width);
-
-      let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
-
-      let palette_index = if bit_depth == 8 {
-        self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
+      if obj_attributes.obj_mode == 3 {
+        self.render_bitmap_object(screen_x as usize, x_pos_in_sprite, y_pos_in_sprite as u32, obj_width, &obj_attributes, vram);
       } else {
-        self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
-      };
+        let x_pos_in_tile = x_pos_in_sprite % 8;
+        let y_pos_in_tile = y_pos_in_sprite % 8;
 
+        let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width);
 
-      if palette_index != 0 {
-        // need to determine whether to look at extended palette or regular obj palette
-        let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-          self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+        let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
+
+        let palette_index = if bit_depth == 8 {
+          self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
         } else {
-          if bit_depth == 8 {
-            palette_bank = 0;
-          }
-          self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+          self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
         };
-        self.obj_lines[screen_x as usize] = ObjectPixel {
-          priority: obj_attributes.priority,
-          color,
-          is_window: obj_attributes.obj_mode == 2,
-          is_transparent: obj_attributes.obj_mode == 1
-        };
+
+
+        if palette_index != 0 {
+          // need to determine whether to look at extended palette or regular obj palette
+          let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+            self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+          } else {
+            if bit_depth == 8 {
+              palette_bank = 0;
+            }
+            self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+          };
+          self.obj_lines[screen_x as usize] = ObjectPixel {
+            priority: obj_attributes.priority,
+            color,
+            is_window: obj_attributes.obj_mode == 2,
+            is_transparent: obj_attributes.obj_mode == 1
+          };
+        }
       }
     }
   }
