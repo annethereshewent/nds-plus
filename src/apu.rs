@@ -1,10 +1,17 @@
 use channel::Channel;
-use registers::{sound_capture_control_register::SoundCaptureControlRegister, sound_control_register::SoundControlRegister};
+use registers::{
+  sound_capture_control_register::SoundCaptureControlRegister,
+  sound_control_register::SoundControlRegister
+};
 
-use crate::scheduler::{EventType, Scheduler};
+use crate::{cpu::CLOCK_RATE, scheduler::{EventType, Scheduler}};
 
 pub mod registers;
 pub mod channel;
+
+
+pub const DS_SAMPLE_RATE: usize = 32768;
+pub const INDEX_TABLE: [i32; 8] = [1,-1,-1,-1,2,4,6,8];
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum BitLength {
@@ -18,17 +25,47 @@ pub struct APU {
   pub soundcnt: SoundControlRegister,
   pub sound_bias: u16,
   pub channels: [Channel; 16],
-  pub sndcapcnt: [SoundCaptureControlRegister; 2]
+  pub sndcapcnt: [SoundCaptureControlRegister; 2],
+  pub adpcm_table: [u32; 89]
 }
 
 impl APU {
-  pub fn new() -> Self {
-    Self {
+  pub fn new(scheduler: &mut Scheduler) -> Self {
+    let mut apu = Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
-      sndcapcnt: [SoundCaptureControlRegister::new(); 2]
+      sndcapcnt: [SoundCaptureControlRegister::new(); 2],
+      adpcm_table: [0; 89]
+    };
+
+    let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
+    scheduler.schedule(
+      EventType::GenerateSample,
+      clocks_per_sample
+    );
+
+    apu.populate_adpcm_table();
+
+    apu
+  }
+
+  pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
+    let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
+    scheduler.schedule(EventType::GenerateSample, clocks_per_sample);
+  }
+
+  pub fn populate_adpcm_table(&mut self) {
+    /*
+      =000776d2h, FOR I=0 TO 88, Table[I]=X SHR 16, X=X+(X/10), NEXT I
+      Table[3]=000Ah, Table[4]=000Bh, Table[88]=7FFFh, Table[89..127]=0000h
+    */
+    let mut x: u32 = 0x776d2;
+    for i in 0..89 {
+      self.adpcm_table[i] = x >> 16;
+      x = x + (x/10);
     }
+    self.adpcm_table[3] = 0xa; self.adpcm_table[4] = 0xb; self.adpcm_table[88] = 0x7fff;
   }
 
   pub fn create_channels() -> [Channel; 16] {

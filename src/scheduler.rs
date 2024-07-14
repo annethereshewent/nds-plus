@@ -12,7 +12,8 @@ pub enum EventType {
   Timer9(usize),
   BlockFinished(bool),
   WordTransfer(bool),
-  StepAudio(usize)
+  StepAudio(usize),
+  GenerateSample
 }
 
 pub struct Scheduler {

@@ -81,7 +81,8 @@ impl Nds {
         EventType::WordTransfer(is_arm9) if is_arm9 => bus.cartridge.on_word_transferred(&mut bus.arm9.dma),
         EventType::WordTransfer(_) => bus.cartridge.on_word_transferred(&mut bus.arm7.dma),
         EventType::BlockFinished(_) => bus.cartridge.on_block_finished(&mut bus.arm7.interrupt_request),
-        EventType::StepAudio(channel_id) => bus.step_audio(channel_id)
+        EventType::StepAudio(channel_id) => bus.step_audio(channel_id),
+        EventType::GenerateSample => bus.arm7.apu.generate_samples(&mut bus.scheduler)
       }
     }
 

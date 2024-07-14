@@ -130,7 +130,6 @@ impl Bus {
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
-      scheduler: scheduler,
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
       exmem: ExternalMemory::new(),
       touchscreen: Touchscreen::new(),
@@ -148,8 +147,9 @@ impl Bus {
         spicnt: SPIControlRegister::new(),
         extkeyin: ExternalKeyInputRegister::new(),
         haltcnt: HaltMode::None,
-        apu: APU::new()
+        apu: APU::new(&mut scheduler)
       },
+      scheduler,
     };
 
     if skip_bios {

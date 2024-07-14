@@ -25,7 +25,7 @@ pub const SP_REGISTER: usize = 13;
 pub const SOFTWARE_INTERRUPT_VECTOR: u32 = 0x8;
 pub const IRQ_VECTOR: u32 = 0x18;
 
-pub const CPU_CLOCK_SPEED: u32 = 2u32.pow(24);
+pub const CLOCK_RATE: usize = 33513982;
 
 #[derive(Clone, Copy)]
 pub enum MemoryAccess {

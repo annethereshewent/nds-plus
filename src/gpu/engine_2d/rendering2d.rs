@@ -92,7 +92,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           4
         };
 
-        let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width, tile_number as u32);
+        let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width);
 
         let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
@@ -402,7 +402,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_boundary_and_offset(&self, x_pos_in_sprite: u32, y_pos_in_sprite: u32, bit_depth: u32, obj_width: u32, tile_number: u32) -> (u32, u32) {
+  fn get_boundary_and_offset(&self, x_pos_in_sprite: u32, y_pos_in_sprite: u32, bit_depth: u32, obj_width: u32) -> (u32, u32) {
     if !self.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
       (
         32 as u32,
@@ -613,7 +613,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let x_pos_in_tile = x_pos_in_sprite % 8;
       let y_pos_in_tile = y_pos_in_sprite % 8;
 
-      let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width, tile_number as u32);
+      let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width);
 
       let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
