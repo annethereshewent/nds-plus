@@ -25,6 +25,12 @@ impl Bus {
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0188 => self.send_to_fifo(false, val),
+      0x400_0400..=0x400_04ff if address & 0xf < 0x8 => self.arm7.apu.write_channels(address, val, false),
+      0x400_0400..=0x400_04ff if address & 0xf == 0xc => self.arm7.apu.write_channels(address, val, false),
+      0x400_0400..=0x400_04ff => {
+        self.arm7_io_write_16(address, val as u16);
+        self.arm7_io_write_16(address + 2, (val >> 16) as u16);
+      }
       _ => panic!("write to unsupported address: {:X}", address)
     }
   }
@@ -77,6 +83,7 @@ impl Bus {
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
+      0x400_0400..=0x400_04ff => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
       0x410_0000 => self.receive_from_fifo(false),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm7, false),
       _ => panic!("unhandled io read to address {:x}", address)
@@ -243,6 +250,7 @@ impl Bus {
       0x400_0216 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16)),
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
+      0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, true),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
