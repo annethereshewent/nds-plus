@@ -827,5 +827,4 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       };
     }
   }
-
 }

@@ -6,13 +6,13 @@ pub enum CaptureSize {
   Size256by192 = 3
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ScreenSourceA {
   GraphicsScreen = 0,
   Screen3d = 1
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum CaptureSource {
   SourceA = 0,
   SourceB = 1,
@@ -20,7 +20,7 @@ pub enum CaptureSource {
 }
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum ScreenSourceB {
   VRam,
   MainMemoryDisplayFifo
@@ -52,6 +52,21 @@ impl DisplayCaptureControlRegister {
       capture_size: CaptureSize::Size128,
       capture_enable: false,
       capture_source: CaptureSource::SourceA
+    }
+  }
+
+  pub fn get_capture_height(&self) -> u16 {
+    match self.capture_size {
+      CaptureSize::Size128 | CaptureSize::Size256by128 => 128,
+      CaptureSize::Size256by192 => 192,
+      CaptureSize::Size256by64 => 64
+    }
+  }
+
+  pub fn get_capture_width(&self) -> u16 {
+    match self.capture_size {
+      CaptureSize::Size128 => 128,
+      CaptureSize::Size256by192 | CaptureSize::Size256by128 | CaptureSize::Size256by64 => 256
     }
   }
 

@@ -29,7 +29,7 @@ const ARM7_WRAM_BLOCKS: usize = 2;
 const BLOCK_SIZE: usize = 16 * 1024;
 
 pub struct VRam {
-  banks: [Vec<u8>; 9],
+  pub banks: [Vec<u8>; 9],
   lcdc: HashSet<Bank>,
   engine_a_obj: Vec<HashSet<Bank>>,
   engine_b_obj: Vec<HashSet<Bank>>,

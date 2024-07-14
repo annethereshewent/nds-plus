@@ -1,6 +1,6 @@
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_3d_control_register::Display3dControlRegister, display_capture_control_register::DisplayCaptureControlRegister, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{display_3d_control_register::Display3dControlRegister, display_capture_control_register::{CaptureSource, DisplayCaptureControlRegister, ScreenSourceA, ScreenSourceB}, display_control_register::{BgMode, DisplayMode}, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
 use vram::{Bank, VRam};
 
 use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::{interrupt_request_register::InterruptRequestRegister, mosaic_register::MosaicRegister}}, scheduler::{EventType, Scheduler}};
@@ -69,7 +69,8 @@ pub struct GPU {
   pub vcount: u16,
   pub dispcapcnt: DisplayCaptureControlRegister,
   pub mosaic: MosaicRegister,
-  pub disp3dcnt: Display3dControlRegister
+  pub disp3dcnt: Display3dControlRegister,
+  pub is_capturing: bool
 }
 
 impl GPU {
@@ -93,7 +94,8 @@ impl GPU {
       frame_finished: false,
       vram: VRam::new(),
       mosaic: MosaicRegister::new(),
-      disp3dcnt: Display3dControlRegister::from_bits_retain(0)
+      disp3dcnt: Display3dControlRegister::from_bits_retain(0),
+      is_capturing: false
     };
 
     scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
@@ -144,6 +146,7 @@ impl GPU {
 
     if self.vcount == 0 {
       // TODO: dispcapcnt register stuff
+      self.is_capturing = self.dispcapcnt.capture_enable;
 
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
@@ -168,7 +171,117 @@ impl GPU {
         interrupt_request.insert(InterruptRequestRegister::VCOUNTER_MATCH);
       }
     }
+  }
 
+  fn start_capture_image(&mut self) {
+    let width = self.dispcapcnt.get_capture_width() as usize;
+    let start_address = self.vcount as usize * SCREEN_WIDTH as usize;
+    let block = self.engine_a.dispcnt.vram_block;
+
+    if self.dispcapcnt.source_a == ScreenSourceA::Screen3d || self.engine_a.dispcnt.bg_mode != BgMode::Mode0 {
+      todo!("3d not implemented yet");
+    }
+
+    if self.dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
+      todo!("main memory display fifo not implemented");
+    }
+
+    let read_offset = if self.engine_a.dispcnt.display_mode != DisplayMode::Mode2 {
+      2 * start_address + self.dispcapcnt.vram_read_offset as usize
+    } else {
+      2 * start_address
+    };
+
+    let mut source_b: [u8; SCREEN_WIDTH as usize] = [0; SCREEN_WIDTH as usize];
+
+    source_b[..2 * width].copy_from_slice(&self.vram.banks[block as usize][read_offset..read_offset + 2 * width]);
+
+    let write_offset = 2 * start_address as usize + self.dispcapcnt.vram_write_offset as usize;
+    let write_block = self.dispcapcnt.vram_write_block as usize;
+
+    fn process_channels(channel_a: u16, channel_b: u16, a_alpha: u16, b_alpha: u16, eva: u16, evb: u16) -> u8 {
+      /*
+        Dest_Intensity = (  (SrcA_Intensitity * SrcA_Alpha * EVA)
+          + (SrcB_Intensitity * SrcB_Alpha * EVB) ) / 16
+        */
+      ((channel_a * a_alpha * eva + channel_b * b_alpha * evb) / 16) as u8
+    }
+
+    // finally transfer the capture image!
+    match self.dispcapcnt.capture_source {
+      CaptureSource::SourceA => {
+        let mut index = 0;
+        for address in start_address..start_address+width {
+          let r = self.engine_a.pixels[3 * address] >> 3;
+          let g = self.engine_a.pixels[3 * address + 1] >> 3;
+          let b = self.engine_a.pixels[3 * address + 2] >> 3;
+
+          let pixel = (r as u16) & 0x1f | (g as u16) & 0x1f << 5 | (b as u16) & 0x1f << 10;
+
+          self.vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
+          self.vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
+
+          index += 1;
+        }
+      }
+      CaptureSource::SourceB => {
+        self.vram.banks[write_block][write_offset..write_offset + 2 * width].copy_from_slice(&source_b[..2 * width]);
+      }
+      CaptureSource::Blended => {
+        let mut index: usize = 0;
+        for address_a in start_address..start_address+width {
+          let r_a = self.engine_a.pixels[3 * address_a] >> 3;
+          let g_a = self.engine_a.pixels[3 * address_a + 1] >> 3;
+          let b_a = self.engine_a.pixels[3 * address_a + 2] >> 3;
+
+          let pixel_b = source_b[index] as u16 | (source_b[index] as u16) << 8;
+
+          // TODO: colors are converted from rgb15 to rgb24 and lose the alpha bit. need to find
+          // a way around that
+          let alpha_a = 1 as u8;
+          let alpha_b = (pixel_b >> 15 & 0b1) as u8;
+
+          let r_b = (pixel_b & 0x1f) as u8;
+          let g_b = ((pixel_b >> 5) & 0x1f) as u8;
+          let b_b = ((pixel_b >> 10) & 0x1f) as u8;
+
+
+          let new_r = process_channels(
+            r_a as u16,
+            r_b as u16,
+            alpha_a as u16,
+            alpha_b as u16,
+            self.dispcapcnt.eva as u16,
+            self.dispcapcnt.evb as u16
+          );
+          let new_g = process_channels(
+            g_a as u16,
+            g_b as u16,
+            alpha_a as u16,
+            alpha_b as u16,
+            self.dispcapcnt.eva as u16,
+            self.dispcapcnt.evb as u16
+          );
+          let new_b = process_channels(
+            b_a as u16,
+            b_b as u16,
+            alpha_a as u16,
+            alpha_b as u16,
+            self.dispcapcnt.eva as u16,
+            self.dispcapcnt.evb as u16
+          );
+          // Dest_Alpha = (SrcA_Alpha AND (EVA>0)) OR (SrcB_Alpha AND EVB>0))
+          let alpha = (alpha_a > 0 && self.dispcapcnt.eva > 0) || (alpha_b > 0 && self.dispcapcnt.evb > 0);
+
+          let new_color = (new_r as u16) & 0x1f | ((new_g as u16) & 0x1f) << 5 | ((new_b as u16) & 0x1f) << 10 | (alpha as u16) << 15;
+
+          self.vram.banks[write_block][write_offset + 2 * index] = new_color as u8;
+          self.vram.banks[write_block][write_offset + 2 * index + 1] = (new_color >> 8) as u8;
+
+          index += 1;
+        }
+      }
+    }
   }
 
   pub fn write_palette_a(&mut self, address: u32, val: u8) {
@@ -269,6 +382,12 @@ impl GPU {
   fn render_line(&mut self) {
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
       self.engine_a.render_line(self.vcount, &mut self.vram);
+
+      // capture image if needed
+      if self.is_capturing && self.vcount < self.dispcapcnt.get_capture_height() {
+        self.dispcapcnt.capture_enable = false;
+        self.start_capture_image();
+      }
     }
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
       self.engine_b.render_line(self.vcount, &mut self.vram);

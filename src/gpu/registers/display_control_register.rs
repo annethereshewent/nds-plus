@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum BgMode {
   Mode0 = 0,
   Mode1 = 1,
@@ -9,7 +9,7 @@ pub enum BgMode {
   Mode6 = 6
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DisplayMode {
   Mode0 = 0,
   Mode1 = 1,
