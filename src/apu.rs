@@ -1,7 +1,7 @@
 use channel::Channel;
 use registers::{
   sound_capture_control_register::SoundCaptureControlRegister,
-  sound_control_register::SoundControlRegister
+  sound_control_register::{OutputSource, SoundControlRegister}
 };
 
 use crate::{cpu::CLOCK_RATE, scheduler::{EventType, Scheduler}};
@@ -9,7 +9,7 @@ use crate::{cpu::CLOCK_RATE, scheduler::{EventType, Scheduler}};
 pub mod registers;
 pub mod channel;
 
-
+pub const NUM_SAMPLES: usize = 4096*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [1,-1,-1,-1,2,4,6,8];
 
@@ -20,13 +20,21 @@ pub enum BitLength {
   Bit32
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct Sample {
+  pub left: i32,
+  pub right: i32
+}
+
 
 pub struct APU {
   pub soundcnt: SoundControlRegister,
   pub sound_bias: u16,
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
-  pub adpcm_table: [u32; 89]
+  pub adpcm_table: [u32; 89],
+  pub audio_samples: [i16; NUM_SAMPLES],
+  pub buffer_index: usize,
 }
 
 impl APU {
@@ -36,7 +44,9 @@ impl APU {
       sound_bias: 0,
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
-      adpcm_table: [0; 89]
+      adpcm_table: [0; 89],
+      audio_samples: [0; NUM_SAMPLES],
+      buffer_index: 0
     };
 
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
@@ -53,6 +63,50 @@ impl APU {
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
     scheduler.schedule(EventType::GenerateSample, clocks_per_sample);
+
+    let mut mixer = Sample { left: 0, right: 0 };
+    let mut ch1 = Sample { left: 0, right: 0 };
+    let mut ch3 = Sample { left: 0, right: 0 };
+
+    self.channels[0].generate_samples(&mut mixer);
+    self.channels[2].generate_samples(&mut mixer);
+
+    for i in 4..self.channels.len() {
+      self.channels[i].generate_samples(&mut mixer);
+    }
+
+    self.channels[1].generate_samples(&mut ch1);
+    self.channels[3].generate_samples(&mut ch3);
+
+    let left_sample = match self.soundcnt.left_output_source {
+      OutputSource::Ch1 => ch1.left,
+      OutputSource::Mixer => mixer.left,
+      OutputSource::Ch3 => ch3.left,
+      OutputSource::Ch1and3 => {
+        ch1.left + ch3.left
+      }
+    };
+
+    let right_sample = match self.soundcnt.right_output_source {
+      OutputSource::Ch1 => ch1.right,
+      OutputSource::Mixer => mixer.right,
+      OutputSource::Ch3 => ch3.right,
+      OutputSource::Ch1and3 => {
+        ch1.right + ch3.right
+      }
+    };
+
+    self.push_sample(left_sample);
+    self.push_sample(right_sample);
+  }
+
+  fn push_sample(&mut self, sample: i32) {
+    let final_sample = ((sample * self.soundcnt.master_volume() as i32) >> 7) as i16;
+
+    if self.buffer_index < NUM_SAMPLES {
+      self.audio_samples[self.buffer_index] = final_sample;
+      self.buffer_index += 1;
+    }
   }
 
   pub fn populate_adpcm_table(&mut self) {

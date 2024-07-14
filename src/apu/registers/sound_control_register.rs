@@ -31,6 +31,13 @@ impl SoundControlRegister {
   pub fn read(&self) -> u16 {
     self.val
   }
+  pub fn master_volume(&self) -> i32 {
+    if self.master_volume == 127 {
+      128
+    } else {
+      self.master_volume as i32
+    }
+  }
 
   pub fn write(&mut self, val: u16, mask: Option<u16>) {
     let mut value = 0;

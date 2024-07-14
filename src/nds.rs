@@ -82,6 +82,7 @@ impl Nds {
         EventType::WordTransfer(_) => bus.cartridge.on_word_transferred(&mut bus.arm7.dma),
         EventType::BlockFinished(_) => bus.cartridge.on_block_finished(&mut bus.arm7.interrupt_request),
         EventType::StepAudio(channel_id) => bus.step_audio(channel_id),
+        EventType::ResetAudio(channel_id) => bus.arm7.apu.channels[channel_id].reset_audio(),
         EventType::GenerateSample => bus.arm7.apu.generate_samples(&mut bus.scheduler)
       }
     }

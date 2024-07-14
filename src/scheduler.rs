@@ -13,6 +13,7 @@ pub enum EventType {
   BlockFinished(bool),
   WordTransfer(bool),
   StepAudio(usize),
+  ResetAudio(usize),
   GenerateSample
 }
 

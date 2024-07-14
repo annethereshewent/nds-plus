@@ -4,7 +4,7 @@ use num_integer::Roots;
 use spi::SPI;
 use touchscreen::Touchscreen;
 
-use crate::{apu::{channel::ChannelType, APU}, gpu::GPU, scheduler::Scheduler};
+use crate::{apu::{channel::ChannelType, registers::sound_channel_control_register::SoundFormat, APU}, gpu::GPU, scheduler::Scheduler};
 
 use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_key_input_register::ExternalKeyInputRegister, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
 
@@ -478,18 +478,27 @@ impl Bus {
   }
 
   pub fn step_audio(&mut self, channel_id: usize) {
-    let channel = &mut self.arm7.apu.channels[channel_id];
+    // Rust making me write shitty code again. Why the fuck can't I just do this:
+    // let channel = &mut self.arm7.channels[channel_id];
+    match self.arm7.apu.channels[channel_id].soundcnt.format {
+      SoundFormat::PCM8 => {
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(1, &mut self.scheduler);
 
-    match channel.get_channel_type() {
-      ChannelType::Normal => {
+        let sample = self.arm7_mem_read_8(sample_address);
+
+        self.arm7.apu.channels[channel_id].set_sample_8(sample);
+      }
+      SoundFormat::PCM16 => {
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(2, &mut self.scheduler);
+
+        let sample = self.arm7_mem_read_16(sample_address);
+
+        self.arm7.apu.channels[channel_id].set_sample_16(sample);
+      }
+      SoundFormat::IMAADPCM => {
 
       }
-      ChannelType::PSG => {
-
-      }
-      ChannelType::Noise => {
-
-      }
+      SoundFormat::PSG => ()
     }
   }
 
