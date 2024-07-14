@@ -209,24 +209,6 @@ impl Bus {
     // 2 idle cycles
     cpu_cycles += 2;
 
-    // update internal destination and source address for the dma channel as well.
-    let channel = &mut self.arm9.dma.channels[i];
-
-    channel.internal_destination_address = params.destination_address;
-    channel.internal_source_address = params.source_address;
-
-    if channel.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
-      if channel.dma_control.dest_addr_control() == 3 {
-        channel.internal_destination_address = channel.destination_address;
-      }
-    } else {
-      channel.running = false;
-      channel.dma_control.remove(DmaControlRegister::DMA_ENABLE);
-    }
-
-    if params.should_trigger_irq {
-      self.arm9.interrupt_request.request_dma(i);
-    }
 
     cpu_cycles
   }
@@ -240,6 +222,27 @@ impl Bus {
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
           cpu_cycles += self.handle_dma(params, i);
+
+          // i would DRY this code up by adding it to the handle DMA method, but Rust is being a jerk
+          // about ownership :/
+          let channel = &mut self.arm9.dma.channels[i];
+
+          channel.internal_destination_address = params.destination_address;
+          channel.internal_source_address = params.source_address;
+
+          if channel.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
+            if channel.dma_control.dest_addr_control() == 3 {
+              channel.internal_destination_address = channel.destination_address;
+            }
+          } else {
+            channel.running = false;
+            channel.dma_control.remove(DmaControlRegister::DMA_ENABLE);
+          }
+
+          if params.should_trigger_irq {
+            self.arm9.interrupt_request.request_dma(i);
+          }
+
         }
       }
     } else if !is_arm9 && self.arm7.dma.has_pending_transfers() {
@@ -248,6 +251,26 @@ impl Bus {
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
           cpu_cycles += self.handle_dma(params, i);
+
+          // update internal destination and source address for the dma channel as well.
+          // see above comment
+          let channel = &mut self.arm7.dma.channels[i];
+
+          channel.internal_destination_address = params.destination_address;
+          channel.internal_source_address = params.source_address;
+
+          if channel.dma_control.contains(DmaControlRegister::DMA_REPEAT) {
+            if channel.dma_control.dest_addr_control() == 3 {
+              channel.internal_destination_address = channel.destination_address;
+            }
+          } else {
+            channel.running = false;
+            channel.dma_control.remove(DmaControlRegister::DMA_ENABLE);
+          }
+
+          if params.should_trigger_irq {
+            self.arm7.interrupt_request.request_dma(i);
+          }
         }
       }
     }
