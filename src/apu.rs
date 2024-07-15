@@ -33,8 +33,8 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
-  pub audio_samples: [i16; NUM_SAMPLES],
-  pub buffer_index: usize,
+  pub audio_samples: Vec<i16>,
+  pub previous_value: i16
 }
 
 impl APU {
@@ -45,8 +45,8 @@ impl APU {
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       adpcm_table: [0; 89],
-      audio_samples: [0; NUM_SAMPLES],
-      buffer_index: 0,
+      audio_samples: Vec::with_capacity(NUM_SAMPLES),
+      previous_value: 0
     };
 
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
@@ -104,9 +104,8 @@ impl APU {
   fn push_sample(&mut self, sample: i32) {
     let final_sample = ((sample * self.soundcnt.master_volume() as i32) >> 7) as i16;
 
-    if self.buffer_index < NUM_SAMPLES {
-      self.audio_samples[self.buffer_index] = final_sample;
-      self.buffer_index += 1;
+    if self.audio_samples.len() < NUM_SAMPLES {
+      self.audio_samples.push(final_sample);
     }
   }
 

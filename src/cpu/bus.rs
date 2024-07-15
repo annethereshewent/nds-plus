@@ -84,7 +84,8 @@ pub struct Bus {
   pub key_input_register: KeyInputRegister,
   pub scheduler: Scheduler,
   exmem: ExternalMemory,
-  pub touchscreen: Touchscreen
+  pub touchscreen: Touchscreen,
+  pub debug_on: bool
 }
 
 impl Bus {
@@ -150,6 +151,7 @@ impl Bus {
         apu: APU::new(&mut scheduler)
       },
       scheduler,
+      debug_on: false
     };
 
     if skip_bios {

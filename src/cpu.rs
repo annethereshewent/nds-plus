@@ -57,8 +57,7 @@ pub struct CPU<const IS_ARM9: bool> {
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
   cycles: usize,
-  pub bus: Rc<RefCell<Bus>>,
-  pub debug_on: bool
+  pub bus: Rc<RefCell<Bus>>
 }
 
 
@@ -139,8 +138,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       pipeline: [0; 2],
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
-      bus,
-      debug_on: false
+      bus
     };
 
     cpu.pc = if IS_ARM9 {
@@ -255,8 +253,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
-    if self.debug_on {
-      println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+    {
+      if self.bus.borrow().debug_on {
+        println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+      }
     }
 
     if self.arm_condition_met(condition) {
