@@ -10,7 +10,7 @@ pub mod registers;
 pub mod channel;
 
 pub const NUM_SAMPLES: usize = 4096*2;
-pub const DS_SAMPLE_RATE: usize = 44100;
+pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
 
@@ -95,6 +95,15 @@ impl APU {
     self.channels[1].generate_samples(&mut ch1);
     self.channels[3].generate_samples(&mut ch3);
 
+    if self.soundcnt.output_ch1_to_mixer {
+      mixer.left += ch1.left;
+      mixer.right += ch1.right;
+    }
+    if self.soundcnt.output_ch3_to_mixer {
+      mixer.left += ch3.left;
+      mixer.right += ch3.right;
+    }
+
     let left_sample = match self.soundcnt.left_output_source {
       OutputSource::Ch1 => ch1.left,
       OutputSource::Mixer => mixer.left,
@@ -102,7 +111,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
       }
-    };
+    } >> 16;
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
@@ -111,7 +120,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right
       }
-    };
+    } >> 16;
 
     self.resample(Sample { left: left_sample, right: right_sample });
   }

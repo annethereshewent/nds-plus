@@ -47,6 +47,8 @@ fn main() {
     let ref mut bus = *nds.bus.borrow_mut();
 
     bus.gpu.frame_finished = false;
+    bus.gpu.cap_fps();
+
     frame_finished = false;
 
     // render stuff

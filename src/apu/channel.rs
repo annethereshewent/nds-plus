@@ -48,8 +48,8 @@ impl Channel {
   }
 
   pub fn generate_samples(&mut self, sample: &mut Sample) {
-    sample.left = (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * (128 - self.soundcnt.panning_factor() as i32);
-    sample.right = (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * self.soundcnt.panning_factor() as i32;
+    sample.left += (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * (128 - self.soundcnt.panning_factor() as i32);
+    sample.right += (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * self.soundcnt.panning_factor() as i32;
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {

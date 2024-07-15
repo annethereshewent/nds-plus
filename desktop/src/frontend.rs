@@ -12,6 +12,10 @@ impl DsAudioCallback {
     for sample in samples.iter() {
       self.audio_samples.push_back(*sample);
     }
+
+    while self.audio_samples.len() > 512 * 16 {
+      self.audio_samples.pop_front().unwrap();
+    }
   }
 }
 
@@ -90,7 +94,7 @@ impl Frontend {
     let spec = AudioSpecDesired {
       freq: Some(44100),
       channels: Some(2),
-      samples: Some(1024)
+      samples: Some(4096)
     };
 
     let device = audio_subsystem.open_playback(

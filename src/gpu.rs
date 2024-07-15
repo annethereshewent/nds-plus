@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
+
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
 use registers::{display_3d_control_register::Display3dControlRegister, display_capture_control_register::{CaptureSource, DisplayCaptureControlRegister, ScreenSourceA, ScreenSourceB}, display_control_register::{BgMode, DisplayMode}, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
@@ -18,6 +20,8 @@ const NUM_LINES: u16 = 263;
 
 pub const SCREEN_HEIGHT: u16 = 192;
 pub const SCREEN_WIDTH: u16 = 256;
+
+pub const FPS_INTERVAL: u128 = 1000 / 60;
 
 const BANK_A: u32 = Bank::BankA as u32;
 const BANK_B: u32 = Bank::BankB as u32;
@@ -70,7 +74,8 @@ pub struct GPU {
   pub dispcapcnt: DisplayCaptureControlRegister,
   pub mosaic: MosaicRegister,
   pub disp3dcnt: Display3dControlRegister,
-  pub is_capturing: bool
+  pub is_capturing: bool,
+  previous_time: u128
 }
 
 impl GPU {
@@ -95,12 +100,32 @@ impl GPU {
       vram: VRam::new(),
       mosaic: MosaicRegister::new(),
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
-      is_capturing: false
+      is_capturing: false,
+      previous_time: 0
     };
 
     scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
 
     gpu
+  }
+
+  pub fn cap_fps(&mut self) {
+    let current_time = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .expect("an error occurred")
+      .as_millis();
+
+    if self.previous_time != 0 {
+      let diff = current_time - self.previous_time;
+      if diff < FPS_INTERVAL {
+        sleep(Duration::from_millis((FPS_INTERVAL - diff) as u64));
+      }
+    }
+
+    self.previous_time = SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .expect("an error occurred")
+      .as_millis();
   }
 
   pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
