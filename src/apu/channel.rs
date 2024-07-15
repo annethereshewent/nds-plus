@@ -75,7 +75,8 @@ impl Channel {
     if reset {
       scheduler.schedule(EventType::ResetAudio(self.id), -(self.timer_value as i16) as u16 as usize);
     } else {
-      scheduler.schedule(EventType::StepAudio(self.id), -(self.timer_value as i16) as u16 as usize);
+      let time = (0x10000 - self.timer_value as u32) << 1;
+      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
     }
 
     return_address
@@ -86,7 +87,8 @@ impl Channel {
     self.bytes_left -= 4;
     self.current_address += 4;
 
-    scheduler.schedule(EventType::StepAudio(self.id), -(self.timer_value as i16) as u16 as usize);
+    let time = (0x10000 - self.timer_value as u32) << 1;
+    scheduler.schedule(EventType::StepAudio(self.id), time as usize);
 
     return_address
   }
@@ -108,10 +110,12 @@ impl Channel {
       false
     };
 
+    let time = (0x10000 - self.timer_value as u32) << 1;
+
     if reset {
-      scheduler.schedule(EventType::ResetAudio(self.id), -(self.timer_value as i16) as u16 as usize);
+      scheduler.schedule(EventType::ResetAudio(self.id), time as usize);
     } else {
-      scheduler.schedule(EventType::StepAudio(self.id), -(self.timer_value as i16) as u16 as usize);
+      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
     }
 
     return_address
@@ -233,7 +237,8 @@ impl Channel {
     self.timer_value = value;
 
     if self.soundcnt.is_started && self.timer_value != 0 && self.sound_length + self.loop_start as u32 != 0 {
-      scheduler.schedule(EventType::StepAudio(self.id), -(value as i16) as u16 as usize);
+      let time = (0x10000 - self.timer_value as u32) << 1;
+      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
     }
   }
 }
