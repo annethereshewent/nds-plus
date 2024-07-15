@@ -22,8 +22,7 @@ pub struct Channel {
   pub initial_table_index: i32,
   pub adpcm_value: i16,
   pub adpcm_index: i32,
-  pub adpcm_lower_bits: bool,
-  pub fetching_header: bool
+  pub adpcm_lower_bits: bool
 }
 
 impl Channel {
@@ -40,7 +39,6 @@ impl Channel {
       current_sample: 0,
       initial_adpcm_value: 0,
       initial_table_index: 0,
-      fetching_header: true,
       adpcm_index: 0,
       adpcm_value: 0,
       adpcm_lower_bits: true
@@ -94,11 +92,7 @@ impl Channel {
   }
 
   pub fn has_initial_header(&mut self) -> bool {
-    let return_val = self.fetching_header;
-
-    self.fetching_header = false;
-
-    return_val
+    self.current_address == self.source_address
   }
 
   pub fn get_sample_address(&mut self, byte_width: u32, scheduler: &mut Scheduler) -> u32 {
