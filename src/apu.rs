@@ -54,8 +54,6 @@ impl APU {
 
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
 
-    println!("sampling at {clocks_per_sample} cycles");
-
     scheduler.schedule(
       EventType::GenerateSample,
       clocks_per_sample
@@ -122,14 +120,18 @@ impl APU {
       }
     } >> 16;
 
-    self.resample(Sample { left: left_sample, right: right_sample });
+    let final_sample = Sample { left: self.add_master_volume(left_sample), right: self.add_master_volume(right_sample) };
+
+    self.resample(final_sample);
+  }
+
+  pub fn add_master_volume(&self, sample: i32) -> i32 {
+    (sample * self.soundcnt.master_volume() as i32) >> 7
   }
 
   fn push_sample(&mut self, sample: i32) {
-    let final_sample = ((sample * self.soundcnt.master_volume() as i32) >> 7) as i16;
-
     if self.audio_samples.len() < NUM_SAMPLES {
-      self.audio_samples.push(final_sample);
+      self.audio_samples.push(sample as i16);
     }
   }
 
