@@ -478,7 +478,7 @@ impl Bus {
   }
 
   pub fn step_audio(&mut self, channel_id: usize) {
-    // Rust making me write shitty code again. Why the fuck can't I just do this:
+    // Rust making me write shitty code again. Why can't I just do this:
     // let channel = &mut self.arm7.channels[channel_id];
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
@@ -496,7 +496,19 @@ impl Bus {
         self.arm7.apu.channels[channel_id].set_sample_16(sample);
       }
       SoundFormat::IMAADPCM => {
+        if self.arm7.apu.channels[channel_id].has_initial_header() {
+          let header_address = self.arm7.apu.channels[channel_id].get_adpcm_header_address();
 
+          let header = self.arm7_mem_read_32(header_address);
+
+          self.arm7.apu.channels[channel_id].set_adpcm_header(header);
+        } else {
+          let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address(&mut self.scheduler);
+
+          let byte = self.arm7_mem_read_8(sample_address);
+
+          self.arm7.apu.channels[channel_id].set_adpcm_data(byte, &self.arm7.apu.adpcm_table);
+        }
       }
       SoundFormat::PSG => ()
     }

@@ -223,13 +223,13 @@ impl APU {
         if bit_length == BitLength::Bit32 {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
 
-          self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
+          self.channels[channel_id as usize].bytes_left = self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length;
         }
       }
       0xa => {
         self.channels[channel_id as usize].loop_start = value as u16;
 
-        self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
+        self.channels[channel_id as usize].bytes_left = self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length;
       }
       0xc => {
         self.channels[channel_id as usize].sound_length = value & 0x3f_ffff;
