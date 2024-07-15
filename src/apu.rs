@@ -11,8 +11,7 @@ pub mod channel;
 
 pub const NUM_SAMPLES: usize = 4096*2;
 pub const DS_SAMPLE_RATE: usize = 44100;
-pub const INDEX_TABLE: [i32; 8] = [1,-1,-1,-1,2,4,6,8];
-
+pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -114,9 +113,7 @@ impl APU {
       }
     };
 
-    // self.resample(Sample { left: left_sample, right: right_sample });
-    self.push_sample(left_sample);
-    self.push_sample(right_sample);
+    self.resample(Sample { left: left_sample, right: right_sample });
   }
 
   fn push_sample(&mut self, sample: i32) {

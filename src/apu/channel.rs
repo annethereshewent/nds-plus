@@ -53,7 +53,7 @@ impl Channel {
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {
-    self.initial_adpcm_value = header as i16;
+    self.initial_adpcm_value = header as u16 as i16;
     self.initial_table_index = ((header >> 16) & 0x7f) as i16 as i32;
 
     self.adpcm_value = self.initial_adpcm_value;
@@ -147,6 +147,7 @@ impl Channel {
      */
 
     let adpcm_table_value = adpcm_table[self.adpcm_index as usize];
+
     let mut diff = adpcm_table_value / 8;
 
     let data = if self.adpcm_lower_bits {
