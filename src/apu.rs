@@ -10,8 +10,10 @@ pub mod registers;
 pub mod channel;
 
 pub const NUM_SAMPLES: usize = 4096*2;
-pub const DS_SAMPLE_RATE: usize = 32768;
+pub const DS_SAMPLE_RATE: usize = 44100;
 pub const INDEX_TABLE: [i32; 8] = [1,-1,-1,-1,2,4,6,8];
+
+pub const OUT_FREQUENCY: usize = 44100;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BitLength {
@@ -34,7 +36,8 @@ pub struct APU {
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
   pub audio_samples: Vec<i16>,
-  pub previous_value: i16
+  pub previous_value: i16,
+  pub phase: f32
 }
 
 impl APU {
@@ -46,10 +49,14 @@ impl APU {
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       adpcm_table: [0; 89],
       audio_samples: Vec::with_capacity(NUM_SAMPLES),
-      previous_value: 0
+      previous_value: 0,
+      phase: 0.0
     };
 
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
+
+    println!("sampling at {clocks_per_sample} cycles");
+
     scheduler.schedule(
       EventType::GenerateSample,
       clocks_per_sample
@@ -58,6 +65,16 @@ impl APU {
     apu.populate_adpcm_table();
 
     apu
+  }
+
+  fn resample(&mut self, sample: Sample) {
+    while self.phase < 1.0 {
+      self.push_sample(sample.left);
+      self.push_sample(sample.right);
+
+      self.phase += DS_SAMPLE_RATE as f32 / OUT_FREQUENCY as f32;
+    }
+    self.phase -= 1.0;
   }
 
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
@@ -97,6 +114,7 @@ impl APU {
       }
     };
 
+    // self.resample(Sample { left: left_sample, right: right_sample });
     self.push_sample(left_sample);
     self.push_sample(right_sample);
   }

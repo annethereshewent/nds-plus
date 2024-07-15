@@ -90,7 +90,7 @@ impl Frontend {
     let spec = AudioSpecDesired {
       freq: Some(44100),
       channels: Some(2),
-      samples: Some(512)
+      samples: Some(1024)
     };
 
     let device = audio_subsystem.open_playback(
