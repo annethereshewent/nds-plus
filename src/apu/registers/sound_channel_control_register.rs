@@ -70,6 +70,8 @@ impl SoundChannelControlRegister {
   }
 
   pub fn write(&mut self, val: u32) {
+    self.val = val;
+
     self.volume_mul = val & 0x7f;
     self.volume_div = (val >> 8) & 0x3;
     self.hold_sample = (val >> 15) & 0b1 == 1;

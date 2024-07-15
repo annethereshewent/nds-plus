@@ -13,7 +13,7 @@ pub const NUM_SAMPLES: usize = 4096*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [1,-1,-1,-1,2,4,6,8];
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BitLength {
   Bit8,
   Bit16,
@@ -46,7 +46,7 @@ impl APU {
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       adpcm_table: [0; 89],
       audio_samples: [0; NUM_SAMPLES],
-      buffer_index: 0
+      buffer_index: 0,
     };
 
     let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
@@ -69,6 +69,7 @@ impl APU {
     let mut ch3 = Sample { left: 0, right: 0 };
 
     self.channels[0].generate_samples(&mut mixer);
+
     self.channels[2].generate_samples(&mut mixer);
 
     for i in 4..self.channels.len() {
@@ -109,7 +110,7 @@ impl APU {
     }
   }
 
-  pub fn populate_adpcm_table(&mut self) {
+  fn populate_adpcm_table(&mut self) {
     /*
       =000776d2h, FOR I=0 TO 88, Table[I]=X SHR 16, X=X+(X/10), NEXT I
       Table[3]=000Ah, Table[4]=000Bh, Table[88]=7FFFh, Table[89..127]=0000h
@@ -163,6 +164,13 @@ impl APU {
   }
 
   pub fn write_channels(&mut self, address: u32, val: u32, scheduler: &mut Scheduler, bit_length: BitLength) {
+    let channel_id = (address >> 4) & 0xf;
+    let register = if address & 0xf != 0xa {
+      (address & !(0x3)) & 0xf
+    } else {
+      0xa
+    };
+
     let value = if bit_length == BitLength::Bit32 {
       val
     } else {
@@ -189,32 +197,26 @@ impl APU {
       }
     };
 
-    let channel_id = (address >> 4) & 0xf;
-    let register = if address & 0xf != 0xa {
-      (address & !(0x3)) & 0xf
-    } else {
-      0xa
-    };
-
     match register {
       0x0 => {
-        let previous_control = self.channels[channel_id as usize].soundcnt;
+        let previous_is_started = self.channels[channel_id as usize].soundcnt.is_started;
 
         self.channels[channel_id as usize].write_control(value);
         let channel = &mut self.channels[channel_id as usize];
 
-        if !previous_control.is_started &&
-          channel.soundcnt.is_started &&
-          channel.timer_value > 0 &&
-          channel.loop_start as u32 + channel.sound_length > 0
-        {
-          scheduler.schedule(EventType::StepAudio(channel.id), -(channel.timer_value as i16) as u16 as usize);
+        if !previous_is_started && channel.soundcnt.is_started {
+          channel.fetching_header = true;
+
+          if channel.timer_value > 0 && channel.loop_start as u32 + channel.sound_length > 0 {
+            scheduler.schedule(EventType::StepAudio(channel.id), -(channel.timer_value as i16) as u16 as usize);
+          }
         } else if !channel.soundcnt.is_started {
           scheduler.remove(EventType::StepAudio(channel_id as usize));
         }
       }
       0x4 => {
         self.channels[channel_id as usize].source_address = value & 0x7ff_ffff;
+
         self.channels[channel_id as usize].current_address = self.channels[channel_id as usize].source_address;
       }
       0x8 => {
@@ -223,18 +225,18 @@ impl APU {
         if bit_length == BitLength::Bit32 {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
 
-          self.channels[channel_id as usize].bytes_left = self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length;
+          self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length) * 4;
         }
       }
       0xa => {
         self.channels[channel_id as usize].loop_start = value as u16;
 
-        self.channels[channel_id as usize].bytes_left = self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length;
+        self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length) * 4;
       }
       0xc => {
         self.channels[channel_id as usize].sound_length = value & 0x3f_ffff;
 
-        self.channels[channel_id as usize].bytes_left = value + self.channels[channel_id as usize].sound_length;
+        self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].sound_length + self.channels[channel_id as usize].sound_length) * 4;
       }
       _ => panic!("invalid register given for apu write_channels: {:x}", register)
     }

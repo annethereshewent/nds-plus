@@ -497,7 +497,7 @@ impl Bus {
       }
       SoundFormat::IMAADPCM => {
         if self.arm7.apu.channels[channel_id].has_initial_header() {
-          let header_address = self.arm7.apu.channels[channel_id].get_adpcm_header_address();
+          let header_address = self.arm7.apu.channels[channel_id].get_adpcm_header_address(&mut self.scheduler);
 
           let header = self.arm7_mem_read_32(header_address);
 
