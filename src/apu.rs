@@ -94,9 +94,9 @@ impl APU {
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
 
-    let mut mixer = Sample { left: 0, right: 0 };
-    let mut ch1 = Sample { left: 0, right: 0 };
-    let mut ch3 = Sample { left: 0, right: 0 };
+    let mut mixer = Sample { left: 0.0, right: 0.0 };
+    let mut ch1 = Sample { left: 0.0, right: 0.0 };
+    let mut ch3 = Sample { left: 0.0, right: 0.0 };
 
     if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
       self.channels[0].generate_samples(&mut mixer);
@@ -135,7 +135,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
       }
-    } >> 16;
+    };
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
@@ -144,16 +144,16 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right
       }
-    } >> 16;
+    };
 
-    let final_sample = Sample::<f32>::from(self.add_master_volume(left_sample), self.add_master_volume(right_sample));
+    let final_sample = Sample { left: self.add_master_volume(left_sample), right: self.add_master_volume(right_sample) };
 
     self.resample(final_sample);
   }
 
-  pub fn add_master_volume(&self, sample: i32) -> i16 {
-    let master_volume = self.soundcnt.master_volume();
-    ((sample * master_volume) >> 7) as i16
+  pub fn add_master_volume(&self, sample: f32) -> f32 {
+    let master_volume = self.soundcnt.master_volume() as f32 / 128.0;
+    sample * master_volume
   }
 
   fn push_sample(&mut self, sample: Sample<f32>) {

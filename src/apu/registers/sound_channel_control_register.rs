@@ -43,12 +43,12 @@ impl SoundChannelControlRegister {
     }
   }
 
-  pub fn volume_div(&self) -> u32 {
+  pub fn volume_div(&self) -> f32 {
     match self.volume_div {
-      0 => 0,
-      1 => 1,
-      2 => 2,
-      3 => 4,
+      0 => 1.0,
+      1 => 2.0,
+      2 => 4.0,
+      3 => 16.0,
       _ => unreachable!()
     }
   }
