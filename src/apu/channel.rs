@@ -48,7 +48,7 @@ impl Channel {
   }
 
   pub fn generate_samples(&mut self, sample: &mut Sample<i32>) {
-    let volume = (self.soundcnt.volume_mul() as i32) / self.soundcnt.volume_div() as i32;
+    let volume = (self.soundcnt.volume_mul() as i32) >> self.soundcnt.volume_div() as i32;
     let panning = self.soundcnt.panning_factor() as i32;
 
     sample.left += self.current_sample as i32 * volume * (128 - panning);
@@ -65,7 +65,7 @@ impl Channel {
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
   }
 
-  pub fn get_adpcm_sample_address(&mut self, scheduler: &mut Scheduler) -> u32 {
+  pub fn get_adpcm_sample_address(&mut self) -> u32 {
     let return_address = self.current_address;
 
     self.current_address += 4;
@@ -121,7 +121,7 @@ impl Channel {
     self.current_sample = sample as i16;
   }
 
-  pub fn set_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler) {
+  pub fn step_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler) {
     /*
       per martin korth:
       Diff = AdpcmTable[Index]/8

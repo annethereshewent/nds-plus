@@ -4,7 +4,8 @@ use ds_emulator::{cpu::{bus::Bus, registers::key_input_register::KeyInputRegiste
 use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
 
 struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<f32>>>
+  audio_samples: Arc<Mutex<VecDeque<f32>>>,
+  previous_value: f32
 }
 
 impl AudioCallback for DsAudioCallback {
@@ -14,22 +15,16 @@ impl AudioCallback for DsAudioCallback {
     let mut audio_samples = self.audio_samples.lock().unwrap();
     let len = audio_samples.len();
 
-    let (last_left, last_right) = if len > 1 {
-      (audio_samples[len - 2], audio_samples[len - 1])
-    } else {
-      (0.0, 0.0)
-    };
-
     let mut index = 0;
 
     for b in buf.iter_mut() {
       *b = if let Some(sample) = audio_samples.pop_front() {
         sample
       } else {
-        if  index % 2 == 0 { last_left } else { last_right }
+        self.previous_value
       };
 
-      index += 1;
+      self.previous_value = *b;
     }
   }
 }
@@ -89,7 +84,7 @@ impl Frontend {
     let device = audio_subsystem.open_playback(
       None,
       &spec,
-      |_| DsAudioCallback { audio_samples: audio_buffer }
+      |_| DsAudioCallback { audio_samples: audio_buffer, previous_value: 0.0 }
     ).unwrap();
 
     device.resume();

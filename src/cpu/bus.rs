@@ -509,7 +509,7 @@ impl Bus {
           self.arm7.apu.channels[channel_id].set_adpcm_header(header);
         } else {
           if self.arm7.apu.channels[channel_id].adpcm_samples_left == 0 {
-            let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address(&mut self.scheduler);
+            let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address();
 
             let word = self.arm7_mem_read_32(sample_address);
 
@@ -518,7 +518,7 @@ impl Bus {
             self.arm7.apu.channels[channel_id].adpcm_samples_left = 8;
           }
 
-          self.arm7.apu.channels[channel_id].set_adpcm_data(&self.arm7.apu.adpcm_table, &mut self.scheduler);
+          self.arm7.apu.channels[channel_id].step_adpcm_data(&self.arm7.apu.adpcm_table, &mut self.scheduler);
         }
       }
       SoundFormat::PSG => ()

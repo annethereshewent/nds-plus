@@ -102,7 +102,7 @@ impl APU {
       self.channels[0].generate_samples(&mut mixer);
     }
 
-    if self.channels[2].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
+    if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
       self.channels[2].generate_samples(&mut mixer);
     }
 
