@@ -17,7 +17,7 @@ pub struct Channel {
   pub id: usize,
   pub bytes_left: u32,
   pub current_address: u32,
-  pub current_sample: f32,
+  pub current_sample: i16,
   pub initial_adpcm_value: i16,
   pub initial_table_index: i32,
   pub adpcm_value: i16,
@@ -36,7 +36,7 @@ impl Channel {
       id,
       bytes_left: 0,
       current_address: 0,
-      current_sample: 0.0,
+      current_sample: 0,
       initial_adpcm_value: 0,
       initial_table_index: 0,
       adpcm_index: 0,
@@ -45,12 +45,12 @@ impl Channel {
     }
   }
 
-  pub fn generate_samples(&mut self, sample: &mut Sample<f32>) {
-    let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div() as f32;
-    let panning = self.soundcnt.panning_factor() as f32 / 128.0;
+  pub fn generate_samples(&mut self, sample: &mut Sample<i32>) {
+    let volume = (self.soundcnt.volume_mul() as i32) / self.soundcnt.volume_div() as i32;
+    let panning = self.soundcnt.panning_factor() as i32;
 
-    sample.left += self.current_sample * volume * (1.0 - panning);
-    sample.right += self.current_sample * volume * panning;
+    sample.left += self.current_sample as i32 * volume * (128 - panning);
+    sample.right += self.current_sample as i32 * volume * panning;
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {
@@ -126,11 +126,11 @@ impl Channel {
   }
 
   pub fn set_sample_8(&mut self, sample: u8) {
-    self.current_sample = sample as f32 / 127.0;
+    self.current_sample = (sample as i16) << 8;
   }
 
   pub fn set_sample_16(&mut self, sample: u16) {
-    self.current_sample = sample as f32 /32767.0;
+    self.current_sample = sample as i16;
   }
 
   pub fn set_adpcm_data(&mut self, byte: u8, adpcm_table: &[u32]) {
@@ -180,11 +180,11 @@ impl Channel {
 
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
 
-    self.current_sample = self.adpcm_value as f32 / 32767.0;
+    self.current_sample = self.adpcm_value;
   }
 
   pub fn reset_audio(&mut self) {
-    self.current_sample = 0.0;
+    self.current_sample = 0;
     self.soundcnt.is_started = false;
   }
 

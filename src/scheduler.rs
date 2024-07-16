@@ -5,7 +5,7 @@ use priority_queue::PriorityQueue;
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub enum EventType {
   HBlank,
-  NextLine,
+  HDraw,
   DMA7(usize),
   DMA9(usize),
   Timer7(usize),

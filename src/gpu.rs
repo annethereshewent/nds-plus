@@ -12,14 +12,13 @@ pub mod engine_2d;
 pub mod engine_3d;
 pub mod vram;
 
-const CYCLES_PER_DOT: usize = 6;
-const HBLANK_DOTS: usize = 256 + 8;
-const DOTS_PER_LINE: usize = 355;
-
 const NUM_LINES: u16 = 263;
 
 pub const SCREEN_HEIGHT: u16 = 192;
 pub const SCREEN_WIDTH: u16 = 256;
+
+pub const HBLANK_CYCLES: usize = 1606;
+pub const HDRAW_CYCLES: usize = 524;
 
 pub const FPS_INTERVAL: u128 = 1000 / 60;
 
@@ -104,7 +103,7 @@ impl GPU {
       previous_time: 0
     };
 
-    scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
+    scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
 
     gpu
   }
@@ -129,7 +128,7 @@ impl GPU {
   }
 
   pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
-    self.schedule_next_line(scheduler);
+    self.schedule_hdraw(scheduler);
 
     for dispstat in &mut self.dispstat {
       dispstat.flags.insert(DispStatFlags::HBLANK);
@@ -158,7 +157,7 @@ impl GPU {
   }
 
   pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
-    scheduler.schedule(EventType::HBlank, CYCLES_PER_DOT * HBLANK_DOTS);
+    scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
 
     self.engine_a.clear_obj_lines();
     self.engine_b.clear_obj_lines();
@@ -393,8 +392,8 @@ impl GPU {
     ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 2) as u8) << 1
   }
 
-  pub fn schedule_next_line(&mut self, scheduler: &mut Scheduler) {
-    scheduler.schedule(EventType::NextLine, CYCLES_PER_DOT * DOTS_PER_LINE);
+  pub fn schedule_hdraw(&mut self, scheduler: &mut Scheduler) {
+    scheduler.schedule(EventType::HDraw, HDRAW_CYCLES);
   }
 
   fn trigger_vblank(&mut self) {

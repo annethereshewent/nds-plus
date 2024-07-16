@@ -97,7 +97,7 @@ impl Bus {
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
      skip_bios: bool,
-     audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self
+     audio_buffer: Arc<Mutex<VecDeque<i16>>>) -> Self
   {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);

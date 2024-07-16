@@ -9,7 +9,7 @@ pub struct Nds {
 }
 
 impl Nds {
-  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
+  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool, audio_buffer: Arc<Mutex<VecDeque<i16>>>) -> Self {
     let bus = Rc::new(
       RefCell::new(
         Bus::new(
@@ -63,7 +63,7 @@ impl Nds {
 
       match event_type {
         EventType::HBlank => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::NextLine => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::HDraw => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
         EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
         EventType::Timer7(timer_id) => {

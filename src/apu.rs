@@ -37,13 +37,13 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
-  pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
+  pub audio_buffer: Arc<Mutex<VecDeque<i16>>>,
   pub previous_value: f32,
   pub phase: f32
 }
 
 impl APU {
-  pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
+  pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<i16>>>) -> Self {
     let mut apu = Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
@@ -65,7 +65,7 @@ impl APU {
     apu
   }
 
-  fn resample(&mut self, sample: Sample<f32>) {
+  fn resample(&mut self, sample: Sample<i16>) {
     while self.phase < 1.0 {
       self.push_sample(sample.left);
       self.push_sample(sample.right);
@@ -78,9 +78,9 @@ impl APU {
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
     scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE);
 
-    let mut mixer = Sample { left: 0.0, right: 0.0 };
-    let mut ch1 = Sample { left: 0.0, right: 0.0 };
-    let mut ch3 = Sample { left: 0.0, right: 0.0 };
+    let mut mixer = Sample { left: 0, right: 0 };
+    let mut ch1 = Sample { left: 0, right: 0 };
+    let mut ch3 = Sample { left: 0, right: 0 };
 
     if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
       self.channels[0].generate_samples(&mut mixer);
@@ -119,7 +119,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
       }
-    };
+    } >> 16;
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
@@ -128,7 +128,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right
       }
-    };
+    } >> 16;
 
     let final_sample = Sample { left: self.add_master_volume(left_sample), right: self.add_master_volume(right_sample) };
 
@@ -136,13 +136,13 @@ impl APU {
     self.push_sample(final_sample.right);
   }
 
-  pub fn add_master_volume(&self, sample: f32) -> f32 {
-    let master_volume = self.soundcnt.master_volume() as f32 / 128.0;
-    (sample * master_volume).clamp(-1.0, 1.0)
+  pub fn add_master_volume(&self, sample: i32) -> i16 {
+    let master_volume = self.soundcnt.master_volume();
+    ((sample * master_volume) >> 7) as i16
   }
 
-  fn push_sample(&mut self, sample: f32) {
-    let ref mut audio_buffer = self.audio_buffer.lock().unwrap();
+  fn push_sample(&mut self, sample: i16) {
+    let mut audio_buffer = self.audio_buffer.lock().unwrap();
 
     if audio_buffer.len() < NUM_SAMPLES {
       audio_buffer.push_back(sample);
