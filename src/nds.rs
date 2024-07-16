@@ -35,8 +35,6 @@ impl Nds {
   }
 
   pub fn step(&mut self) -> bool {
-
-
     let mut cycles = 0;
     let mut scheduler_cycles = 0;
 
@@ -62,21 +60,21 @@ impl Nds {
       let mut dma_channels = [&mut bus.arm7.dma, &mut bus.arm9.dma];
 
       match event_type {
-        EventType::HBlank => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
-        EventType::HDraw => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels),
+        EventType::HBlank => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels, cycles_left),
+        EventType::HDraw => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels, cycles_left),
         EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
         EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
         EventType::Timer7(timer_id) => {
           let timers = &mut bus.arm7.timers;
 
-          timers.t[timer_id].handle_overflow(&mut bus.arm7.interrupt_request, &mut bus.scheduler);
-          timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request, &mut bus.scheduler);
+          timers.t[timer_id].handle_overflow(&mut bus.arm7.interrupt_request, &mut bus.scheduler, cycles_left);
+          timers.handle_overflow(timer_id, &mut bus.arm7.dma, &mut bus.arm7.interrupt_request, &mut bus.scheduler, cycles_left);
         }
         EventType::Timer9(timer_id) => {
           let timers = &mut bus.arm9.timers;
 
-          timers.t[timer_id].handle_overflow(&mut bus.arm9.interrupt_request, &mut bus.scheduler);
-          timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request, &mut bus.scheduler);
+          timers.t[timer_id].handle_overflow(&mut bus.arm9.interrupt_request, &mut bus.scheduler, cycles_left);
+          timers.handle_overflow(timer_id, &mut bus.arm9.dma, &mut bus.arm9.interrupt_request, &mut bus.scheduler, cycles_left);
         }
         EventType::BlockFinished(is_arm9) if is_arm9 => bus.cartridge.on_block_finished(&mut bus.arm9.interrupt_request),
         EventType::WordTransfer(is_arm9) if is_arm9 => bus.cartridge.on_word_transferred(&mut bus.arm9.dma),

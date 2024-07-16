@@ -127,8 +127,14 @@ impl GPU {
       .as_millis();
   }
 
-  pub fn handle_hblank(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
-    self.schedule_hdraw(scheduler);
+  pub fn handle_hblank(
+    &mut self,
+    scheduler: &mut Scheduler,
+    interrupt_requests: &mut [&mut InterruptRequestRegister],
+    dma_channels: &mut [&mut DmaChannels],
+    cycles_left: usize)
+  {
+    self.schedule_hdraw(scheduler, cycles_left);
 
     for dispstat in &mut self.dispstat {
       dispstat.flags.insert(DispStatFlags::HBLANK);
@@ -156,8 +162,13 @@ impl GPU {
     }
   }
 
-  pub fn start_next_line(&mut self, scheduler: &mut Scheduler, interrupt_requests: &mut [&mut InterruptRequestRegister], dma_channels: &mut [&mut DmaChannels]) {
-    scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
+  pub fn start_next_line(
+    &mut self, scheduler: &mut Scheduler,
+    interrupt_requests: &mut [&mut InterruptRequestRegister],
+    dma_channels: &mut [&mut DmaChannels],
+    cycles_left: usize)
+  {
+    scheduler.schedule(EventType::HBlank, HBLANK_CYCLES - cycles_left);
 
     self.engine_a.clear_obj_lines();
     self.engine_b.clear_obj_lines();
@@ -392,8 +403,8 @@ impl GPU {
     ((self.vramcnt[2].vram_enable && self.vramcnt[2].vram_mst == 2) as u8) | ((self.vramcnt[3].vram_enable && self.vramcnt[3].vram_mst == 2) as u8) << 1
   }
 
-  pub fn schedule_hdraw(&mut self, scheduler: &mut Scheduler) {
-    scheduler.schedule(EventType::HDraw, HDRAW_CYCLES);
+  pub fn schedule_hdraw(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
+    scheduler.schedule(EventType::HDraw, HDRAW_CYCLES - cycles_left);
   }
 
   fn trigger_vblank(&mut self) {
