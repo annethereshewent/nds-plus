@@ -293,7 +293,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       double_sized_flag,
       obj_disable,
       obj_mode,
-      obj_mosaic,
+      _obj_mosaic: obj_mosaic,
       palette_flag,
       obj_shape,
       x_coordinate,

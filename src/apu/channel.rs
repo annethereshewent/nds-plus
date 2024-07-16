@@ -171,9 +171,9 @@ impl Channel {
     }
 
     if data & 8 == 0 {
-      self.adpcm_value = (self.adpcm_value + diff as i16).clamp(-0x7fff, 0x7fff);
+      self.adpcm_value = (self.adpcm_value as i32 + diff as i32).min(0x7fff) as i16;
     } else {
-      self.adpcm_value = (self.adpcm_value - diff as i16).clamp(-0x7fff, 0x7fff);
+      self.adpcm_value = (self.adpcm_value as i32 - diff as i32).max(-0x7fff) as i16;
     }
 
     self.adpcm_index += INDEX_TABLE[(data as usize) & 0x7];

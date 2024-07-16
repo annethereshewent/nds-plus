@@ -375,6 +375,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.r[rd as usize] = temp;
     }
 
+    self.add_cycles(1);
+
     self.pc = self.pc.wrapping_add(4);
     Some(MemoryAccess::NonSequential)
   }

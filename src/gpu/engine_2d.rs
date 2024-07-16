@@ -32,7 +32,7 @@ struct OamAttributes {
   double_sized_flag: bool,
   obj_disable: bool,
   obj_mode: u16,
-  obj_mosaic: bool,
+  _obj_mosaic: bool,
   palette_flag: bool,
   obj_shape: u16,
   obj_size: u16,

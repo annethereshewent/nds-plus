@@ -83,7 +83,7 @@ impl Frontend {
     let spec = AudioSpecDesired {
       freq: Some(32768),
       channels: Some(2),
-      samples: Some(4096)
+      samples: Some(1024)
     };
 
     let device = audio_subsystem.open_playback(
@@ -124,6 +124,7 @@ impl Frontend {
       device
     }
   }
+
 
   pub fn handle_events(&mut self, bus: &mut Bus) {
     for event in self.event_pump.poll_iter() {

@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, collections::VecDeque, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use channel::Channel;
 use registers::{
@@ -11,7 +11,7 @@ use crate::scheduler::{EventType, Scheduler};
 pub mod registers;
 pub mod channel;
 
-pub const NUM_SAMPLES: usize = 4096*2;
+pub const NUM_SAMPLES: usize = 1024*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
@@ -186,10 +186,10 @@ impl APU {
 
   fn read_channels_internal(&self, address: u32) -> u32 {
     let channel = (address >> 4) & 0xf;
-    let register = if address & 0xf != 0xa {
-      (address & !(0x3)) & 0xf
-    } else {
+    let register = if address & !(0b1) & 0xf == 0xa {
       0xa
+    } else {
+      (address & !(0x3)) & 0xf
     };
 
     match register {
@@ -204,10 +204,15 @@ impl APU {
 
   pub fn write_channels(&mut self, address: u32, val: u32, scheduler: &mut Scheduler, bit_length: BitLength) {
     let channel_id = (address >> 4) & 0xf;
-    let register = if address & 0xf != 0xa {
-      (address & !(0x3)) & 0xf
-    } else {
+    // let register = if address & 0xf != 0xa {
+    //   (address & !(0x3)) & 0xf
+    // } else {
+    //   0xa
+    // };
+    let register = if address & !(0b1) & 0xf == 0xa {
       0xa
+    } else {
+      (address & !(0x3)) & 0xf
     };
 
     let value = if bit_length == BitLength::Bit32 {
