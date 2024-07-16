@@ -66,7 +66,6 @@ impl Channel {
   }
 
   pub fn get_adpcm_sample_address(&mut self, scheduler: &mut Scheduler) -> u32 {
-    let mut reset = false;
     let return_address = self.current_address;
 
     self.current_address += 4;
@@ -168,7 +167,7 @@ impl Channel {
 
     self.current_sample = self.adpcm_value;
 
-    if self.bytes_left == 0 {
+    if self.bytes_left == 0 && self.adpcm_samples_left == 0 {
       reset = self.handle_end();
     }
 
