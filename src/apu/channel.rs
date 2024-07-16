@@ -80,7 +80,10 @@ impl Channel {
     self.current_address += 4;
 
     let time = (0x10000 - self.timer_value as usize) << 1;
-    scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
+
+    if self.soundcnt.is_started {
+      scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
+    }
 
     return_address
   }
@@ -104,7 +107,7 @@ impl Channel {
 
     let time = (0x10000 - self.timer_value as usize) << 1;
 
-    if reset {
+    if reset || !self.soundcnt.is_started {
       scheduler.schedule(EventType::ResetAudio(self.id), time - cycles_left);
     } else {
       scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
@@ -161,10 +164,10 @@ impl Channel {
       diff += adpcm_table_value;
     }
 
-    if data & 8 == 0 {
-      self.adpcm_value = (self.adpcm_value as i32 + diff as i32).min(0x7fff) as i16;
-    } else {
+    if data & 8 == 8 {
       self.adpcm_value = (self.adpcm_value as i32 - diff as i32).max(-0x7fff) as i16;
+    } else {
+      self.adpcm_value = (self.adpcm_value as i32 + diff as i32).min(0x7fff) as i16;
     }
 
     self.adpcm_index += INDEX_TABLE[(data as usize) & 0x7];
@@ -178,7 +181,7 @@ impl Channel {
     }
 
     let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
-    if reset {
+    if reset || !self.soundcnt.is_started {
       scheduler.schedule(EventType::ResetAudio(self.id), time);
     } else {
       scheduler.schedule(EventType::StepAudio(self.id), time);
