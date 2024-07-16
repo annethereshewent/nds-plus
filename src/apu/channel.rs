@@ -22,7 +22,8 @@ pub struct Channel {
   pub initial_table_index: i32,
   pub adpcm_value: i16,
   pub adpcm_index: i32,
-  pub adpcm_lower_bits: bool
+  pub adpcm_samples_left: usize,
+  pub sample_fifo: u32
 }
 
 impl Channel {
@@ -41,7 +42,8 @@ impl Channel {
       initial_table_index: 0,
       adpcm_index: 0,
       adpcm_value: 0,
-      adpcm_lower_bits: true
+      sample_fifo: 0,
+      adpcm_samples_left: 0
     }
   }
 
@@ -66,22 +68,9 @@ impl Channel {
   pub fn get_adpcm_sample_address(&mut self, scheduler: &mut Scheduler) -> u32 {
     let mut reset = false;
     let return_address = self.current_address;
-    if !self.adpcm_lower_bits {
-      self.current_address += 1;
-      self.bytes_left -= 1;
 
-      if self.bytes_left == 0 {
-        reset = self.handle_end();
-      }
-    }
-
-    if reset {
-      let time = (0x10000 - self.timer_value as usize) << 1;
-      scheduler.schedule(EventType::ResetAudio(self.id), time);
-    } else {
-      let time = (0x10000 - self.timer_value as usize) << 1;
-      scheduler.schedule(EventType::StepAudio(self.id), time);
-    }
+    self.current_address += 4;
+    self.bytes_left -= 4;
 
     return_address
   }
@@ -101,12 +90,12 @@ impl Channel {
     self.current_address == self.source_address
   }
 
-  pub fn get_sample_address(&mut self, byte_width: u32, scheduler: &mut Scheduler) -> u32 {
+  pub fn get_sample_address(&mut self, scheduler: &mut Scheduler) -> u32 {
     let return_address = self.current_address;
 
-    self.bytes_left -= byte_width;
+    self.bytes_left -= 4;
 
-    self.current_address += byte_width;
+    self.current_address += 4;
 
     let reset = if self.bytes_left == 0 {
       self.handle_end()
@@ -133,7 +122,7 @@ impl Channel {
     self.current_sample = sample as i16;
   }
 
-  pub fn set_adpcm_data(&mut self, byte: u8, adpcm_table: &[u32]) {
+  pub fn set_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler) {
     /*
       per martin korth:
       Diff = AdpcmTable[Index]/8
@@ -151,14 +140,11 @@ impl Channel {
     let adpcm_table_value = adpcm_table[self.adpcm_index as usize];
 
     let mut diff = adpcm_table_value / 8;
+    let mut reset = false;
 
-    let data = if self.adpcm_lower_bits {
-      byte & 0xf
-    } else {
-      byte >> 4
-    };
-
-    self.adpcm_lower_bits = !self.adpcm_lower_bits;
+    let data = self.sample_fifo & 0xf;
+    self.sample_fifo >>= 4;
+    self.adpcm_samples_left -= 1;
 
     if data & 1 != 0 {
       diff += adpcm_table_value / 4;
@@ -181,6 +167,17 @@ impl Channel {
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
 
     self.current_sample = self.adpcm_value;
+
+    if self.bytes_left == 0 {
+      reset = self.handle_end();
+    }
+
+    let time = (0x10000 - self.timer_value as usize) << 1;
+    if reset {
+      scheduler.schedule(EventType::ResetAudio(self.id), time);
+    } else {
+      scheduler.schedule(EventType::StepAudio(self.id), time);
+    }
   }
 
   pub fn reset_audio(&mut self) {

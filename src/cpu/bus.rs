@@ -487,14 +487,14 @@ impl Bus {
     // let channel = &mut self.arm7.channels[channel_id];
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(1, &mut self.scheduler);
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler);
 
         let sample = self.arm7_mem_read_8(sample_address);
 
         self.arm7.apu.channels[channel_id].set_sample_8(sample);
       }
       SoundFormat::PCM16 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(2, &mut self.scheduler);
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler);
 
         let sample = self.arm7_mem_read_16(sample_address);
 
@@ -508,11 +508,17 @@ impl Bus {
 
           self.arm7.apu.channels[channel_id].set_adpcm_header(header);
         } else {
-          let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address(&mut self.scheduler);
+          if self.arm7.apu.channels[channel_id].adpcm_samples_left == 0 {
+            let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address(&mut self.scheduler);
 
-          let byte = self.arm7_mem_read_8(sample_address);
+            let word = self.arm7_mem_read_32(sample_address);
 
-          self.arm7.apu.channels[channel_id].set_adpcm_data(byte, &self.arm7.apu.adpcm_table);
+            self.arm7.apu.channels[channel_id].sample_fifo = word;
+
+            self.arm7.apu.channels[channel_id].adpcm_samples_left = 8;
+          }
+
+          self.arm7.apu.channels[channel_id].set_adpcm_data(&self.arm7.apu.adpcm_table, &mut self.scheduler);
         }
       }
       SoundFormat::PSG => ()
