@@ -74,13 +74,13 @@ impl Channel {
     return_address
   }
 
-  pub fn get_adpcm_header_address(&mut self, scheduler: &mut Scheduler) -> u32 {
+  pub fn get_adpcm_header_address(&mut self, scheduler: &mut Scheduler, cycles_left: usize) -> u32 {
     let return_address = self.source_address;
     self.bytes_left -= 4;
     self.current_address += 4;
 
     let time = (0x10000 - self.timer_value as usize) << 1;
-    scheduler.schedule(EventType::StepAudio(self.id), time);
+    scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
 
     return_address
   }
@@ -121,7 +121,7 @@ impl Channel {
     self.current_sample = sample as i16;
   }
 
-  pub fn step_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler) {
+  pub fn step_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler, cycles_left: usize) {
     /*
       per martin korth:
       Diff = AdpcmTable[Index]/8
@@ -171,7 +171,7 @@ impl Channel {
       reset = self.handle_end();
     }
 
-    let time = (0x10000 - self.timer_value as usize) << 1;
+    let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
     if reset {
       scheduler.schedule(EventType::ResetAudio(self.id), time);
     } else {

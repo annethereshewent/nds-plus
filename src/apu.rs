@@ -11,7 +11,7 @@ use crate::scheduler::{EventType, Scheduler};
 pub mod registers;
 pub mod channel;
 
-pub const NUM_SAMPLES: usize = 1024*2;
+pub const NUM_SAMPLES: usize = 8192*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
@@ -33,8 +33,8 @@ pub struct Sample<T> {
 impl Sample<f32> {
   pub fn from(left: i16, right: i16) -> Self {
     Self {
-      left: Self::to_f32(left),
-      right: Self::to_f32(right)
+      left: Self::to_f32(left) * 0.5,
+      right: Self::to_f32(right) * 0.5
     }
   }
 
@@ -91,8 +91,8 @@ impl APU {
     self.phase -= 1.0;
   }
 
-  pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
-    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE);
+  pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
+    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
 
     let mut mixer = Sample { left: 0, right: 0 };
     let mut ch1 = Sample { left: 0, right: 0 };
@@ -148,7 +148,7 @@ impl APU {
 
     let final_sample = Sample::<f32>::from(self.add_master_volume(left_sample), self.add_master_volume(right_sample));
 
-    self.push_sample(final_sample);
+    self.resample(final_sample);
   }
 
   pub fn add_master_volume(&self, sample: i32) -> i16 {

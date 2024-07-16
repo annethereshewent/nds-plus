@@ -42,12 +42,13 @@ impl Scheduler {
     self.cycles = cycles;
   }
 
-  pub fn get_next_event(&mut self) -> Option<EventType> {
+  pub fn get_next_event(&mut self) -> Option<(EventType, usize)> {
     let (_, Reverse(cycles)) = self.queue.peek().unwrap();
 
     if self.cycles >= *cycles {
+      let cycles_left = self.cycles - *cycles;
       let (event_type, _) = self.queue.pop().unwrap();
-      return Some(event_type);
+      return Some((event_type, cycles_left));
     }
 
     None

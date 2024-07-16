@@ -15,8 +15,6 @@ impl AudioCallback for DsAudioCallback {
     let mut audio_samples = self.audio_samples.lock().unwrap();
     let len = audio_samples.len();
 
-    let mut index = 0;
-
     for b in buf.iter_mut() {
       *b = if let Some(sample) = audio_samples.pop_front() {
         sample
@@ -76,9 +74,9 @@ impl Frontend {
     let audio_subsystem = sdl_context.audio().unwrap();
 
     let spec = AudioSpecDesired {
-      freq: Some(32768),
+      freq: Some(44100),
       channels: Some(2),
-      samples: Some(1024)
+      samples: Some(4096)
     };
 
     let device = audio_subsystem.open_playback(
