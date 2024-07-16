@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, rc::Rc, sync::{Arc, Mutex}};
+
 use cartridge::{Cartridge, CHIP_ID};
 use cp15::CP15;
 use num_integer::Roots;
@@ -94,7 +96,8 @@ impl Bus {
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
-     skip_bios: bool) -> Self
+     skip_bios: bool,
+     audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self
   {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);
@@ -148,7 +151,7 @@ impl Bus {
         spicnt: SPIControlRegister::new(),
         extkeyin: ExternalKeyInputRegister::new(),
         haltcnt: HaltMode::None,
-        apu: APU::new(&mut scheduler)
+        apu: APU::new(&mut scheduler, audio_buffer)
       },
       scheduler,
       debug_on: false

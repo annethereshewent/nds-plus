@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, env, fs};
+use std::{collections::{HashMap, VecDeque}, env, fs, rc::Rc, sync::{Arc, Mutex}};
 
 use ds_emulator::{apu::APU, cpu::registers::key_input_register::KeyInputRegister, gpu::{SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
 use frontend::Frontend;
@@ -22,6 +22,8 @@ fn main() {
     skip_bios = false;
   }
 
+  let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
+
   let bios7_file = "../bios7.bin";
   let bios9_file = "../bios9.bin";
   let firmware_file = "../firmware.bin";
@@ -31,11 +33,18 @@ fn main() {
   let rom_bytes = fs::read(&args[1]).unwrap();
   let firmware_bytes = fs::read(firmware_file).unwrap();
 
-  let mut nds = Nds::new(firmware_bytes, bios7_bytes, bios9_bytes, rom_bytes, skip_bios);
+  let mut nds = Nds::new(
+    firmware_bytes,
+    bios7_bytes,
+    bios9_bytes,
+    rom_bytes,
+    skip_bios,
+    audio_buffer.clone()
+  );
 
   let sdl_context = sdl2::init().unwrap();
 
-  let mut frontend = Frontend::new(&sdl_context);
+  let mut frontend = Frontend::new(&sdl_context, audio_buffer);
 
   let mut frame_finished = false;
 
@@ -52,7 +61,7 @@ fn main() {
     frame_finished = false;
 
     // render stuff
-    frontend.push_samples(bus.arm7.apu.audio_samples.drain(..).collect());
+    // frontend.push_samples(bus.arm7.apu.audio_samples.drain(..).collect());
     frontend.render(&mut bus.gpu);
     frontend.handle_events(bus);
   }

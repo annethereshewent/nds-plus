@@ -1,3 +1,5 @@
+use std::{borrow::BorrowMut, collections::VecDeque, rc::Rc, sync::{Arc, Mutex}};
+
 use channel::Channel;
 use registers::{
   sound_capture_control_register::SoundCaptureControlRegister,
@@ -9,7 +11,7 @@ use crate::scheduler::{EventType, Scheduler};
 pub mod registers;
 pub mod channel;
 
-pub const NUM_SAMPLES: usize = 8192*2;
+pub const NUM_SAMPLES: usize = 4096*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
@@ -35,20 +37,20 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
-  pub audio_samples: Vec<f32>,
+  pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub previous_value: f32,
   pub phase: f32
 }
 
 impl APU {
-  pub fn new(scheduler: &mut Scheduler) -> Self {
+  pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let mut apu = Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       adpcm_table: [0; 89],
-      audio_samples: Vec::with_capacity(NUM_SAMPLES),
+      audio_buffer,
       previous_value: 0.0,
       phase: 0.0
     };
@@ -140,8 +142,10 @@ impl APU {
   }
 
   fn push_sample(&mut self, sample: f32) {
-    if self.audio_samples.len() < NUM_SAMPLES {
-      self.audio_samples.push(sample);
+    let ref mut audio_buffer = self.audio_buffer.lock().unwrap();
+
+    if audio_buffer.len() < NUM_SAMPLES {
+      audio_buffer.push_back(sample);
     }
   }
 

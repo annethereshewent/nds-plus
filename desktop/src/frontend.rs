@@ -1,32 +1,21 @@
-use std::{collections::{HashMap, VecDeque}, ops::DerefMut};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, ops::DerefMut, rc::Rc, sync::{Arc, Mutex}};
 
 use ds_emulator::{cpu::{bus::Bus, registers::key_input_register::KeyInputRegister}, gpu::{GPU, SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
 use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
 
 struct DsAudioCallback {
-  audio_samples: VecDeque<f32>
-}
-
-impl DsAudioCallback {
-  pub fn push_samples(&mut self, samples: Vec<f32>) {
-    for sample in samples.iter() {
-      self.audio_samples.push_back(*sample);
-    }
-
-    while self.audio_samples.len() > 16 * 1024 {
-      self.audio_samples.pop_front().unwrap();
-    }
-  }
+  audio_samples: Arc<Mutex<VecDeque<f32>>>
 }
 
 impl AudioCallback for DsAudioCallback {
   type Channel = f32;
 
   fn callback(&mut self, buf: &mut [Self::Channel]) {
-    let len = self.audio_samples.len();
+    let mut audio_samples = self.audio_samples.lock().unwrap();
+    let len = audio_samples.len();
 
     let (last_left, last_right) = if len > 1 {
-      (self.audio_samples[len - 2], self.audio_samples[len - 1])
+      (audio_samples[len - 2], audio_samples[len - 1])
     } else {
       (0.0, 0.0)
     };
@@ -34,7 +23,7 @@ impl AudioCallback for DsAudioCallback {
     let mut index = 0;
 
     for b in buf.iter_mut() {
-      *b = if let Some(sample) = self.audio_samples.pop_front() {
+      *b = if let Some(sample) = audio_samples.pop_front() {
         sample
       } else {
         if  index % 2 == 0 { last_left } else { last_right }
@@ -55,7 +44,7 @@ pub struct Frontend {
 }
 
 impl Frontend {
-  pub fn new(sdl_context: &Sdl) -> Self {
+  pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
@@ -94,13 +83,13 @@ impl Frontend {
     let spec = AudioSpecDesired {
       freq: Some(32768),
       channels: Some(2),
-      samples: Some(8192)
+      samples: Some(4096)
     };
 
     let device = audio_subsystem.open_playback(
       None,
       &spec,
-      |_| DsAudioCallback { audio_samples: VecDeque::new() }
+      |_| DsAudioCallback { audio_samples: audio_buffer }
     ).unwrap();
 
     device.resume();
@@ -134,10 +123,6 @@ impl Frontend {
       key_map,
       device
     }
-  }
-
-  pub fn push_samples(&mut self, samples: Vec<f32>) {
-    self.device.lock().deref_mut().push_samples(samples);
   }
 
   pub fn handle_events(&mut self, bus: &mut Bus) {
