@@ -487,18 +487,26 @@ impl Bus {
     // let channel = &mut self.arm7.channels[channel_id];
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
+        if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
+          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
 
-        let sample = self.arm7_mem_read_8(sample_address);
+          let word = self.arm7_mem_read_32(sample_address);
+          self.arm7.apu.channels[channel_id].sample_fifo = word;
+          self.arm7.apu.channels[channel_id].pcm_samples_left = 4;
+        }
 
-        self.arm7.apu.channels[channel_id].set_sample_8(sample);
+        self.arm7.apu.channels[channel_id].step_sample_8();
       }
       SoundFormat::PCM16 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
+        if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
+          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
 
-        let sample = self.arm7_mem_read_16(sample_address);
+          let word = self.arm7_mem_read_32(sample_address);
+          self.arm7.apu.channels[channel_id].sample_fifo = word;
+          self.arm7.apu.channels[channel_id].pcm_samples_left = 2;
+        }
 
-        self.arm7.apu.channels[channel_id].set_sample_16(sample);
+        self.arm7.apu.channels[channel_id].step_sample_16();
       }
       SoundFormat::IMAADPCM => {
         if self.arm7.apu.channels[channel_id].has_initial_header() {
@@ -508,14 +516,14 @@ impl Bus {
 
           self.arm7.apu.channels[channel_id].set_adpcm_header(header);
         } else {
-          if self.arm7.apu.channels[channel_id].adpcm_samples_left == 0 {
+          if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
             let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address();
 
             let word = self.arm7_mem_read_32(sample_address);
 
             self.arm7.apu.channels[channel_id].sample_fifo = word;
 
-            self.arm7.apu.channels[channel_id].adpcm_samples_left = 8;
+            self.arm7.apu.channels[channel_id].pcm_samples_left = 8;
           }
 
           self.arm7.apu.channels[channel_id].step_adpcm_data(&self.arm7.apu.adpcm_table, &mut self.scheduler, cycles_left);

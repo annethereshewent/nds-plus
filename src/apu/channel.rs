@@ -22,7 +22,7 @@ pub struct Channel {
   pub initial_table_index: i32,
   pub adpcm_value: i16,
   pub adpcm_index: i32,
-  pub adpcm_samples_left: usize,
+  pub pcm_samples_left: usize,
   pub sample_fifo: u32
 }
 
@@ -43,7 +43,7 @@ impl Channel {
       adpcm_index: 0,
       adpcm_value: 0,
       sample_fifo: 0,
-      adpcm_samples_left: 0
+      pcm_samples_left: 0
     }
   }
 
@@ -113,12 +113,18 @@ impl Channel {
     return_address
   }
 
-  pub fn set_sample_8(&mut self, sample: u8) {
-    self.current_sample = (sample as i16) << 8;
+  pub fn step_sample_8(&mut self) {
+    // self.current_sample = (sample as i16) << 8;
+    self.current_sample = (self.sample_fifo as i8 as i16) << 8;
+    self.sample_fifo >>= 8;
+    self.pcm_samples_left -= 1;
   }
 
-  pub fn set_sample_16(&mut self, sample: u16) {
-    self.current_sample = sample as i16;
+  pub fn step_sample_16(&mut self) {
+    self.current_sample = self.sample_fifo as i16;
+
+    self.sample_fifo >>= 16;
+    self.pcm_samples_left -= 1;
   }
 
   pub fn step_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler, cycles_left: usize) {
@@ -143,7 +149,7 @@ impl Channel {
 
     let data = self.sample_fifo & 0xf;
     self.sample_fifo >>= 4;
-    self.adpcm_samples_left -= 1;
+    self.pcm_samples_left -= 1;
 
     if data & 1 != 0 {
       diff += adpcm_table_value / 4;
@@ -167,7 +173,7 @@ impl Channel {
 
     self.current_sample = self.adpcm_value;
 
-    if self.bytes_left == 0 && self.adpcm_samples_left == 0 {
+    if self.bytes_left == 0 && self.pcm_samples_left == 0 {
       reset = self.handle_end();
     }
 
