@@ -33,7 +33,7 @@ pub struct Sample<T> {
 impl Sample<f32> {
   pub fn from(left: i16, right: i16) -> Self {
     Self {
-      left: Self::to_f32(left) * 0.5,
+      left: Self::to_f32(left) * 0.5, // samples are way too loud without this
       right: Self::to_f32(right) * 0.5
     }
   }
@@ -239,7 +239,6 @@ impl APU {
       let old_value = self.read_channels_internal(address);
 
       match bit_length {
-        BitLength::Bit32 => val,
         BitLength::Bit16 => {
           if address & 0x3 == 2 {
             old_value & 0xffff | (val << 16)
@@ -256,6 +255,7 @@ impl APU {
             _ => unreachable!()
           }
         }
+        _ => unreachable!()
       }
     };
 
