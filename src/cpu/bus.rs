@@ -487,14 +487,14 @@ impl Bus {
     // let channel = &mut self.arm7.channels[channel_id];
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler);
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
 
         let sample = self.arm7_mem_read_8(sample_address);
 
         self.arm7.apu.channels[channel_id].set_sample_8(sample);
       }
       SoundFormat::PCM16 => {
-        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler);
+        let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
 
         let sample = self.arm7_mem_read_16(sample_address);
 

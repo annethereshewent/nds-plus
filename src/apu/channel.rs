@@ -89,7 +89,7 @@ impl Channel {
     self.current_address == self.source_address
   }
 
-  pub fn get_sample_address(&mut self, scheduler: &mut Scheduler) -> u32 {
+  pub fn get_sample_address(&mut self, scheduler: &mut Scheduler, cycles_left: usize) -> u32 {
     let return_address = self.current_address;
 
     self.bytes_left -= 4;
@@ -105,9 +105,9 @@ impl Channel {
     let time = (0x10000 - self.timer_value as usize) << 1;
 
     if reset {
-      scheduler.schedule(EventType::ResetAudio(self.id), time);
+      scheduler.schedule(EventType::ResetAudio(self.id), time - cycles_left);
     } else {
-      scheduler.schedule(EventType::StepAudio(self.id), time);
+      scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
     }
 
     return_address
