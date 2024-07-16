@@ -4,15 +4,16 @@ use registers::{
   sound_control_register::{OutputSource, SoundControlRegister}
 };
 
-use crate::{cpu::CLOCK_RATE, scheduler::{EventType, Scheduler}};
+use crate::scheduler::{EventType, Scheduler};
 
 pub mod registers;
 pub mod channel;
 
-pub const NUM_SAMPLES: usize = 4096*2;
+pub const NUM_SAMPLES: usize = 8192*2;
 pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
+pub const CYCLES_PER_SAMPLE: usize = 1024;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BitLength {
@@ -22,9 +23,9 @@ pub enum BitLength {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Sample {
-  pub left: i32,
-  pub right: i32
+pub struct Sample<T> {
+  pub left: T,
+  pub right: T
 }
 
 
@@ -34,8 +35,8 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
-  pub audio_samples: Vec<i16>,
-  pub previous_value: i16,
+  pub audio_samples: Vec<f32>,
+  pub previous_value: f32,
   pub phase: f32
 }
 
@@ -48,15 +49,13 @@ impl APU {
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       adpcm_table: [0; 89],
       audio_samples: Vec::with_capacity(NUM_SAMPLES),
-      previous_value: 0,
+      previous_value: 0.0,
       phase: 0.0
     };
 
-    let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
-
     scheduler.schedule(
       EventType::GenerateSample,
-      clocks_per_sample
+      CYCLES_PER_SAMPLE
     );
 
     apu.populate_adpcm_table();
@@ -64,7 +63,7 @@ impl APU {
     apu
   }
 
-  fn resample(&mut self, sample: Sample) {
+  fn resample(&mut self, sample: Sample<f32>) {
     while self.phase < 1.0 {
       self.push_sample(sample.left);
       self.push_sample(sample.right);
@@ -75,23 +74,32 @@ impl APU {
   }
 
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler) {
-    let clocks_per_sample = CLOCK_RATE / DS_SAMPLE_RATE;
-    scheduler.schedule(EventType::GenerateSample, clocks_per_sample);
+    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE);
 
-    let mut mixer = Sample { left: 0, right: 0 };
-    let mut ch1 = Sample { left: 0, right: 0 };
-    let mut ch3 = Sample { left: 0, right: 0 };
+    let mut mixer = Sample { left: 0.0, right: 0.0 };
+    let mut ch1 = Sample { left: 0.0, right: 0.0 };
+    let mut ch3 = Sample { left: 0.0, right: 0.0 };
 
-    self.channels[0].generate_samples(&mut mixer);
-
-    self.channels[2].generate_samples(&mut mixer);
-
-    for i in 4..self.channels.len() {
-      self.channels[i].generate_samples(&mut mixer);
+    if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
+      self.channels[0].generate_samples(&mut mixer);
     }
 
-    self.channels[1].generate_samples(&mut ch1);
-    self.channels[3].generate_samples(&mut ch3);
+    if self.channels[2].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
+      self.channels[2].generate_samples(&mut mixer);
+    }
+
+    for i in 4..self.channels.len() {
+      if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
+        self.channels[i].generate_samples(&mut mixer);
+      }
+    }
+
+    if self.channels[1].soundcnt.is_started || self.channels[1].soundcnt.hold_sample {
+      self.channels[1].generate_samples(&mut ch1);
+    }
+    if self.channels[3].soundcnt.is_started || self.channels[3].soundcnt.hold_sample {
+      self.channels[3].generate_samples(&mut ch3);
+    }
 
     if self.soundcnt.output_ch1_to_mixer {
       mixer.left += ch1.left;
@@ -109,7 +117,7 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
       }
-    } >> 16;
+    };
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
@@ -118,20 +126,22 @@ impl APU {
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right
       }
-    } >> 16;
+    };
 
     let final_sample = Sample { left: self.add_master_volume(left_sample), right: self.add_master_volume(right_sample) };
 
-    self.resample(final_sample);
+    self.push_sample(final_sample.left);
+    self.push_sample(final_sample.right);
   }
 
-  pub fn add_master_volume(&self, sample: i32) -> i32 {
-    (sample * self.soundcnt.master_volume() as i32) >> 7
+  pub fn add_master_volume(&self, sample: f32) -> f32 {
+    let master_volume = self.soundcnt.master_volume() as f32 / 128.0;
+    (sample * master_volume).clamp(-1.0, 1.0)
   }
 
-  fn push_sample(&mut self, sample: i32) {
+  fn push_sample(&mut self, sample: f32) {
     if self.audio_samples.len() < NUM_SAMPLES {
-      self.audio_samples.push(sample as i16);
+      self.audio_samples.push(sample);
     }
   }
 

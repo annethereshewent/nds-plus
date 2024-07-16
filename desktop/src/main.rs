@@ -52,8 +52,8 @@ fn main() {
     frame_finished = false;
 
     // render stuff
+    frontend.push_samples(bus.arm7.apu.audio_samples.drain(..).collect());
     frontend.render(&mut bus.gpu);
     frontend.handle_events(bus);
-    frontend.push_samples(bus.arm7.apu.audio_samples.drain(..).collect())
   }
 }

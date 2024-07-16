@@ -17,7 +17,7 @@ pub struct Channel {
   pub id: usize,
   pub bytes_left: u32,
   pub current_address: u32,
-  pub current_sample: i16,
+  pub current_sample: f32,
   pub initial_adpcm_value: i16,
   pub initial_table_index: i32,
   pub adpcm_value: i16,
@@ -36,7 +36,7 @@ impl Channel {
       id,
       bytes_left: 0,
       current_address: 0,
-      current_sample: 0,
+      current_sample: 0.0,
       initial_adpcm_value: 0,
       initial_table_index: 0,
       adpcm_index: 0,
@@ -45,9 +45,12 @@ impl Channel {
     }
   }
 
-  pub fn generate_samples(&mut self, sample: &mut Sample) {
-    sample.left += (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * (128 - self.soundcnt.panning_factor() as i32);
-    sample.right += (self.current_sample as i32 / self.soundcnt.volume_div() as i32) * self.soundcnt.volume_mul() as i32 * self.soundcnt.panning_factor() as i32;
+  pub fn generate_samples(&mut self, sample: &mut Sample<f32>) {
+    let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div() as f32;
+    let panning = self.soundcnt.panning_factor() as f32 / 128.0;
+
+    sample.left += self.current_sample * volume * (1.0 - panning);
+    sample.right += self.current_sample * volume * panning;
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {
@@ -73,10 +76,11 @@ impl Channel {
     }
 
     if reset {
-      scheduler.schedule(EventType::ResetAudio(self.id), -(self.timer_value as i16) as u16 as usize);
+      let time = (0x10000 - self.timer_value as usize) << 1;
+      scheduler.schedule(EventType::ResetAudio(self.id), time);
     } else {
-      let time = (0x10000 - self.timer_value as u32) << 1;
-      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
+      let time = (0x10000 - self.timer_value as usize) << 1;
+      scheduler.schedule(EventType::StepAudio(self.id), time);
     }
 
     return_address
@@ -87,8 +91,8 @@ impl Channel {
     self.bytes_left -= 4;
     self.current_address += 4;
 
-    let time = (0x10000 - self.timer_value as u32) << 1;
-    scheduler.schedule(EventType::StepAudio(self.id), time as usize);
+    let time = (0x10000 - self.timer_value as usize) << 1;
+    scheduler.schedule(EventType::StepAudio(self.id), time);
 
     return_address
   }
@@ -110,23 +114,23 @@ impl Channel {
       false
     };
 
-    let time = (0x10000 - self.timer_value as u32) << 1;
+    let time = (0x10000 - self.timer_value as usize) << 1;
 
     if reset {
-      scheduler.schedule(EventType::ResetAudio(self.id), time as usize);
+      scheduler.schedule(EventType::ResetAudio(self.id), time);
     } else {
-      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
+      scheduler.schedule(EventType::StepAudio(self.id), time);
     }
 
     return_address
   }
 
   pub fn set_sample_8(&mut self, sample: u8) {
-    self.current_sample = (sample as i16) << 8;
+    self.current_sample = sample as f32 / 127.0;
   }
 
   pub fn set_sample_16(&mut self, sample: u16) {
-    self.current_sample = sample as i16;
+    self.current_sample = sample as f32 /32767.0;
   }
 
   pub fn set_adpcm_data(&mut self, byte: u8, adpcm_table: &[u32]) {
@@ -167,20 +171,20 @@ impl Channel {
     }
 
     if data & 8 == 0 {
-      self.adpcm_value = self.adpcm_value.saturating_add(diff as i16);
+      self.adpcm_value = (self.adpcm_value + diff as i16).clamp(-0x7fff, 0x7fff);
     } else {
-      self.adpcm_value = self.adpcm_value.saturating_sub(diff as i16);
+      self.adpcm_value = (self.adpcm_value - diff as i16).clamp(-0x7fff, 0x7fff);
     }
 
     self.adpcm_index += INDEX_TABLE[(data as usize) & 0x7];
 
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
 
-    self.current_sample = self.adpcm_value;
+    self.current_sample = self.adpcm_value as f32 / 32767.0;
   }
 
   pub fn reset_audio(&mut self) {
-    self.current_sample = 0;
+    self.current_sample = 0.0;
     self.soundcnt.is_started = false;
   }
 
@@ -237,8 +241,8 @@ impl Channel {
     self.timer_value = value;
 
     if self.soundcnt.is_started && self.timer_value != 0 && self.sound_length + self.loop_start as u32 != 0 {
-      let time = (0x10000 - self.timer_value as u32) << 1;
-      scheduler.schedule(EventType::StepAudio(self.id), time as usize);
+      let time = (0x10000 - self.timer_value as usize) << 1;
+      scheduler.schedule(EventType::StepAudio(self.id), time);
     }
   }
 }

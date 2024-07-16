@@ -4,23 +4,23 @@ use ds_emulator::{cpu::{bus::Bus, registers::key_input_register::KeyInputRegiste
 use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
 
 struct DsAudioCallback {
-  audio_samples: VecDeque<i16>
+  audio_samples: VecDeque<f32>
 }
 
 impl DsAudioCallback {
-  pub fn push_samples(&mut self, samples: Vec<i16>) {
+  pub fn push_samples(&mut self, samples: Vec<f32>) {
     for sample in samples.iter() {
       self.audio_samples.push_back(*sample);
     }
 
-    while self.audio_samples.len() > 512 * 16 {
+    while self.audio_samples.len() > 16 * 1024 {
       self.audio_samples.pop_front().unwrap();
     }
   }
 }
 
 impl AudioCallback for DsAudioCallback {
-  type Channel = i16;
+  type Channel = f32;
 
   fn callback(&mut self, buf: &mut [Self::Channel]) {
     let len = self.audio_samples.len();
@@ -28,7 +28,7 @@ impl AudioCallback for DsAudioCallback {
     let (last_left, last_right) = if len > 1 {
       (self.audio_samples[len - 2], self.audio_samples[len - 1])
     } else {
-      (0, 0)
+      (0.0, 0.0)
     };
 
     let mut index = 0;
@@ -92,9 +92,9 @@ impl Frontend {
     let audio_subsystem = sdl_context.audio().unwrap();
 
     let spec = AudioSpecDesired {
-      freq: Some(44100),
+      freq: Some(32768),
       channels: Some(2),
-      samples: Some(4096)
+      samples: Some(8192)
     };
 
     let device = audio_subsystem.open_playback(
@@ -136,7 +136,7 @@ impl Frontend {
     }
   }
 
-  pub fn push_samples(&mut self, samples: Vec<i16>) {
+  pub fn push_samples(&mut self, samples: Vec<f32>) {
     self.device.lock().deref_mut().push_samples(samples);
   }
 

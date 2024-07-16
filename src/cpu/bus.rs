@@ -169,27 +169,27 @@ impl Bus {
     }
   }
 
-  fn handle_dma(&mut self, params: &mut DmaParams, i: usize) -> u32 {
+  fn handle_dma(&mut self, params: &mut DmaParams, is_arm9: bool) -> u32 {
     let mut access = MemoryAccess::NonSequential;
     let mut cpu_cycles = 0;
     if params.fifo_mode {
       for _ in 0..4 {
-        let (value, cycles) = self.load_32(params.source_address & !(0b11), access, true);
+        let (value, cycles) = self.load_32(params.source_address & !(0b11), access, is_arm9);
 
         cpu_cycles += cycles;
 
-        cpu_cycles += self.store_32(params.destination_address & !(0b11), value, access, true);
+        cpu_cycles += self.store_32(params.destination_address & !(0b11), value, access, is_arm9);
 
         access = MemoryAccess::Sequential;
         params.source_address += 4;
       }
     } else if params.word_size == 4 {
       for _ in 0..params.count {
-        let (word, cycles) = self.load_32(params.source_address & !(0b11), access, true);
+        let (word, cycles) = self.load_32(params.source_address & !(0b11), access, is_arm9);
 
         cpu_cycles += cycles;
 
-        cpu_cycles += self.store_32(params.destination_address & !(0b11), word, access, true);
+        cpu_cycles += self.store_32(params.destination_address & !(0b11), word, access, is_arm9);
 
         access = MemoryAccess::Sequential;
         params.source_address = (params.source_address as i32).wrapping_add(params.source_adjust) as u32;
@@ -197,11 +197,11 @@ impl Bus {
       }
     } else {
       for _ in 0..params.count {
-        let (half_word, cycles) = self.load_16(params.source_address & !(0b1), access, true);
+        let (half_word, cycles) = self.load_16(params.source_address & !(0b1), access, is_arm9);
 
         cpu_cycles += cycles;
 
-        cpu_cycles += self.store_16(params.destination_address & !(0b1), half_word, access, true);
+        cpu_cycles += self.store_16(params.destination_address & !(0b1), half_word, access, is_arm9);
         access = MemoryAccess::Sequential;
         params.source_address = (params.source_address as i32).wrapping_add(params.source_adjust) as u32;
         params.destination_address = (params.destination_address as i32).wrapping_add(params.destination_adjust) as u32;
@@ -223,7 +223,7 @@ impl Bus {
 
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, i);
+          cpu_cycles += self.handle_dma(params, is_arm9);
 
           // i would DRY this code up by adding it to the handle DMA method, but Rust is being a jerk
           // about ownership :/
@@ -252,7 +252,7 @@ impl Bus {
 
       for i in 0..4 {
         if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, i);
+          cpu_cycles += self.handle_dma(params, is_arm9);
 
           // update internal destination and source address for the dma channel as well.
           // see above comment
