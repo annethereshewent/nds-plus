@@ -4,11 +4,11 @@ use ds_emulator::{cpu::{bus::Bus, registers::key_input_register::KeyInputRegiste
 use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
 
 struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<i16>>>
+  audio_samples: Arc<Mutex<VecDeque<f32>>>
 }
 
 impl AudioCallback for DsAudioCallback {
-  type Channel = i16;
+  type Channel = f32;
 
   fn callback(&mut self, buf: &mut [Self::Channel]) {
     let mut audio_samples = self.audio_samples.lock().unwrap();
@@ -17,7 +17,7 @@ impl AudioCallback for DsAudioCallback {
     let (last_left, last_right) = if len > 1 {
       (audio_samples[len - 2], audio_samples[len - 1])
     } else {
-      (0, 0)
+      (0.0, 0.0)
     };
 
     let mut index = 0;
@@ -44,7 +44,7 @@ pub struct Frontend {
 }
 
 impl Frontend {
-  pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<i16>>>) -> Self {
+  pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem

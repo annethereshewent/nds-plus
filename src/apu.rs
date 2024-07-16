@@ -30,6 +30,23 @@ pub struct Sample<T> {
   pub right: T
 }
 
+impl Sample<f32> {
+  pub fn from(left: i16, right: i16) -> Self {
+    Self {
+      left: Self::to_f32(left),
+      right: Self::to_f32(right)
+    }
+  }
+
+  fn to_f32(sample: i16) -> f32 {
+    if sample < 0 {
+      sample as f32 / -(i16::MIN as f32)
+    } else {
+      sample as f32 / i16::MAX as f32
+    }
+  }
+}
+
 
 pub struct APU {
   pub soundcnt: SoundControlRegister,
@@ -37,13 +54,13 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub adpcm_table: [u32; 89],
-  pub audio_buffer: Arc<Mutex<VecDeque<i16>>>,
+  pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub previous_value: f32,
   pub phase: f32
 }
 
 impl APU {
-  pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<i16>>>) -> Self {
+  pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let mut apu = Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
@@ -65,10 +82,9 @@ impl APU {
     apu
   }
 
-  fn resample(&mut self, sample: Sample<i16>) {
+  fn resample(&mut self, sample: Sample<f32>) {
     while self.phase < 1.0 {
-      self.push_sample(sample.left);
-      self.push_sample(sample.right);
+      self.push_sample(sample);
 
       self.phase += DS_SAMPLE_RATE as f32 / OUT_FREQUENCY as f32;
     }
@@ -130,10 +146,9 @@ impl APU {
       }
     } >> 16;
 
-    let final_sample = Sample { left: self.add_master_volume(left_sample), right: self.add_master_volume(right_sample) };
+    let final_sample = Sample::<f32>::from(self.add_master_volume(left_sample), self.add_master_volume(right_sample));
 
-    self.push_sample(final_sample.left);
-    self.push_sample(final_sample.right);
+    self.push_sample(final_sample);
   }
 
   pub fn add_master_volume(&self, sample: i32) -> i16 {
@@ -141,11 +156,14 @@ impl APU {
     ((sample * master_volume) >> 7) as i16
   }
 
-  fn push_sample(&mut self, sample: i16) {
+  fn push_sample(&mut self, sample: Sample<f32>) {
     let mut audio_buffer = self.audio_buffer.lock().unwrap();
 
     if audio_buffer.len() < NUM_SAMPLES {
-      audio_buffer.push_back(sample);
+      audio_buffer.push_back(sample.left);
+    }
+    if audio_buffer.len() < NUM_SAMPLES {
+      audio_buffer.push_back(sample.right);
     }
   }
 

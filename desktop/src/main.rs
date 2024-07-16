@@ -22,7 +22,7 @@ fn main() {
     skip_bios = false;
   }
 
-  let audio_buffer: Arc<Mutex<VecDeque<i16>>> = Arc::new(Mutex::new(VecDeque::new()));
+  let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
 
   let bios7_file = "../bios7.bin";
   let bios9_file = "../bios9.bin";
