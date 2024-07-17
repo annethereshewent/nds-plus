@@ -1,4 +1,4 @@
-use crate::scheduler::{EventType, Scheduler};
+use crate::{apu::ADPCM_TABLE, scheduler::{EventType, Scheduler}};
 
 use super::{registers::sound_channel_control_register::{RepeatMode, SoundChannelControlRegister}, Sample, INDEX_TABLE};
 
@@ -74,6 +74,17 @@ impl Channel {
     return_address
   }
 
+  pub fn schedule(&self, scheduler: &mut Scheduler, should_reset: bool, cycles_left: usize) {
+    if self.timer_value != 0 && self.sound_length + self.loop_start as u32 > 0 {
+      let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
+      if should_reset {
+        scheduler.schedule(EventType::ResetAudio(self.id), time);
+      } else {
+        scheduler.schedule(EventType::StepAudio(self.id), time);
+      }
+    }
+  }
+
   pub fn get_adpcm_header_address(&mut self, scheduler: &mut Scheduler, cycles_left: usize) -> u32 {
     let return_address = self.source_address;
     self.bytes_left -= 4;
@@ -82,7 +93,7 @@ impl Channel {
     let time = (0x10000 - self.timer_value as usize) << 1;
 
     if self.soundcnt.is_started {
-      scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
+      self.schedule(scheduler, false, cycles_left);
     }
 
     return_address
@@ -105,13 +116,7 @@ impl Channel {
       false
     };
 
-    let time = (0x10000 - self.timer_value as usize) << 1;
-
-    if reset || !self.soundcnt.is_started {
-      scheduler.schedule(EventType::ResetAudio(self.id), time - cycles_left);
-    } else {
-      scheduler.schedule(EventType::StepAudio(self.id), time - cycles_left);
-    }
+    self.schedule(scheduler, reset, cycles_left);
 
     return_address
   }
@@ -181,11 +186,8 @@ impl Channel {
     }
 
     let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
-    if reset || !self.soundcnt.is_started {
-      scheduler.schedule(EventType::ResetAudio(self.id), time);
-    } else {
-      scheduler.schedule(EventType::StepAudio(self.id), time);
-    }
+
+    self.schedule(scheduler, reset, cycles_left);
   }
 
   pub fn reset_audio(&mut self) {
@@ -201,6 +203,7 @@ impl Channel {
       }
       RepeatMode::Loop => {
         self.current_address = self.source_address + self.loop_start as u32 * 4;
+
         self.bytes_left = self.sound_length * 4;
 
         self.soundcnt.is_started = true;
@@ -247,7 +250,7 @@ impl Channel {
 
     if self.soundcnt.is_started && self.timer_value != 0 && self.sound_length + self.loop_start as u32 != 0 {
       let time = (0x10000 - self.timer_value as usize) << 1;
-      scheduler.schedule(EventType::StepAudio(self.id), time);
+      self.schedule(scheduler, false, 0);
     }
   }
 }

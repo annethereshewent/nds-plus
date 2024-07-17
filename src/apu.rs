@@ -242,19 +242,35 @@ impl APU {
 
       match bit_length {
         BitLength::Bit16 => {
-          if address & 0x3 == 2 {
-            old_value & 0xffff | (val << 16)
+          if register == 0xa {
+            if address & 0b1 == 0 {
+              old_value & 0xffff0000 | val
+            } else {
+              old_value & 0xffff | val
+            }
           } else {
-            old_value & 0xffff0000 | val
+            if address & 0x3 == 2 {
+              old_value & 0xffff | (val << 16)
+            } else {
+              old_value & 0xffff0000 | val
+            }
           }
         }
         BitLength::Bit8 => {
-          match address & 0x3 {
-            0 => old_value & 0xffffff00 | val,
-            1 => old_value & 0xffff00ff | (val << 8),
-            2 => old_value & 0xff00ffff | (val << 16),
-            3 => old_value & 0x00ffffff | (val << 24),
-            _ => unreachable!()
+          if register != 0xa {
+            match address & 0x3 {
+              0 => old_value & 0xffffff00 | val,
+              1 => old_value & 0xffff00ff | (val << 8),
+              2 => old_value & 0xff00ffff | (val << 16),
+              3 => old_value & 0x00ffffff | (val << 24),
+              _ => unreachable!()
+            }
+          } else {
+            if address & 0b1 == 0 {
+              old_value & 0xffffff00 | val
+            } else {
+              old_value & 0xffff00ff | val
+            }
           }
         }
         _ => unreachable!()
@@ -270,8 +286,7 @@ impl APU {
 
         if !previous_is_started && channel.soundcnt.is_started {
           if channel.timer_value > 0 && channel.loop_start as u32 + channel.sound_length > 0 {
-            let time = (0x10000 - channel.timer_value as u32) << 1;
-            scheduler.schedule(EventType::StepAudio(channel.id), time as usize);
+            channel.schedule(scheduler, false, 0);
           }
         } else if !channel.soundcnt.is_started {
           scheduler.remove(EventType::StepAudio(channel_id as usize));
@@ -295,11 +310,25 @@ impl APU {
         self.channels[channel_id as usize].loop_start = value as u16;
 
         self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length) * 4;
+
+        if self.channels[channel_id as usize].soundcnt.is_started &&
+          self.channels[channel_id as usize].timer_value > 0 &&
+          self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length > 0
+        {
+          self.channels[channel_id as usize].schedule(scheduler, false, 0);
+        }
       }
       0xc => {
         self.channels[channel_id as usize].sound_length = value & 0x3f_ffff;
 
         self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].sound_length + self.channels[channel_id as usize].sound_length) * 4;
+
+        if self.channels[channel_id as usize].soundcnt.is_started &&
+          self.channels[channel_id as usize].timer_value > 0 &&
+          self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length > 0
+        {
+          self.channels[channel_id as usize].schedule(scheduler, false, 0);
+        }
       }
       _ => panic!("invalid register given for apu write_channels: {:x}", register)
     }
