@@ -9,7 +9,14 @@ pub struct Nds {
 }
 
 impl Nds {
-  pub fn new(firmware_bytes: Vec<u8>, bios7_bytes: Vec<u8>, bios9_bytes: Vec<u8>, rom_bytes: Vec<u8>, skip_bios: bool, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
+  pub fn new(
+    firmware_bytes: Vec<u8>,
+    bios7_bytes: Vec<u8>,
+    bios9_bytes: Vec<u8>,
+    rom_bytes: Vec<u8>,
+    skip_bios: bool,
+    audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self
+  {
     let bus = Rc::new(
       RefCell::new(
         Bus::new(

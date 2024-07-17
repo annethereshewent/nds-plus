@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, VecDeque}, ops::DerefMut, rc::Rc, sync::{Arc, Mutex}};
 
-use ds_emulator::{cpu::{bus::Bus, registers::key_input_register::KeyInputRegister}, gpu::{GPU, SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
+use ds_emulator::{cpu::{bus::Bus, registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}}, gpu::{GPU, SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
 use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
 
 struct DsAudioCallback {
@@ -32,6 +32,7 @@ pub struct Frontend {
   canvas: Canvas<Window>,
   _controller: Option<GameController>,
   button_map: HashMap<Button, KeyInputRegister>,
+  ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
   device: AudioDevice<DsAudioCallback>
 }
@@ -108,11 +109,31 @@ impl Frontend {
 
     let mut button_map = HashMap::new();
 
+    button_map.insert(Button::B, KeyInputRegister::ButtonA);
+    button_map.insert(Button::A, KeyInputRegister::ButtonB);
+
+    button_map.insert(Button::Start, KeyInputRegister::Start);
+    button_map.insert(Button::Back, KeyInputRegister::Select);
+
+    button_map.insert(Button::DPadUp, KeyInputRegister::Up);
+    button_map.insert(Button::DPadDown, KeyInputRegister::Down);
+    button_map.insert(Button::DPadLeft, KeyInputRegister::Left);
+    button_map.insert(Button::DPadRight, KeyInputRegister::Right);
+
+    button_map.insert(Button::LeftShoulder, KeyInputRegister::ButtonL);
+    button_map.insert(Button::RightShoulder, KeyInputRegister::ButtonR);
+
+    let mut ext_button_map = HashMap::new();
+
+    ext_button_map.insert(Button::Y, ExternalKeyInputRegister::BUTTON_X);
+    ext_button_map.insert(Button::X, ExternalKeyInputRegister::BUTTON_Y);
+
     Self {
       event_pump,
       canvas,
       _controller,
       button_map,
+      ext_button_map,
       key_map,
       device
     }
@@ -136,6 +157,20 @@ impl Frontend {
         Event::KeyUp { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, true);
+          }
+        }
+        Event::ControllerButtonDown { button, .. } => {
+          if let Some(button) = self.button_map.get(&button) {
+            bus.key_input_register.set(*button, false);
+          } else if let Some(button) = self.ext_button_map.get(&button) {
+            bus.arm7.extkeyin.set(*button, false);
+          }
+        }
+        Event::ControllerButtonUp { button, .. } => {
+          if let Some(button) = self.button_map.get(&button) {
+            bus.key_input_register.set(*button, true);
+          } else if let Some(button) = self.ext_button_map.get(&button) {
+            bus.arm7.extkeyin.set(*button, true);
           }
         }
         _ => ()
