@@ -65,6 +65,21 @@ impl Sample<f32> {
     }
   }
 
+  fn to_i16_internal(sample: f32) -> i16 {
+    if sample >= 0.0 {
+      (sample * i16::MAX as f32) as i16
+    } else {
+      (-sample * i16::MIN as f32) as i16
+    }
+  }
+
+  pub fn to_i16(&self) -> Sample<i16> {
+    Sample {
+      left: Self::to_i16_internal(self.left),
+      right: Self::to_i16_internal(self.right)
+    }
+  }
+
   fn to_f32(sample: i16) -> f32 {
     if sample < 0 {
       sample as f32 / -(i16::MIN as f32)
@@ -81,7 +96,6 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-  pub previous_value: f32,
   pub phase: f32
 }
 
@@ -93,7 +107,6 @@ impl APU {
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       audio_buffer,
-      previous_value: 0.0,
       phase: 0.0
     };
 
@@ -114,6 +127,22 @@ impl APU {
     self.phase -= 1.0;
   }
 
+  fn generate_mixer(&mut self, mixer: &mut Sample<f32>) {
+    if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
+      self.channels[0].generate_samples(mixer);
+    }
+
+    if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
+      self.channels[2].generate_samples(mixer);
+    }
+
+    for i in 4..self.channels.len() {
+      if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
+        self.channels[i].generate_samples(mixer);
+      }
+    }
+  }
+
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
 
@@ -121,19 +150,7 @@ impl APU {
     let mut ch1 = Sample { left: 0.0, right: 0.0 };
     let mut ch3 = Sample { left: 0.0, right: 0.0 };
 
-    if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
-      self.channels[0].generate_samples(&mut mixer);
-    }
-
-    if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
-      self.channels[2].generate_samples(&mut mixer);
-    }
-
-    for i in 4..self.channels.len() {
-      if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
-        self.channels[i].generate_samples(&mut mixer);
-      }
-    }
+    self.generate_mixer(&mut mixer);
 
     if self.channels[1].soundcnt.is_started || self.channels[1].soundcnt.hold_sample {
       self.channels[1].generate_samples(&mut ch1);
@@ -198,6 +215,20 @@ impl APU {
     }
 
     vec.try_into().unwrap_or_else(|vec: Vec<Channel>| panic!("expected a vec of length 16 but got a vec of length {}", vec.len()))
+  }
+
+  pub fn capture_data(&mut self, capture_index: usize) -> i16 {
+    let mut mixer = Sample { left: 0.0, right: 0.0 };
+
+    self.generate_mixer(&mut mixer);
+
+    let sample_16bit = mixer.to_i16();
+
+    if capture_index == 0 {
+      sample_16bit.left
+    } else {
+      sample_16bit.right
+    }
   }
 
   pub fn write_sound_bias(&mut self, value: u16, mask: Option<u16>) {

@@ -7,7 +7,9 @@ pub struct SoundCaptureControlRegister {
   pub is_pcm8: bool,
   pub is_running: bool,
   pub destination_address: u32,
-  pub capture_length: u16
+  pub current_address: u32,
+  pub capture_length: u16,
+  pub bytes_left: u16
 }
 
 impl SoundCaptureControlRegister {
@@ -20,12 +22,50 @@ impl SoundCaptureControlRegister {
       is_pcm8: false,
       is_running: false,
       destination_address: 0,
-      capture_length: 0
+      current_address: 0,
+      capture_length: 0,
+      bytes_left: 0
     }
   }
 
   pub fn read(&self) -> u8 {
     self.val
+  }
+
+  pub fn write_destination(&mut self, val: u32, mask: Option<u32>) {
+    let mut value = 0;
+
+    if let Some(mask) = mask {
+      value = self.destination_address & mask;
+    }
+
+    value |= val;
+
+    self.destination_address = value & 0x7ff_ffff;
+    self.current_address = self.destination_address;
+  }
+
+  pub fn write_length(&mut self, val: u16, mask: Option<u16>) {
+    let mut value = 0;
+
+    if let Some(mask) = mask {
+      value = self.capture_length & mask;
+    }
+
+    value |= val;
+
+    self.capture_length = value;
+
+    self.bytes_left = self.capture_length * 4;
+  }
+
+  pub fn get_capture_address(&mut self, bit_length: u16) -> u32 {
+    let return_address = self.current_address;
+
+    self.bytes_left -= bit_length;
+    self.current_address += bit_length as u32;
+
+    return_address
   }
 
   pub fn write(&mut self, val: u8) {

@@ -26,6 +26,10 @@ impl Bus {
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0188 => self.send_to_fifo(false, val),
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, val, &mut self.scheduler, BitLength::Bit32),
+      0x400_0510 => self.arm7.apu.sndcapcnt[0].write_destination(val, None),
+      0x400_0514 => self.arm7.apu.sndcapcnt[0].write_length(val as u16, None),
+      0x400_0518 => self.arm7.apu.sndcapcnt[1].write_destination(val, None),
+      0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(val as u16, None),
       _ => panic!("write to unsupported address: {:X}", address)
     }
   }

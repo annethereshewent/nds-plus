@@ -582,6 +582,35 @@ impl Bus {
       }
       SoundFormat::PSG => ()
     }
+
+    if [1, 3].contains(&channel_id) {
+      // capture audio
+      let capture_index = if channel_id == 1 {
+        0
+      } else {
+        1
+      };
+
+      // Rust needs to go fuck itself because why can't I just do this? WHy do I have to type out self.arm7.apu.sndcapcnt[capture_index] every.single.time.
+      // in the case that there might be some nonexistent issue with threads and borrowship. Fuck you.
+      // let capture = &mut self.arm7.apu.sndcapcnt[capture_index];
+
+      if self.arm7.apu.sndcapcnt[capture_index].is_running && self.arm7.apu.sndcapcnt[capture_index].bytes_left > 0 {
+        let address = if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
+          self.arm7.apu.sndcapcnt[capture_index].get_capture_address(1)
+        } else {
+          self.arm7.apu.sndcapcnt[capture_index].get_capture_address(2)
+        };
+
+        let data = self.arm7.apu.capture_data(capture_index) as u16;
+
+        if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
+          self.arm7_mem_write_8(address, (data >> 8) as u8);
+        } else {
+          self.arm7_mem_write_16(address, data);
+        }
+      }
+    }
   }
 
   pub fn write_sqrtcnt(&mut self, value: u16) {
