@@ -1,4 +1,4 @@
-use crate::{apu::ADPCM_TABLE, scheduler::{EventType, Scheduler}};
+use crate::scheduler::{EventType, Scheduler};
 
 use super::{registers::sound_channel_control_register::{RepeatMode, SoundChannelControlRegister}, Sample, INDEX_TABLE};
 
