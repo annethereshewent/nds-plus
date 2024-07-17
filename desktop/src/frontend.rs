@@ -1,11 +1,41 @@
-use std::{cell::RefCell, collections::{HashMap, VecDeque}, ops::DerefMut, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
 
-use ds_emulator::{cpu::{bus::Bus, registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}}, gpu::{GPU, SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
-use sdl2::{audio::{AudioCallback, AudioDevice, AudioSpecDesired}, controller::{Button, GameController}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, render::Canvas, video::Window, EventPump, Sdl};
+use ds_emulator::{
+  apu::Sample,
+  cpu::{
+    bus::Bus, registers::{
+      external_key_input_register::ExternalKeyInputRegister,
+      key_input_register::KeyInputRegister
+    }
+  },
+  gpu::{
+    GPU,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
+  }
+};
+use sdl2::{
+  audio::{
+    AudioCallback,
+    AudioDevice,
+    AudioSpecDesired
+  },
+  controller::{
+    Button,
+    GameController
+  },
+  event::Event,
+  keyboard::Keycode,
+  pixels::PixelFormatEnum,
+  rect::Rect,
+  render::Canvas,
+  video::Window,
+  EventPump,
+  Sdl
+};
 
 struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<f32>>>,
-  previous_value: f32
+  audio_samples: Arc<Mutex<VecDeque<f32>>>
 }
 
 impl AudioCallback for DsAudioCallback {
@@ -15,14 +45,26 @@ impl AudioCallback for DsAudioCallback {
     let mut audio_samples = self.audio_samples.lock().unwrap();
     let len = audio_samples.len();
 
+    let mut last_sample = Sample { left: 0.0, right: 0.0 };
+
+    if len > 2 {
+      last_sample.left = audio_samples[len - 2];
+      last_sample.right = audio_samples[len - 1];
+    }
+
+    let mut is_left_sample = true;
+
     for b in buf.iter_mut() {
       *b = if let Some(sample) = audio_samples.pop_front() {
         sample
       } else {
-        self.previous_value
+        if is_left_sample {
+          last_sample.left
+        } else {
+          last_sample.right
+        }
       };
-
-      self.previous_value = *b;
+      is_left_sample = !is_left_sample;
     }
   }
 }
@@ -42,17 +84,15 @@ impl Frontend {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
-      .window("DS Emulator", (SCREEN_WIDTH * 3) as u32, (SCREEN_HEIGHT * 3 * 2) as u32)
+      .window("DS Emulator", (SCREEN_WIDTH * 2) as u32, (SCREEN_HEIGHT * 2 * 2) as u32)
       .position_centered()
       .build()
       .unwrap();
 
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    canvas.set_scale(3.0, 3.0).unwrap();
+    canvas.set_scale(2.0, 2.0).unwrap();
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
-
-    let creator = canvas.texture_creator();
+    let event_pump = sdl_context.event_pump().unwrap();
 
     let game_controller_subsystem = sdl_context.game_controller().unwrap();
 
@@ -83,7 +123,7 @@ impl Frontend {
     let device = audio_subsystem.open_playback(
       None,
       &spec,
-      |_| DsAudioCallback { audio_samples: audio_buffer, previous_value: 0.0 }
+      |_| DsAudioCallback { audio_samples: audio_buffer }
     ).unwrap();
 
     device.resume();

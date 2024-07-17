@@ -1,6 +1,15 @@
-use std::{collections::VecDeque, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+  collections::VecDeque,
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
-use cartridge::{Cartridge, CHIP_ID};
+use cartridge::{
+  Cartridge,
+  CHIP_ID
+};
 use cp15::CP15;
 use num_integer::Roots;
 use spi::SPI;
@@ -558,19 +567,18 @@ impl Bus {
           let header = self.arm7_mem_read_32(header_address);
 
           self.arm7.apu.channels[channel_id].set_adpcm_header(header);
-        } else {
-          if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
-            let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address();
-
-            let word = self.arm7_mem_read_32(sample_address);
-
-            self.arm7.apu.channels[channel_id].sample_fifo = word;
-
-            self.arm7.apu.channels[channel_id].pcm_samples_left = 8;
-          }
-
-          self.arm7.apu.channels[channel_id].step_adpcm_data(&mut self.scheduler, cycles_left);
         }
+        if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
+          let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address();
+
+          let word = self.arm7_mem_read_32(sample_address);
+
+          self.arm7.apu.channels[channel_id].sample_fifo = word;
+
+          self.arm7.apu.channels[channel_id].pcm_samples_left = 8;
+        }
+
+        self.arm7.apu.channels[channel_id].step_adpcm_data(&mut self.scheduler, cycles_left);
       }
       SoundFormat::PSG => ()
     }

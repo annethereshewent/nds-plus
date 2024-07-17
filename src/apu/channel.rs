@@ -90,9 +90,7 @@ impl Channel {
     self.bytes_left -= 4;
     self.current_address += 4;
 
-    if self.soundcnt.is_started {
-      self.schedule(scheduler, false, cycles_left);
-    }
+    self.schedule(scheduler, false, cycles_left);
 
     return_address
   }
