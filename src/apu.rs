@@ -177,7 +177,9 @@ impl APU {
       self.adpcm_table[i] = x >> 16;
       x = x + (x/10);
     }
-    self.adpcm_table[3] = 0xa; self.adpcm_table[4] = 0xb; self.adpcm_table[88] = 0x7fff;
+    self.adpcm_table[3] = 0xa;
+    self.adpcm_table[4] = 0xb;
+    self.adpcm_table[88] = 0x7fff;
   }
 
   pub fn create_channels() -> [Channel; 16] {
