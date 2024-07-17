@@ -25,12 +25,7 @@ impl Bus {
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0188 => self.send_to_fifo(false, val),
-      0x400_0400..=0x400_04ff if address & 0xf < 0x8 => self.arm7.apu.write_channels(address, val, &mut self.scheduler, BitLength::Bit32),
-      0x400_0400..=0x400_04ff if address & 0xf == 0xc => self.arm7.apu.write_channels(address, val, &mut self.scheduler, BitLength::Bit32),
-      0x400_0400..=0x400_04ff => {
-        self.arm7_io_write_16(address, val as u16);
-        self.arm7_io_write_16(address + 2, (val >> 16) as u16);
-      }
+      0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, val, &mut self.scheduler, BitLength::Bit32),
       _ => panic!("write to unsupported address: {:X}", address)
     }
   }
@@ -101,12 +96,21 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
       0x400_0006 => self.gpu.vcount,
+      // 0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
+      // 0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
+      0x400_0102 => self.arm7.timers.t[0].timer_ctl.bits(),
+      0x400_0104 => self.arm7.timers.t[1].read_timer_value(&self.scheduler),
+      0x400_0106 => self.arm7.timers.t[1].timer_ctl.bits(),
+      0x400_0108 => self.arm7.timers.t[2].read_timer_value(&self.scheduler),
+      0x400_010a => self.arm7.timers.t[2].timer_ctl.bits(),
+      0x400_010c => self.arm7.timers.t[3].read_timer_value(&self.scheduler),
       0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0130 => self.key_input_register.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
       0x400_0136 => self.arm7.extkeyin.bits(),
       0x400_0138 => {
+        // TODO
         // println!("ignoring reads to RTC register");
         0
       }
@@ -212,6 +216,9 @@ impl Bus {
       0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
       0x400_0104 => self.arm7.timers.t[1].reload_timer_value(value),
       0x400_0106 => self.arm7.timers.t[1].write_timer_control(value, &mut self.scheduler),
+      0x400_0108 => self.arm7.timers.t[2].reload_timer_value(value),
+      0x400_010a => self.arm7.timers.t[2].write_timer_control(value, &mut self.scheduler),
+      0x400_010c => self.arm7.timers.t[3].reload_timer_value(value),
       0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0134 => (), // RCNT
       0x400_0138 => {
