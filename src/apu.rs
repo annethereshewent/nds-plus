@@ -1,9 +1,18 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex}};
+use std::{
+  collections::VecDeque,
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
 use channel::Channel;
 use registers::{
   sound_capture_control_register::SoundCaptureControlRegister,
-  sound_control_register::{OutputSource, SoundControlRegister}
+  sound_control_register::{
+    OutputSource,
+    SoundControlRegister
+  }
 };
 
 use crate::scheduler::{
