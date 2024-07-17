@@ -244,7 +244,7 @@ impl Channel {
   pub fn write_timer(&mut self, value: u16, scheduler: &mut Scheduler) {
     self.timer_value = value;
 
-    if self.soundcnt.is_started && self.timer_value != 0 && self.sound_length + self.loop_start as u32 != 0 {
+    if self.soundcnt.is_started {
       self.schedule(scheduler, false, 0);
     }
   }

@@ -284,9 +284,7 @@ impl APU {
         let channel = &mut self.channels[channel_id as usize];
 
         if !previous_is_started && channel.soundcnt.is_started {
-          if channel.timer_value > 0 && channel.loop_start as u32 + channel.sound_length > 0 {
-            channel.schedule(scheduler, false, 0);
-          }
+          channel.schedule(scheduler, false, 0);
         } else if !channel.soundcnt.is_started {
           scheduler.remove(EventType::StepAudio(channel_id as usize));
         }
