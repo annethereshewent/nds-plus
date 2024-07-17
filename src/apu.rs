@@ -6,7 +6,10 @@ use registers::{
   sound_control_register::{OutputSource, SoundControlRegister}
 };
 
-use crate::scheduler::{EventType, Scheduler};
+use crate::scheduler::{
+  EventType,
+  Scheduler
+};
 
 pub mod registers;
 pub mod channel;
@@ -16,6 +19,21 @@ pub const DS_SAMPLE_RATE: usize = 32768;
 pub const INDEX_TABLE: [i32; 8] = [-1,-1,-1,-1,2,4,6,8];
 pub const OUT_FREQUENCY: usize = 44100;
 pub const CYCLES_PER_SAMPLE: usize = 1024;
+
+pub const ADPCM_TABLE: [u32; 89] = [
+  0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E,
+  0x0010, 0x0011, 0x0013, 0x0015, 0x0017, 0x0019, 0x001C, 0x001F,
+  0x0022, 0x0025, 0x0029, 0x002D, 0x0032, 0x0037, 0x003C, 0x0042,
+  0x0049, 0x0050, 0x0058, 0x0061, 0x006B, 0x0076, 0x0082, 0x008F,
+  0x009D, 0x00AD, 0x00BE, 0x00D1, 0x00E6, 0x00FD, 0x0117, 0x0133,
+  0x0151, 0x0173, 0x0198, 0x01C1, 0x01EE, 0x0220, 0x0256, 0x0292,
+  0x02D4, 0x031C, 0x036C, 0x03C3, 0x0424, 0x048E, 0x0502, 0x0583,
+  0x0610, 0x06AB, 0x0756, 0x0812, 0x08E0, 0x09C3, 0x0ABD, 0x0BD0,
+  0x0CFF, 0x0E4C, 0x0FBA, 0x114C, 0x1307, 0x14EE, 0x1706, 0x1954,
+  0x1BDC, 0x1EA5, 0x21B6, 0x2515, 0x28CA, 0x2CDF, 0x315B, 0x364B,
+  0x3BB9, 0x41B2, 0x4844, 0x4F7E, 0x5771, 0x602F, 0x69CE, 0x7462,
+  0x7FFF
+];
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum BitLength {
@@ -53,7 +71,6 @@ pub struct APU {
   pub sound_bias: u16,
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
-  pub adpcm_table: [u32; 89],
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub previous_value: f32,
   pub phase: f32
@@ -61,12 +78,11 @@ pub struct APU {
 
 impl APU {
   pub fn new(scheduler: &mut Scheduler, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
-    let mut apu = Self {
+    let apu = Self {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
-      adpcm_table: [0; 89],
       audio_buffer,
       previous_value: 0.0,
       phase: 0.0
@@ -76,8 +92,6 @@ impl APU {
       EventType::GenerateSample,
       CYCLES_PER_SAMPLE
     );
-
-    apu.populate_adpcm_table();
 
     apu
   }
@@ -165,21 +179,6 @@ impl APU {
     if audio_buffer.len() < NUM_SAMPLES {
       audio_buffer.push_back(sample.right);
     }
-  }
-
-  fn populate_adpcm_table(&mut self) {
-    /*
-      =000776d2h, FOR I=0 TO 88, Table[I]=X SHR 16, X=X+(X/10), NEXT I
-      Table[3]=000Ah, Table[4]=000Bh, Table[88]=7FFFh, Table[89..127]=0000h
-    */
-    let mut x: u32 = 0x776d2;
-    for i in 0..89 {
-      self.adpcm_table[i] = x >> 16;
-      x = x + (x/10);
-    }
-    self.adpcm_table[3] = 0xa;
-    self.adpcm_table[4] = 0xb;
-    self.adpcm_table[88] = 0x7fff;
   }
 
   pub fn create_channels() -> [Channel; 16] {

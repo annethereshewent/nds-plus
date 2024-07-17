@@ -409,7 +409,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
-  fn update_cycles(&mut self, address: u32,  access: MemoryAccess, width: MemoryWidth) {
+  fn update_cycles(&mut self, _address: u32,  _access: MemoryAccess, _width: MemoryWidth) {
     // TODO: fix this
     // let page = ((address >> 24) & 0xf) as usize;
     // let cycles = match width {

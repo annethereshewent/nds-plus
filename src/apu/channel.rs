@@ -1,6 +1,6 @@
 use crate::scheduler::{EventType, Scheduler};
 
-use super::{registers::sound_channel_control_register::{RepeatMode, SoundChannelControlRegister}, Sample, INDEX_TABLE};
+use super::{registers::sound_channel_control_register::{RepeatMode, SoundChannelControlRegister}, Sample, ADPCM_TABLE, INDEX_TABLE};
 
 pub enum ChannelType {
   Normal,
@@ -90,8 +90,6 @@ impl Channel {
     self.bytes_left -= 4;
     self.current_address += 4;
 
-    let time = (0x10000 - self.timer_value as usize) << 1;
-
     if self.soundcnt.is_started {
       self.schedule(scheduler, false, cycles_left);
     }
@@ -135,7 +133,7 @@ impl Channel {
     self.pcm_samples_left -= 1;
   }
 
-  pub fn step_adpcm_data(&mut self, adpcm_table: &[u32], scheduler: &mut Scheduler, cycles_left: usize) {
+  pub fn step_adpcm_data(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     /*
       per martin korth:
       Diff = AdpcmTable[Index]/8
@@ -150,7 +148,7 @@ impl Channel {
       Min(-7FFFh) clips -8000h to -7FFFh (possibly unlike windows .WAV files?)
      */
 
-    let adpcm_table_value = adpcm_table[self.adpcm_index as usize];
+    let adpcm_table_value = ADPCM_TABLE[self.adpcm_index as usize];
 
     let mut diff = adpcm_table_value / 8;
     let mut reset = false;
@@ -184,8 +182,6 @@ impl Channel {
     if self.bytes_left == 0 && self.pcm_samples_left == 0 {
       reset = self.handle_end();
     }
-
-    let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
 
     self.schedule(scheduler, reset, cycles_left);
   }
@@ -249,7 +245,6 @@ impl Channel {
     self.timer_value = value;
 
     if self.soundcnt.is_started && self.timer_value != 0 && self.sound_length + self.loop_start as u32 != 0 {
-      let time = (0x10000 - self.timer_value as usize) << 1;
       self.schedule(scheduler, false, 0);
     }
   }

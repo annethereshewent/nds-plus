@@ -115,7 +115,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     // println!("r{rd} = {}", self.r[rd as usize]);
 
-    let op_name = self.get_move_compare_op_name(op_code);
+    // let op_name = self.get_move_compare_op_name(op_code);
 
     match op_code {
       0 => self.mov(rd, offset as u32, true),

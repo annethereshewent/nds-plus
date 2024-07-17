@@ -6,9 +6,54 @@ use num_integer::Roots;
 use spi::SPI;
 use touchscreen::Touchscreen;
 
-use crate::{apu::{channel::ChannelType, registers::sound_channel_control_register::SoundFormat, APU}, gpu::GPU, scheduler::Scheduler};
+use crate::{
+  apu::{
+    registers::sound_channel_control_register::SoundFormat,
+    APU
+  },
+  gpu::GPU,
+  scheduler::Scheduler
+};
 
-use super::{dma::{dma_channel::{registers::dma_control_register::DmaControlRegister, DmaParams}, dma_channels::DmaChannels}, registers::{division_control_register::{DivisionControlRegister, DivisionMode}, external_key_input_register::ExternalKeyInputRegister, external_memory::{AccessRights, ExternalMemory}, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{IPCFifoControlRegister, FIFO_CAPACITY}, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, spi_control_register::{DeviceSelect, SPIControlRegister}, square_root_control_register::{BitMode, SquareRootControlRegister}, wram_control_register::WRAMControlRegister}, timers::Timers, MemoryAccess};
+use super::{
+  dma::{
+    dma_channel::{
+      registers::dma_control_register::DmaControlRegister,
+      DmaParams
+    },
+    dma_channels::DmaChannels
+  },
+  registers::{
+    division_control_register::{
+      DivisionControlRegister,
+      DivisionMode
+    },
+    external_key_input_register::ExternalKeyInputRegister,
+    external_memory::{
+      AccessRights,
+      ExternalMemory
+    },
+    interrupt_enable_register::InterruptEnableRegister,
+    interrupt_request_register::InterruptRequestRegister,
+    ipc_fifo_control_register::{
+      IPCFifoControlRegister,
+      FIFO_CAPACITY
+    },
+    ipc_sync_register::IPCSyncRegister,
+    key_input_register::KeyInputRegister,
+    spi_control_register::{
+      DeviceSelect,
+      SPIControlRegister
+    },
+    square_root_control_register::{
+      BitMode,
+      SquareRootControlRegister
+    },
+    wram_control_register::WRAMControlRegister
+  },
+  timers::Timers,
+  MemoryAccess
+};
 
 pub mod arm7;
 pub mod arm9;
@@ -284,7 +329,7 @@ impl Bus {
   }
 
   // these are similar to the cpu methods but only to be used with dma
-  pub fn load_32(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
+  pub fn load_32(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width32);
 
@@ -297,7 +342,7 @@ impl Bus {
     }
   }
 
-  pub fn load_16(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
+  pub fn load_16(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width16);
 
@@ -310,7 +355,7 @@ impl Bus {
     }
   }
 
-  pub fn load_8(&mut self, address: u32, access: MemoryAccess, is_arm9: bool) -> (u8, u32) {
+  pub fn load_8(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u8, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width8);
 
@@ -323,7 +368,7 @@ impl Bus {
     }
   }
 
-  pub fn store_8(&mut self, address: u32, value: u8, access: MemoryAccess, is_arm9: bool) -> u32 {
+  pub fn store_8(&mut self, address: u32, value: u8, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8);
 
@@ -338,7 +383,7 @@ impl Bus {
     cpu_cycles
   }
 
-  pub fn store_16(&mut self, address: u32, value: u16, access: MemoryAccess, is_arm9: bool) -> u32 {
+  pub fn store_16(&mut self, address: u32, value: u16, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8)
 
@@ -353,7 +398,7 @@ impl Bus {
     cpu_cycles
   }
 
-  pub fn store_32(&mut self, address: u32, value: u32, access: MemoryAccess, is_arm9: bool) -> u32 {
+  pub fn store_32(&mut self, address: u32, value: u32, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8);
 
@@ -526,7 +571,7 @@ impl Bus {
             self.arm7.apu.channels[channel_id].pcm_samples_left = 8;
           }
 
-          self.arm7.apu.channels[channel_id].step_adpcm_data(&self.arm7.apu.adpcm_table, &mut self.scheduler, cycles_left);
+          self.arm7.apu.channels[channel_id].step_adpcm_data(&mut self.scheduler, cycles_left);
         }
       }
       SoundFormat::PSG => ()

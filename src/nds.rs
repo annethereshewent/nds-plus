@@ -42,15 +42,13 @@ impl Nds {
   }
 
   pub fn step(&mut self) -> bool {
-    let mut cycles = 0;
-    let mut scheduler_cycles = 0;
-
     // Rust forcing me to do weird shit haha
-    {
+    let (cycles, scheduler_cycles) = {
       let ref mut bus = *self.bus.borrow_mut();
-      cycles = bus.scheduler.get_cycles_to_next_event();
-      scheduler_cycles = bus.scheduler.cycles;
-    }
+      let cycles = bus.scheduler.get_cycles_to_next_event();
+      let scheduler_cycles = bus.scheduler.cycles;
+      (cycles, scheduler_cycles)
+    };
 
     let actual_target = std::cmp::min(scheduler_cycles + 30, cycles);
 

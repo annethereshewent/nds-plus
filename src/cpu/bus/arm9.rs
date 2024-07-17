@@ -277,6 +277,10 @@ impl Bus {
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      0x400_0004 => {
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
+      }
       0x400_0008..=0x400_005f => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
