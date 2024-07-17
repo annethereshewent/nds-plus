@@ -180,13 +180,15 @@ impl GPU {
     }
 
     if self.vcount == 0 {
-      // TODO: dispcapcnt register stuff
       self.is_capturing = self.dispcapcnt.capture_enable;
 
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
       }
     } else if self.vcount == SCREEN_HEIGHT {
+      if self.is_capturing {
+        self.dispcapcnt.capture_enable = false;
+      }
       self.trigger_vblank();
 
       for dma in dma_channels {

@@ -85,7 +85,8 @@ impl Bus {
       0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
       0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
-      // 0x700_0000..=0x7ff_ffff => 0,
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize],
+      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize],
       0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
       _ => {
         panic!("reading from unsupported address: {:X}", address);
@@ -489,7 +490,5 @@ impl Bus {
       }
       _ => panic!("8-bit write to unsupported io address {:x}", address)
     }
-
-    // todo: implement sound
   }
 }
