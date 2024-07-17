@@ -140,7 +140,7 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub bgyofs: [u16; 4],
   pub bg_props: [BgProps; 2],
   bg_lines: [[Option<Color>; SCREEN_WIDTH as usize]; 4],
-  obj_lines: Box<[ObjectPixel]>,
+  obj_lines: [ObjectPixel; SCREEN_WIDTH as usize],
   pub master_brightness: MasterBrightnessRegister,
   pub palette_ram: [u8; 0x400],
   pub debug_on: bool
@@ -166,7 +166,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
       master_brightness: MasterBrightnessRegister::new(),
       palette_ram: [0; 0x400],
-      obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice(),
+      obj_lines: [ObjectPixel::new(); SCREEN_WIDTH as usize],
       debug_on: false
     }
   }
@@ -219,7 +219,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x46 => self.winv[1].val,
       0x48 => self.winin.bits(),
       0x4a => self.winout.bits(),
-      0x4c => 0, // TODO, see below
+      0x4c => 0, // TODO
       0x50 => self.bldcnt.value,
       0x52 => self.bldalpha.read(),
       0x54 => self.bldy.read(),
@@ -293,7 +293,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x46 => self.winv[1].write(value),
       0x48 => self.winin = WindowInRegister::from_bits_retain(value),
       0x4a => self.winout = WindowOutRegister::from_bits_retain(value),
-      0x4c..=0x4e => (), // TODO (but probably not lmao, mosaic is pointless),
+      0x4c..=0x4e => (), // TODO
       0x50 => self.bldcnt.write(value),
       0x52 => self.bldalpha.write(value),
       0x54 => self.bldy.write(value),

@@ -528,8 +528,6 @@ impl Bus {
   }
 
   pub fn step_audio(&mut self, channel_id: usize, cycles_left: usize) {
-    // Rust making me write shitty code again. Why can't I just do this:
-    // let channel = &mut self.arm7.channels[channel_id];
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
         if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
