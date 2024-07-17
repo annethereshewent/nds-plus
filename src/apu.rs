@@ -232,11 +232,6 @@ impl APU {
 
   pub fn write_channels(&mut self, address: u32, val: u32, scheduler: &mut Scheduler, bit_length: BitLength) {
     let channel_id = (address >> 4) & 0xf;
-    // let register = if address & 0xf != 0xa {
-    //   (address & !(0x3)) & 0xf
-    // } else {
-    //   0xa
-    // };
     let register = if address & !(0b1) & 0xf == 0xa {
       0xa
     } else {
@@ -251,11 +246,7 @@ impl APU {
       match bit_length {
         BitLength::Bit16 => {
           if register == 0xa {
-            if address & 0b1 == 0 {
-              old_value & 0xffff0000 | val
-            } else {
-              old_value & 0xffff | val
-            }
+            val
           } else {
             if address & 0x3 == 2 {
               old_value & 0xffff | (val << 16)
@@ -321,6 +312,12 @@ impl APU {
 
         if self.channels[channel_id as usize].soundcnt.is_started {
           self.channels[channel_id as usize].schedule(scheduler, false, 0);
+        }
+
+        if bit_length == BitLength::Bit32 {
+          let old_value = self.channels[channel_id as usize].sound_length;
+
+          self.channels[channel_id as usize].sound_length = (old_value & 0xffff0000) | (value >> 16);
         }
       }
       0xc => {
