@@ -1,6 +1,6 @@
 use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::{display_3d_control_register::Display3dControlRegister, power_control_register1::PowerControlRegister1}};
 
-use super::{Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
+use super::{cp15::cp15_control_register::CP15ControlRegister, Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
@@ -54,12 +54,12 @@ impl Bus {
     let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
     let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
 
-    if itcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+    if itcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::ITCM_LOAD_MODE) {
+      let actual_addr = (address + self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
 
       return self.itcm[actual_addr as usize];
-    } else if dtcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+    } else if dtcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::DTCM_LOAD_MODE) {
+      let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
       return self.dtcm[actual_addr as usize];
     }
@@ -232,14 +232,14 @@ impl Bus {
     let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
 
     if itcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+      let actual_addr = (address + self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
 
       self.itcm[actual_addr as usize] = val;
 
       return;
     }
     if dtcm_ranges.contains(&address) {
-      let actual_addr = (address - self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+      let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
       self.dtcm[actual_addr as usize] = val;
 
