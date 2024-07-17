@@ -266,9 +266,9 @@ impl APU {
             }
           } else {
             if address & 0b1 == 0 {
-              old_value & 0xffffff00 | val
+              old_value & 0xff00 | val
             } else {
-              old_value & 0xffff00ff | val
+              old_value & 0x00ff | val
             }
           }
         }
