@@ -1,6 +1,17 @@
-use crate::scheduler::{EventType, Scheduler};
+use crate::scheduler::{
+  EventType,
+  Scheduler
+};
 
-use super::{registers::sound_channel_control_register::{RepeatMode, SoundChannelControlRegister}, Sample, ADPCM_TABLE, INDEX_TABLE};
+use super::{
+  registers::sound_channel_control_register::{
+    RepeatMode,
+    SoundChannelControlRegister
+  },
+  Sample,
+  ADPCM_TABLE,
+  INDEX_TABLE
+};
 
 pub enum ChannelType {
   Normal,
