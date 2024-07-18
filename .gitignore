@@ -3,3 +3,5 @@ bios7.bin
 bios9.bin
 firmware.bin
 *.log
+game_db_old.json
+fileConverter.js

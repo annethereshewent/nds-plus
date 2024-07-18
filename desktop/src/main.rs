@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, env, fs, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::{HashMap, VecDeque}, env, fs::{self, File}, rc::Rc, sync::{Arc, Mutex}};
 
 use ds_emulator::{apu::APU, cpu::registers::key_input_register::KeyInputRegister, gpu::{SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
 use frontend::Frontend;
@@ -26,15 +26,16 @@ fn main() {
 
   let bios7_file = "../bios7.bin";
   let bios9_file = "../bios9.bin";
-  let firmware_file = "../firmware.bin";
+  let firmware_path = "../firmware.bin";
 
   let bios7_bytes = fs::read(bios7_file).unwrap();
   let bios9_bytes = fs::read(bios9_file).unwrap();
   let rom_bytes = fs::read(&args[1]).unwrap();
-  let firmware_bytes = fs::read(firmware_file).unwrap();
+  let firmware_file = File::open(firmware_path).unwrap();
 
   let mut nds = Nds::new(
-    firmware_bytes,
+    args[1].to_string(),
+    firmware_file,
     bios7_bytes,
     bios9_bytes,
     rom_bytes,

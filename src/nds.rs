@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::VecDeque, rc::Rc, sync::{Arc, Mutex}};
+use std::{cell::RefCell, collections::VecDeque, fs::File, rc::Rc, sync::{Arc, Mutex}};
 
 use crate::{cpu::{bus::Bus, CPU}, scheduler::EventType};
 
@@ -10,7 +10,8 @@ pub struct Nds {
 
 impl Nds {
   pub fn new(
-    firmware_bytes: Vec<u8>,
+    file_path: String,
+    firmware_file: File,
     bios7_bytes: Vec<u8>,
     bios9_bytes: Vec<u8>,
     rom_bytes: Vec<u8>,
@@ -20,7 +21,8 @@ impl Nds {
     let bus = Rc::new(
       RefCell::new(
         Bus::new(
-          firmware_bytes,
+          file_path,
+          firmware_file,
           bios7_bytes,
           bios9_bytes,
           rom_bytes,

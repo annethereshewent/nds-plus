@@ -1,3 +1,5 @@
+use std::fs::File;
+
 use super::flash::Flash;
 
 pub struct SPI {
@@ -5,7 +7,7 @@ pub struct SPI {
 }
 
 impl SPI {
-  pub fn new(firmware_bytes: Vec<u8>) -> Self {
+  pub fn new(firmware_bytes: File) -> Self {
     Self {
       firmware: Flash::new(firmware_bytes)
     }

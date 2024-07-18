@@ -1,4 +1,5 @@
-use std::{collections::VecDeque, ops::Range};
+use serde::{Deserialize, Serialize};
+use std::{collections::VecDeque, fs::{self, File}, ops::Range, path::{Path, PathBuf}};
 
 use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;
@@ -6,11 +7,21 @@ use spicnt::SPICNT;
 
 use crate::{cpu::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}, util};
 
+use super::{eeprom::Eeprom, flash::Flash};
+
 pub mod cartridge_control_register;
 pub mod spicnt;
 pub mod key1_encryption;
 
 pub const CHIP_ID: u32 = 0x1fc2;
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GameInfo {
+  game_code: usize,
+  rom_size: usize,
+  save_type: String
+}
 
 pub struct Header {
   game_title: String,
@@ -60,6 +71,12 @@ impl Header {
   }
 }
 
+pub enum BackupType {
+  None,
+  Flash(Flash),
+  Eeprom(Eeprom)
+}
+
 pub struct Cartridge {
   pub rom: Vec<u8>,
   pub control: CartridgeControlRegister,
@@ -70,12 +87,14 @@ pub struct Cartridge {
   pub out_fifo: VecDeque<u32>,
   pub current_word: u32,
   pub key1_encryption: Key1Encryption,
-  pub spidata: u8
+  pub spidata: u8,
+  backup: BackupType,
+  file_path: String
 }
 
 impl Cartridge {
-  pub fn new(rom: Vec<u8>, bios7: &[u8]) -> Self {
-    Self {
+  pub fn new(rom: Vec<u8>, bios7: &[u8], file_path: String) -> Self {
+    let mut cartridge = Self {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
       header: Header::new(&rom),
@@ -85,7 +104,43 @@ impl Cartridge {
       out_fifo: VecDeque::new(),
       key1_encryption: Key1Encryption::new(bios7),
       spidata: 0,
-      current_word: 0
+      current_word: 0,
+      backup: BackupType::None,
+      file_path
+    };
+
+    let path = Path::new(&cartridge.file_path).with_extension("sav");
+
+    cartridge.detect_backup_type(path);
+
+    cartridge
+  }
+
+  pub fn detect_backup_type(&mut self, save_filename: PathBuf) {
+    // thanks to MelonDS for the game db
+    let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
+
+    if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
+      let backup_file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(save_filename)
+        .unwrap();
+
+      println!("detected backup type {}", entry.save_type);
+
+      match entry.save_type.as_str() {
+        "eeprom" => {
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, false));
+        }
+        "eeprom_small" => {
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, true));
+        }
+        "flash" => {
+          self.backup = BackupType::Flash(Flash::new(backup_file));
+        }
+        _ => panic!("backup type not supported: {}", entry.save_type)
+      }
     }
   }
 
@@ -179,6 +234,15 @@ impl Cartridge {
   pub fn write_spidata(&mut self, val: u8, has_access: bool) {
     if has_access {
       // TODO
+      match &mut self.backup {
+        BackupType::Eeprom(ref mut eeprom) => {
+          eeprom.write(val);
+        }
+        BackupType::Flash(ref mut flash) => {
+          flash.write(val);
+        }
+        BackupType::None => ()
+      }
     }
   }
 

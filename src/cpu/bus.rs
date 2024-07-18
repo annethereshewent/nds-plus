@@ -1,6 +1,5 @@
 use std::{
-  collections::VecDeque,
-  sync::{
+  collections::VecDeque, fs::File, sync::{
     Arc,
     Mutex
   }
@@ -70,6 +69,7 @@ pub mod spi;
 pub mod flash;
 pub mod cartridge;
 pub mod touchscreen;
+pub mod eeprom;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -145,7 +145,8 @@ pub struct Bus {
 
 impl Bus {
   pub fn new(
-     firmware_bytes: Vec<u8>,
+     file_path: String,
+     firmware_file: File,
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
@@ -183,8 +184,8 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(firmware_bytes),
-      cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
+      spi: SPI::new(firmware_file),
+      cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_retain(0xffff),
