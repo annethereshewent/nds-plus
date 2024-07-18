@@ -60,8 +60,8 @@ pub struct Sample<T> {
 impl Sample<f32> {
   pub fn from(left: i16, right: i16) -> Self {
     Self {
-      left: Self::to_f32(left) * 0.5, // samples are way too loud without this
-      right: Self::to_f32(right) * 0.5
+      left: Self::to_f32(left),
+      right: Self::to_f32(right)
     }
   }
 
