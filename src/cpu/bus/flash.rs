@@ -14,4 +14,8 @@ impl Flash {
   pub fn write(&mut self, data: u8) {
 
   }
+
+  pub fn read(&self) -> u8 {
+    0
+  }
 }

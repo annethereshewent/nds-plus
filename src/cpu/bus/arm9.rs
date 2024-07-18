@@ -172,6 +172,7 @@ impl Bus {
       0x400_0184 => self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) as u16,
       0x400_0186 => (self.arm9.ipcfifocnt.read(&mut self.arm7.ipcfifocnt.fifo) >> 16) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a2 => self.cartridge.read_spidata(self.exmem.nds_access_rights == AccessRights::Arm9) as u16,
       0x400_01a4 => self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm9) as u16,
       0x400_01a8 => self.cartridge.command[0] as u16 | (self.cartridge.command[1] as u16) << 8,
       0x400_01aa => self.cartridge.command[2] as u16 | (self.cartridge.command[3] as u16) << 8,

@@ -35,7 +35,7 @@ fn main() {
 
   let mut nds = Nds::new(
     args[1].to_string(),
-    firmware_path,
+    firmware_path.to_path_buf(),
     bios7_bytes,
     bios9_bytes,
     rom_bytes,

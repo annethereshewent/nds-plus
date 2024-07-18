@@ -100,8 +100,6 @@ impl Bus {
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
       0x400_0006 => self.gpu.vcount,
-      // 0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
-      // 0x400_010e => self.arm7.timers.t[3].timer_ctl.bits(),
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_0102 => self.arm7.timers.t[0].timer_ctl.bits(),
       0x400_0104 => self.arm7.timers.t[1].read_timer_value(&self.scheduler),
@@ -121,7 +119,7 @@ impl Bus {
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm7),
-      0x400_01a2 => 0, // TODO, read spi data
+      0x400_01a2 => self.cartridge.read_spidata(self.exmem.nds_access_rights == AccessRights::Arm7) as u16,
       0x400_01a4 => self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm7) as u16,
       0x400_01a6 => (self.cartridge.control.read(self.exmem.nds_access_rights == AccessRights::Arm7) >> 16) as u16,
       0x400_01a8 => self.cartridge.command[0] as u16 | (self.cartridge.command[1] as u16) << 8,

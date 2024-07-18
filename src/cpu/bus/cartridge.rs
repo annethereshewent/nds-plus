@@ -20,7 +20,8 @@ pub const CHIP_ID: u32 = 0x1fc2;
 pub struct GameInfo {
   game_code: usize,
   rom_size: usize,
-  save_type: String
+  save_type: String,
+  ram_capacity: usize
 }
 
 pub struct Header {
@@ -121,16 +122,19 @@ impl Cartridge {
     let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
 
     if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
-      let backup_file = BackupFile::new(save_filename);
+      let backup_file = BackupFile::new(save_filename, entry.ram_capacity);
 
       println!("detected backup type {}", entry.save_type);
 
       match entry.save_type.as_str() {
-        "eeprom" => {
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, false));
-        }
         "eeprom_small" => {
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, true));
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 1));
+        }
+        "eeprom" => {
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 2));
+        }
+        "eeprom_large" => {
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 3));
         }
         "flash" => {
           self.backup = BackupType::Flash(Flash::new(backup_file));
@@ -229,7 +233,6 @@ impl Cartridge {
 
   pub fn write_spidata(&mut self, val: u8, has_access: bool) {
     if has_access {
-      // TODO
       match &mut self.backup {
         BackupType::Eeprom(ref mut eeprom) => {
           eeprom.write(val, self.spicnt.hold_chipselect);
@@ -240,6 +243,22 @@ impl Cartridge {
         BackupType::None => ()
       }
     }
+  }
+
+  pub fn read_spidata(&self, has_access: bool) -> u8 {
+    if has_access {
+      match &self.backup {
+        BackupType::Eeprom(ref eeprom) => {
+          return eeprom.read()
+        }
+        BackupType::Flash(ref flash) => {
+          return flash.read()
+        }
+        BackupType::None => return 0
+      }
+    }
+
+    0
   }
 
   fn copy_rom(&mut self, range: Range<usize>) {

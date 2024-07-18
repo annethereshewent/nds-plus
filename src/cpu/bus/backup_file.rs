@@ -6,15 +6,20 @@ pub struct BackupFile {
 }
 
 impl BackupFile {
-  pub fn new(path: PathBuf) -> Self {
+  pub fn new(path: PathBuf, capacity: usize) -> Self {
+    if !path.is_file() {
+      let mut file = File::create(&path).unwrap();
+      file.write_all(&vec![0xff; capacity]).unwrap();
+    }
+
+
     let mut file = fs::OpenOptions::new()
       .read(true)
       .write(true)
-      .create(true)
       .open(path)
       .unwrap();
 
-    let mut buffer = Vec::new();
+    let mut buffer = Vec::with_capacity(capacity);
 
     file.read_to_end(&mut buffer).unwrap();
 

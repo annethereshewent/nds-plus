@@ -1,5 +1,5 @@
 use std::{
-  collections::VecDeque, fs::File, path::PathBuf, sync::{
+  collections::VecDeque, fs::File, os::unix::fs::MetadataExt, path::PathBuf, sync::{
     Arc,
     Mutex
   }
@@ -160,6 +160,10 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
+    let firmware_file = File::open(&firmware_path).unwrap();
+
+    let capacity = firmware_file.metadata().unwrap().size();
+
     let mut bus = Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
@@ -186,7 +190,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(BackupFile::new(firmware_path)),
+      spi: SPI::new(BackupFile::new(firmware_path, capacity as usize)),
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
