@@ -13,13 +13,11 @@ enum WriteProtect {
 #[derive(Copy, Clone)]
 enum CommandMode {
   AwaitingCommand,
-  HandlingCommand,
-  AwaitingAddress,
-  ReadingData,
-  WritingData
+  ReadingRegister,
+  ProcessingData
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum Command {
   WREN,
   WRDI,
@@ -86,6 +84,16 @@ impl Eeprom {
     self.current_byte
   }
 
+  pub fn read_data(&mut self) {
+    self.current_byte = self.backup_file.read(self.current_address);
+    self.current_address += 1;
+  }
+
+  pub fn write_data(&mut self, value: u8) {
+    self.backup_file.write(self.current_address, value);
+    self.current_address += 1;
+  }
+
   pub fn write(&mut self, value: u8, hold: bool) {
     match self.mode {
       CommandMode::AwaitingCommand => {
@@ -94,42 +102,42 @@ impl Eeprom {
         }
 
         self.command = Command::from(value, self.address_width);
-        self.mode = CommandMode::HandlingCommand;
-      }
-      CommandMode::HandlingCommand => {
+
         match self.command {
+          Command::WREN => self.write_enabled = true,
+          Command::WRDI => self.write_enabled = false,
           Command::RD | Command::RDLO => {
             self.address_bytes_left = self.address_width;
             self.current_address = 0;
-            self.mode = CommandMode::AwaitingAddress;
+            self.mode = CommandMode::ProcessingData;
           }
           Command::RDHI => {
             self.address_bytes_left = self.address_width;
             self.current_address = 1;
-            self.mode = CommandMode::AwaitingAddress;
-          }
-          Command::WREN => {
-            self.write_enabled = true;
-            self.mode = CommandMode::AwaitingCommand;
-          }
-          Command::WRDI => {
-            self.write_enabled = false;
-            self.mode = CommandMode::AwaitingCommand;
+            self.mode = CommandMode::ProcessingData;
           }
           Command::WRHI => {
             if self.write_enabled {
               self.address_bytes_left = self.address_width;
               self.current_address = 1; // addresses are in the range from 0x100-0x1ff, the 1 will be shifted 8 bits appropriately
-              self.mode = CommandMode::AwaitingAddress;
+              self.mode = CommandMode::ProcessingData;
             }
           }
           Command::WRLO | Command::WR => {
             if self.write_enabled {
               self.address_bytes_left = self.address_width;
               self.current_address = 0;
-              self.mode = CommandMode::AwaitingAddress;
+              self.mode = CommandMode::ProcessingData;
             }
           }
+          Command::WRSR | Command::RDSR => {
+            self.mode = CommandMode::ReadingRegister
+          }
+          Command::None => panic!("shouldn't happen")
+        }
+      }
+      CommandMode::ReadingRegister => {
+        match self.command {
           Command::RDSR => {
             self.current_byte = self.write_in_progress as u8 |
               (self.write_enabled as u8) << 1 |
@@ -151,35 +159,27 @@ impl Eeprom {
             };
 
             self.mode = CommandMode::AwaitingCommand;
-            // todo: what's up with SRWD register?
           }
-          Command::None => panic!("shouldn't happen")
+          _ => unreachable!()
         }
       }
-      CommandMode::AwaitingAddress => {
+      CommandMode::ProcessingData => {
         if self.address_bytes_left > 0 {
           self.current_address = (self.current_address << 8) | value as usize;
           self.address_bytes_left -= 1;
         } else {
-          self.mode = match self.command {
-            Command::RD | Command::RDHI | Command::RDLO => CommandMode::ReadingData,
-            Command::WR | Command::WRLO | Command::WRHI => CommandMode::WritingData,
-            _ => todo!()
+          match self.command {
+            Command::RD | Command::RDHI | Command::RDLO => self.read_data(),
+            Command::WR | Command::WRLO | Command::WRHI => self.write_data(value),
+            _ => unreachable!("shouldn't happen")
           }
         }
-      }
-      CommandMode::ReadingData => {
-        self.current_byte = self.backup_file.read(self.current_address);
-        self.current_address += 1;
-      }
-      CommandMode::WritingData => {
-        self.backup_file.write(self.current_address, value);
-        self.current_address += 1;
       }
     }
 
     if !hold {
       self.mode = CommandMode::AwaitingCommand;
+      self.command = Command::None;
     }
 
   }

@@ -249,10 +249,10 @@ impl Cartridge {
     if has_access {
       match &self.backup {
         BackupType::Eeprom(ref eeprom) => {
-          return eeprom.read()
+          return eeprom.read();
         }
         BackupType::Flash(ref flash) => {
-          return flash.read()
+          return flash.read();
         }
         BackupType::None => return 0
       }
