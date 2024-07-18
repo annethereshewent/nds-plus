@@ -14,6 +14,7 @@ impl Bus {
     // println!("reading from arm9 io address {:x}", address);
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.read(),
+      0x400_0004..=0x400_005f => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
       0x400_00b0..=0x400_00ba => self.arm9.dma.read(0, (address - 0x400_00b0) as usize),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.read(1, (address - 0x400_00bc) as usize),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.read(2, (address - 0x400_00c8) as usize),
@@ -84,6 +85,8 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
       0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize],
       0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize],

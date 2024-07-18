@@ -1,6 +1,21 @@
-use std::{cell::RefCell, collections::VecDeque, fs::File, path::PathBuf, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+  cell::RefCell,
+  collections::VecDeque,
+  path::PathBuf,
+  rc::Rc,
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
-use crate::{cpu::{bus::Bus, CPU}, scheduler::EventType};
+use crate::{
+  cpu::{
+    bus::Bus,
+    CPU
+  },
+  scheduler::EventType
+};
 
 pub struct Nds {
   pub arm9_cpu: CPU<true>,

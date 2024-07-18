@@ -141,6 +141,8 @@ impl Cartridge {
         }
         _ => panic!("backup type not supported: {}", entry.save_type)
       }
+    } else {
+      println!("warning: game not found in database, resorting to no save");
     }
   }
 

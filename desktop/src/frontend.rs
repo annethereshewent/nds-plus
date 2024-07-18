@@ -202,14 +202,16 @@ impl Frontend {
         Event::ControllerButtonDown { button, .. } => {
           if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, false);
-          } else if let Some(button) = self.ext_button_map.get(&button) {
+          }
+          if let Some(button) = self.ext_button_map.get(&button) {
             bus.arm7.extkeyin.set(*button, false);
           }
         }
         Event::ControllerButtonUp { button, .. } => {
           if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, true);
-          } else if let Some(button) = self.ext_button_map.get(&button) {
+          }
+          if let Some(button) = self.ext_button_map.get(&button) {
             bus.arm7.extkeyin.set(*button, true);
           }
         }
