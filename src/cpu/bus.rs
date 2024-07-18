@@ -17,8 +17,7 @@ use touchscreen::Touchscreen;
 
 use crate::{
   apu::{
-    registers::sound_channel_control_register::SoundFormat,
-    APU
+    channel::ChannelType, registers::sound_channel_control_register::SoundFormat, APU
   },
   gpu::GPU,
   scheduler::Scheduler
@@ -580,7 +579,19 @@ impl Bus {
 
         self.arm7.apu.channels[channel_id].step_adpcm_data(&mut self.scheduler, cycles_left);
       }
-      SoundFormat::PSG => ()
+      SoundFormat::PSG => {
+        // initialize the channel
+        if self.arm7.apu.channels[channel_id].noise_lfsr.is_none() {
+          self.arm7.apu.channels[channel_id].noise_lfsr = Some(0x7fff);
+          self.arm7.apu.channels[channel_id].current_psg_value = Some(0);
+        }
+
+        match self.arm7.apu.channels[channel_id].get_channel_type() {
+          ChannelType::Noise => self.arm7.apu.channels[channel_id].step_noise(),
+          ChannelType::PSG => self.arm7.apu.channels[channel_id].step_psg(),
+          ChannelType::Normal => println!("warning: using a normal channel for psg samples")
+        }
+      }
     }
 
     if [1, 3].contains(&channel_id) {
@@ -590,10 +601,6 @@ impl Bus {
       } else {
         1
       };
-
-      // Rust needs to go fuck itself because why can't I just do this? WHy do I have to type out self.arm7.apu.sndcapcnt[capture_index] every.single.time.
-      // in the case that there might be some nonexistent issue with threads and borrowship. Fuck you.
-      // let capture = &mut self.arm7.apu.sndcapcnt[capture_index];
 
       if self.arm7.apu.sndcapcnt[capture_index].is_running && self.arm7.apu.sndcapcnt[capture_index].bytes_left > 0 {
         let address = if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {

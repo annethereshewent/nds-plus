@@ -34,7 +34,9 @@ pub struct Channel {
   pub adpcm_value: i16,
   pub adpcm_index: i32,
   pub pcm_samples_left: usize,
-  pub sample_fifo: u32
+  pub sample_fifo: u32,
+  pub noise_lfsr: Option<u16>,
+  pub current_psg_value: Option<u32>
 }
 
 impl Channel {
@@ -54,7 +56,9 @@ impl Channel {
       adpcm_index: 0,
       adpcm_value: 0,
       sample_fifo: 0,
-      pcm_samples_left: 0
+      pcm_samples_left: 0,
+      noise_lfsr: None,
+      current_psg_value: None
     }
   }
 
@@ -93,6 +97,30 @@ impl Channel {
       } else {
         scheduler.schedule(EventType::StepAudio(self.id), time);
       }
+    }
+  }
+
+  pub fn step_noise(&mut self) {
+    if let Some(lfsr) = self.noise_lfsr {
+      if lfsr & 0b1 == 1 {
+        self.noise_lfsr = Some((lfsr >> 1) ^ 0x6000);
+        self.current_sample = -1.0;
+      } else {
+        self.noise_lfsr = Some(lfsr >> 1);
+        self.current_sample = 1.0;
+      }
+    }
+  }
+
+  pub fn step_psg(&mut self) {
+    if let Some(current_value) = self.current_psg_value {
+      if current_value ^ 0x7 > self.soundcnt.wave_duty {
+        self.current_sample = 1.0;
+      } else {
+        self.current_sample = -1.0;
+      }
+
+      self.current_psg_value = Some((current_value + 1) & 0x7);
     }
   }
 
