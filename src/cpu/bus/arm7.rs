@@ -267,6 +267,12 @@ impl Bus {
         self.arm7_io_write_8(address, value as u8);
         self.arm7_io_write_8(address + 1, (value >> 8) as u8);
       }
+      0x400_0510 => self.arm7.apu.sndcapcnt[0].write_destination(value as u32, Some(0xff00)),
+      0x400_0512 => self.arm7.apu.sndcapcnt[0].write_destination((value as u32) << 16, Some(0xff)),
+      0x400_0514 => self.arm7.apu.sndcapcnt[0].write_length(value, None),
+      0x400_0518 => self.arm7.apu.sndcapcnt[1].write_destination(value as u32, Some(0xff00)),
+      0x400_051a => self.arm7.apu.sndcapcnt[1].write_destination((value as u32) << 16, Some(0xff)),
+      0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(value, None),
       0x0480_4000..=0x0480_5FFF => (),
       0x0480_8000..=0x0480_8FFF => (),
       _ => {
