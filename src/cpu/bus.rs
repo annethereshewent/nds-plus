@@ -1,10 +1,11 @@
 use std::{
-  collections::VecDeque, fs::File, sync::{
+  collections::VecDeque, fs::File, path::PathBuf, sync::{
     Arc,
     Mutex
   }
 };
 
+use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
   CHIP_ID
@@ -70,6 +71,7 @@ pub mod flash;
 pub mod cartridge;
 pub mod touchscreen;
 pub mod eeprom;
+pub mod backup_file;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -146,7 +148,7 @@ pub struct Bus {
 impl Bus {
   pub fn new(
      file_path: String,
-     firmware_file: File,
+     firmware_path: PathBuf,
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
@@ -184,7 +186,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(firmware_file),
+      spi: SPI::new(BackupFile::new(firmware_path)),
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),

@@ -1,13 +1,13 @@
-use std::fs::File;
+use super::backup_file::BackupFile;
 
 pub struct Flash {
-  file: File
+  backup_file: BackupFile
 }
 
 impl Flash {
-  pub fn new(file: File) -> Self {
+  pub fn new(backup_file: BackupFile) -> Self {
     Self {
-      file
+      backup_file
     }
   }
 

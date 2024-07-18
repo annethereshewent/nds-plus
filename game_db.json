@@ -7807,7 +7807,7 @@
   {
     "game_code": 1163022165,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1163022401,
@@ -11697,7 +11697,7 @@
   {
     "game_code": 1230002773,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1230132057,
@@ -14802,7 +14802,7 @@
   {
     "game_code": 1245928021,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1245928025,
@@ -18997,7 +18997,7 @@
   {
     "game_code": 1246908245,
     "rom_size": 33554432,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1246908481,
@@ -28737,7 +28737,7 @@
   {
     "game_code": 1347571541,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1347571777,
@@ -31457,7 +31457,7 @@
   {
     "game_code": 1397774933,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1397834050,
@@ -31787,7 +31787,7 @@
   {
     "game_code": 1447777109,
     "rom_size": 134217728,
-    "save_type": "fram"
+    "save_type": "nand"
   },
   {
     "game_code": 1447777110,

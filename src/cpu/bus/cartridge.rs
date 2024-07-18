@@ -5,7 +5,7 @@ use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;
 use spicnt::SPICNT;
 
-use crate::{cpu::{dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}, util};
+use crate::{cpu::{bus::backup_file::BackupFile, dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}, util};
 
 use super::{eeprom::Eeprom, flash::Flash};
 
@@ -121,11 +121,7 @@ impl Cartridge {
     let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
 
     if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
-      let backup_file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(save_filename)
-        .unwrap();
+      let backup_file = BackupFile::new(save_filename);
 
       println!("detected backup type {}", entry.save_type);
 
@@ -236,7 +232,7 @@ impl Cartridge {
       // TODO
       match &mut self.backup {
         BackupType::Eeprom(ref mut eeprom) => {
-          eeprom.write(val);
+          eeprom.write(val, self.spicnt.hold_chipselect);
         }
         BackupType::Flash(ref mut flash) => {
           flash.write(val);
