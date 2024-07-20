@@ -240,7 +240,7 @@ impl Cartridge {
           eeprom.write(val, self.spicnt.hold_chipselect);
         }
         BackupType::Flash(ref mut flash) => {
-          flash.write(val);
+          flash.write(val, self.spicnt.hold_chipselect);
         }
         BackupType::None => ()
       }

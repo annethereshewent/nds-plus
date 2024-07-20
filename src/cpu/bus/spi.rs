@@ -1,5 +1,3 @@
-use std::fs::File;
-
 use super::{backup_file::BackupFile, flash::Flash};
 
 pub struct SPI {

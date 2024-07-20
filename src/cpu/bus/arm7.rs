@@ -139,6 +139,8 @@ impl Bus {
       0x400_0400..=0x400_04ff => self.arm7.apu.read_channels(address),
       0x400_0500 => self.arm7.apu.soundcnt.read(),
       0x400_0508 => self.arm7.apu.sndcapcnt[0].read() as u16 | (self.arm7.apu.sndcapcnt[1].read() as u16) << 8,
+      0x480_4000..=0x480_5fff => 0, // more wifi register stuff
+      0x480_8000..=0x480_8fff => 0, // TODO: Wifi registers. might need to implement *something* because iirc some games will get stuck in infinite loop
       _ => {
         panic!("io register not implemented: {:X}", address);
       }
@@ -271,8 +273,8 @@ impl Bus {
       0x400_0518 => self.arm7.apu.sndcapcnt[1].write_destination(value as u32, Some(0xff00)),
       0x400_051a => self.arm7.apu.sndcapcnt[1].write_destination((value as u32) << 16, Some(0xff)),
       0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(value, None),
-      0x0480_4000..=0x0480_5FFF => (),
-      0x0480_8000..=0x0480_8FFF => (),
+      0x480_4000..=0x480_5fff => (),
+      0x480_8000..=0x480_8fff => (),
       _ => {
         panic!("io register not implemented: {:X}", address)
       }

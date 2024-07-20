@@ -492,7 +492,7 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       match self.arm7.spicnt.device {
         DeviceSelect::Touchscreen => self.touchscreen.write(value),
-        DeviceSelect::Firmware => (),
+        DeviceSelect::Firmware => self.spi.firmware.write(value, self.arm7.spicnt.chipselect_hold),
         _ => ()
       }
     }
@@ -501,10 +501,7 @@ impl Bus {
   pub fn read_spi_data(&self) -> u8 {
     if self.arm7.spicnt.spi_bus_enabled {
       return match self.arm7.spicnt.device {
-        DeviceSelect::Firmware => {
-          println!("ignoring reads from firmware");
-          0
-        }
+        DeviceSelect::Firmware => self.spi.firmware.read(),
         DeviceSelect::Touchscreen => self.touchscreen.read(),
         _ => 0
       }
