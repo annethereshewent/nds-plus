@@ -117,7 +117,7 @@ impl Key1Encryption {
       self.encrypt_64bit(&mut scratch);
       self.key_buf[i] ^= key_code[i % (modulo as usize)].swap_bytes();
     }
-    for i in (0..0x1040).step_by(2) {
+    for i in (0..0x1040 / 4).step_by(2) {
       self.encrypt_64bit(&mut scratch);
       self.key_buf[i] = scratch[1];
       self.key_buf[i + 1] = scratch[0];

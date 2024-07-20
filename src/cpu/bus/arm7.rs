@@ -12,6 +12,10 @@ impl Bus {
 
   pub fn arm7_io_write_32(&mut self, address: u32, val: u32) {
     match address {
+      0x400_00b0..=0x400_00ba => self.arm7.dma.write(0, (address - 0x400_00b0) as usize, val, None, &mut self.scheduler),
+      0x400_00bc..=0x400_00c6 => self.arm7.dma.write(1, (address - 0x400_00bc) as usize, val, None, &mut self.scheduler),
+      0x400_00c8..=0x400_00d2 => self.arm7.dma.write(2, (address - 0x400_00c8) as usize, val, None, &mut self.scheduler),
+      0x400_00d4..=0x400_00de => self.arm7.dma.write(3, (address - 0x400_00d4) as usize, val, None, &mut self.scheduler),
       0x400_0100..=0x400_010e => {
         self.arm7_io_write_16(address, val as u16);
         self.arm7_io_write_16(address, (val >> 16) as u16);
@@ -78,7 +82,12 @@ impl Bus {
     // println!("reading from arm7 io address {:x}", address);
     match address {
       0x400_0180 => self.arm7.ipcsync.read(),
-      0x400_01a4 => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
+      0x400_01a0..=0x400_01ac => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
+      0x400_00b0..=0x400_00ba => self.arm7.dma.read(0, (address - 0x400_00b0) as usize),
+      0x400_00bc..=0x400_00c6 => self.arm7.dma.read(1, (address - 0x400_00bc) as usize),
+      0x400_00c8..=0x400_00d2 => self.arm7.dma.read(2, (address - 0x400_00c8) as usize),
+      0x400_00d4..=0x400_00de => self.arm7.dma.read(3, (address - 0x400_00d4) as usize),
+      0x400_01c0 => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
       0x400_0208 => self.arm7.interrupt_master_enable as u32,
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
@@ -126,6 +135,46 @@ impl Bus {
       0x400_01aa => self.cartridge.command[2] as u16 | (self.cartridge.command[3] as u16) << 8,
       0x400_01ac => self.cartridge.command[4] as u16 | (self.cartridge.command[5] as u16) << 8,
       0x400_01ae => self.cartridge.command[6] as u16 | (self.cartridge.command[7] as u16) << 8,
+      0x400_00b0..=0x400_00ba => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm7.dma.read(0, (actual_addr - 0x400_00b0) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00bc..=0x400_00c6 => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm7.dma.read(1, (actual_addr - 0x400_00bc) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00c8..=0x400_00d2 => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm7.dma.read(2, (actual_addr - 0x400_00c8) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
+      0x400_00d4..=0x400_00de => {
+        let actual_addr = address & !(0b11);
+        let value = self.arm7.dma.read(3, (actual_addr - 0x400_00d4) as usize);
+
+        if address & 0x3 != 2 {
+          value as u16
+        } else {
+          (value >> 16) as u16
+        }
+      }
       0x400_01c0 => self.arm7.spicnt.read(),
       0x400_01c2 => self.read_spi_data() as u16,
       0x400_0204 => self.exmem.read(false),
@@ -216,6 +265,42 @@ impl Bus {
     match address {
       // 0x400_0006 => (),
       0x400_0004 => self.gpu.dispstat[0].write(value),
+      0x400_00b0..=0x400_00ba => {
+        let actual_addr = address & !(0x3);
+
+        if address & 0x3 != 2 {
+          self.arm7.dma.write(0, (actual_addr - 0x400_00b0) as usize,  value as u32, Some(0xffff0000), &mut self.scheduler);
+        } else {
+          self.arm7.dma.write(0, (actual_addr - 0x400_00b0) as usize,  (value as u32) << 16, Some(0xffff), &mut self.scheduler);
+        }
+      }
+      0x400_00bc..=0x400_00c6 => {
+        let actual_addr = address & !(0x3);
+
+        if address & 0x3 != 2 {
+          self.arm7.dma.write(1, (actual_addr - 0x400_00bc) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
+        } else {
+          self.arm7.dma.write(1, (actual_addr - 0x400_00bc) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
+        }
+      }
+      0x400_00c8..=0x400_00d2 => {
+        let actual_addr = address & !(0x3);
+
+        if address & 0x3 != 2 {
+          self.arm7.dma.write(2, (actual_addr - 0x400_00c8) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
+        } else {
+          self.arm7.dma.write(2, (actual_addr - 0x400_00c8) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
+        }
+      }
+      0x400_00d4..=0x400_00de => {
+        let actual_addr = address & !(0x3);
+
+        if address & 0x3 != 2 {
+          self.arm7.dma.write(3, (actual_addr - 0x400_00d4) as usize, value as u32, Some(0xffff0000), &mut self.scheduler);
+        } else {
+          self.arm7.dma.write(3, (actual_addr - 0x400_00d4) as usize, (value as u32) << 16, Some(0xffff), &mut self.scheduler);
+        }
+      }
       0x400_0100 => self.arm7.timers.t[0].reload_timer_value(value),
       0x400_0102 => self.arm7.timers.t[0].write_timer_control(value, &mut self.scheduler),
       0x400_0104 => self.arm7.timers.t[1].reload_timer_value(value),
@@ -290,6 +375,7 @@ impl Bus {
 
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
+      0x400_0138 => println!("ignoring writes to rtc register"),
       0x400_01a0 => self.cartridge.spicnt.write(value as u16, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff00)),
       0x400_01a1 => self.cartridge.spicnt.write((value as u16) << 8, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff)),
       0x400_01a8..=0x400_01af => {
@@ -297,6 +383,7 @@ impl Bus {
 
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm7);
       }
+      0x400_01c2 => self.write_spi_data(value),
       0x400_0301 => self.write_haltcnt(value),
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, &mut self.scheduler, BitLength::Bit8),
       0x400_0500 => self.arm7.apu.soundcnt.write(value as u16, Some(0xff00)),
