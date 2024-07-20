@@ -194,7 +194,7 @@ impl Bus {
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
-      key_input_register: KeyInputRegister::from_bits_retain(0x3ff),
+      key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
       exmem: ExternalMemory::new(),
       touchscreen: Touchscreen::new(),
       arm7: Arm7Bus {
