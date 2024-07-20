@@ -98,8 +98,8 @@ impl DmaChannel {
       count,
       destination_adjust,
       source_adjust,
-      destination_address: self.destination_address,
-      source_address: self.source_address,
+      destination_address: self.internal_destination_address,
+      source_address: self.internal_source_address,
       should_trigger_irq
     }
   }
@@ -124,6 +124,7 @@ impl DmaChannel {
     if dma_control.contains(DmaControlRegister::DMA_ENABLE) && !self.dma_control.contains(DmaControlRegister::DMA_ENABLE) {
       self.internal_destination_address = self.destination_address;
       self.internal_source_address = self.source_address;
+
       self.internal_count = dma_control.word_count();
 
       self.running = true;

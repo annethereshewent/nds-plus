@@ -52,7 +52,7 @@ impl DmaChannels{
         let mut value = 0;
 
         if let Some(mask) = mask {
-          value &= mask;
+          value = self.channels[channel].source_address & mask;
         }
 
         value |= val;
@@ -63,7 +63,7 @@ impl DmaChannels{
         let mut value = 0;
 
         if let Some(mask) = mask {
-          value &= mask;
+          value = self.channels[channel].destination_address & mask;
         }
 
         value |= val;
