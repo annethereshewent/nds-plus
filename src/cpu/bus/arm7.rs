@@ -280,11 +280,11 @@ impl Bus {
   }
 
   pub fn arm7_io_write_8(&mut self, address: u32, value: u8) {
-    let address = if address & 0xffff == 0x8000 {
-      0x400_0800
-    } else {
-      address
-    };
+    // let address = if address & 0xffff == 0x8000 {
+    //   0x400_0800
+    // } else {
+    //   address
+    // };
 
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
