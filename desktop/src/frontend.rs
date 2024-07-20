@@ -75,6 +75,7 @@ pub struct Frontend {
   _controller: Option<GameController>,
   button_map: HashMap<Button, KeyInputRegister>,
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
+  ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
   device: AudioDevice<DsAudioCallback>
 }
@@ -147,6 +148,11 @@ impl Frontend {
     key_map.insert(Keycode::Return, KeyInputRegister::Start);
     key_map.insert(Keycode::Tab, KeyInputRegister::Select);
 
+    let mut ext_key_map = HashMap::new();
+
+    ext_key_map.insert(Keycode::N, ExternalKeyInputRegister::BUTTON_Y);
+    ext_key_map.insert(Keycode::M, ExternalKeyInputRegister::BUTTON_X);
+
     let mut button_map = HashMap::new();
 
     button_map.insert(Button::B, KeyInputRegister::ButtonA);
@@ -175,6 +181,7 @@ impl Frontend {
       button_map,
       ext_button_map,
       key_map,
+      ext_key_map,
       device
     }
   }
@@ -187,6 +194,8 @@ impl Frontend {
         Event::KeyDown { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, false);
+          } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            bus.arm7.extkeyin.set(*button, false);
           } else if keycode.unwrap() == Keycode::G {
             bus.debug_on = !bus.debug_on
           } else if keycode.unwrap() == Keycode::F {
@@ -197,6 +206,8 @@ impl Frontend {
         Event::KeyUp { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, true);
+          } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            bus.arm7.extkeyin.set(*button, true);
           }
         }
         Event::ControllerButtonDown { button, .. } => {

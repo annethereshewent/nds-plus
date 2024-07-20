@@ -113,7 +113,7 @@ impl Bus {
       0x400_0136 => self.arm7.extkeyin.bits(),
       0x400_0138 => {
         // TODO
-        // println!("ignoring reads to RTC register");
+        println!("ignoring reads to RTC register");
         0
       }
       0x400_0180 => self.arm7.ipcsync.read() as u16,

@@ -194,7 +194,7 @@ impl Bus {
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
-      key_input_register: KeyInputRegister::from_bits_retain(0xffff),
+      key_input_register: KeyInputRegister::from_bits_retain(0x3ff),
       exmem: ExternalMemory::new(),
       touchscreen: Touchscreen::new(),
       arm7: Arm7Bus {
@@ -502,7 +502,7 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       return match self.arm7.spicnt.device {
         DeviceSelect::Firmware => {
-          // println!("ignoring reads from firmware");
+          println!("ignoring reads from firmware");
           0
         }
         DeviceSelect::Touchscreen => self.touchscreen.read(),
