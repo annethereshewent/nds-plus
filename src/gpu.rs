@@ -325,6 +325,14 @@ impl GPU {
     self.engine_a.write_palette_ram(address, val);
   }
 
+  pub fn read_palette_a(&self, address: u32) -> u8 {
+    self.engine_a.read_palette_ram(address)
+  }
+
+  pub fn read_palette_b(&self, address: u32) -> u8 {
+    self.engine_b.read_palette_ram(address)
+  }
+
   pub fn write_palette_b(&mut self, address: u32, val: u8) {
     self.engine_b.write_palette_ram(address, val);
   }

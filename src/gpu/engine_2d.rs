@@ -177,6 +177,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     self.palette_ram[index as usize] = byte;
   }
 
+  pub fn read_palette_ram(&self, address: u32) -> u8 {
+    let index = (address as usize) & (self.palette_ram.len() - 1);
+
+    self.palette_ram[index as usize]
+  }
+
   pub fn clear_obj_lines(&mut self) {
     for x in &mut self.obj_lines.iter_mut() {
       *x = ObjectPixel::new();

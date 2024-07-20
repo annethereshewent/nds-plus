@@ -83,6 +83,8 @@ impl Bus {
         self.shared_wram[((address & mask) + base) as usize]
       }
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
+      0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
+      0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
       0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
       0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
       0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
