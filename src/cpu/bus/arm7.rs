@@ -1,4 +1,12 @@
-use crate::{apu::BitLength, cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::power_control_register2::PowerControlRegister2};
+use crate::{
+  apu::BitLength,
+  cpu::registers::{
+    external_memory::AccessRights,
+    interrupt_enable_register::InterruptEnableRegister,
+    interrupt_request_register::InterruptRequestRegister
+  },
+  gpu::registers::power_control_register2::PowerControlRegister2
+};
 
 use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 

@@ -1,4 +1,14 @@
-use crate::{cpu::registers::{external_memory::AccessRights, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister}, gpu::registers::{display_3d_control_register::Display3dControlRegister, power_control_register1::PowerControlRegister1}};
+use crate::{
+  cpu::registers::{
+    external_memory::AccessRights,
+    interrupt_enable_register::InterruptEnableRegister,
+    interrupt_request_register::InterruptRequestRegister
+  },
+  gpu::registers::{
+    display_3d_control_register::Display3dControlRegister,
+    power_control_register1::PowerControlRegister1
+  }
+};
 
 use super::{cp15::cp15_control_register::CP15ControlRegister, Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
