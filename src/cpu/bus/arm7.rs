@@ -28,19 +28,22 @@ impl Bus {
         self.arm7_io_write_16(address, val as u16);
         self.arm7_io_write_16(address, (val >> 16) as u16);
       }
-
+      0x400_0188 => self.send_to_fifo(false, val),
       0x400_01a4 => {
         self.arm7_io_write_16(address, val as u16);
         self.arm7_io_write_16(address + 2, (val >> 16) as u16);
       }
+      0x400_01b0..=0x400_01ba => println!("ignoring writes to key2 encryption seeds"),
       0x400_0208 => self.arm7.interrupt_master_enable = val != 0,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
-      0x400_0188 => self.send_to_fifo(false, val),
+      0x400_0308 => (), // ignore writes to biosprot IO
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, val, &mut self.scheduler, BitLength::Bit32),
       0x400_0510 => self.arm7.apu.sndcapcnt[0].write_destination(val, None),
       0x400_0514 => self.arm7.apu.sndcapcnt[0].write_length(val as u16, None),
       0x400_0518 => self.arm7.apu.sndcapcnt[1].write_destination(val, None),
+      0x400_0120 => (),
+      0x400_0128 => (),
       0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(val as u16, None),
       _ => panic!("write to unsupported address: {:X}", address)
     }
@@ -191,6 +194,7 @@ impl Bus {
       0x400_0304 => self.gpu.powcnt2.bits(),
       0x400_0400..=0x400_04ff => self.arm7.apu.read_channels(address),
       0x400_0500 => self.arm7.apu.soundcnt.read(),
+      0x400_0504 => self.arm7.apu.sound_bias,
       0x400_0508 => self.arm7.apu.sndcapcnt[0].read() as u16 | (self.arm7.apu.sndcapcnt[1].read() as u16) << 8,
       0x480_4000..=0x480_5fff => 0, // more wifi register stuff
       0x480_8000..=0x480_8fff => 0, // TODO: Wifi registers. might need to implement *something* because iirc some games will get stuck in infinite loop
@@ -237,6 +241,10 @@ impl Bus {
   }
 
   pub fn arm7_mem_write_8(&mut self, address: u32, val: u8) {
+    if (0..self.arm7.bios7.len()).contains(&(address as usize)) {
+      return;
+    }
+
     match address {
       0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
       0x300_0000..=0x37f_ffff => {
@@ -313,6 +321,7 @@ impl Bus {
       0x400_010a => self.arm7.timers.t[2].write_timer_control(value, &mut self.scheduler),
       0x400_010c => self.arm7.timers.t[3].reload_timer_value(value),
       0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
+      0x400_0128 => (), // debug register
       0x400_0134 => (), // RCNT
       0x400_0138 => self.arm7.rtc.write(value),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
@@ -325,6 +334,7 @@ impl Bus {
         self.arm7_io_write_8(address, value as u8);
         self.arm7_io_write_8(address + 1, (value >> 8) as u8);
       }
+      0x400_01b0..=0x400_01ba => println!("ignoring writes to key2 encryption seed io"),
       0x400_01c0 => self.arm7.spicnt.write(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
@@ -360,6 +370,7 @@ impl Bus {
       0x400_0518 => self.arm7.apu.sndcapcnt[1].write_destination(value as u32, Some(0xff00)),
       0x400_051a => self.arm7.apu.sndcapcnt[1].write_destination((value as u32) << 16, Some(0xff)),
       0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(value, None),
+      0x400_1080 => (), // some kind of ds lite related register, can be safely ignored
       0x480_4000..=0x480_5fff => (),
       0x480_8000..=0x480_8fff => (),
       _ => {
