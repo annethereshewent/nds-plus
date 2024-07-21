@@ -12,3 +12,5 @@ pub mod wram_control_register;
 pub mod wram_status_register;
 pub mod external_key_input_register;
 pub mod mosaic_register;
+pub mod real_time_clock_register;
+pub mod date_time_register;
