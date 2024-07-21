@@ -1,7 +1,6 @@
 use std::{
   collections::VecDeque,
-  fs::File,
-  os::unix::fs::MetadataExt,
+  fs::{self, File},
   path::PathBuf,
   sync::{
     Arc,
@@ -168,9 +167,7 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
-    let firmware_file = File::open(&firmware_path).unwrap();
-
-    let capacity = firmware_file.metadata().unwrap().size();
+    let capacity = fs::metadata(&firmware_path).unwrap().len();
 
     let mut bus = Self {
       arm9: Arm9Bus {

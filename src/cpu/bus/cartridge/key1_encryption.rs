@@ -32,10 +32,11 @@ impl Key1Encryption {
   }
 
   pub fn init_keycode(&mut self, id: u32, level: u32, modulo: u32) {
-     // see https://www.problemkaputt.de/gbatek.htm#dsencryptionbygamecodeidcodekey1
+    // see https://www.problemkaputt.de/gbatek.htm#dsencryptionbygamecodeidcodekey1
     self.ready = true;
 
     self.key_buf = self.internal_key_buf;
+
     let mut key_code = [id, id / 2, id * 2];
 
     if level >= 1{
@@ -47,6 +48,10 @@ impl Key1Encryption {
 
     key_code[1] <<= 1;
     key_code[2] >>= 1;
+
+    if level >= 3 {
+      self.apply_keycode(&mut key_code, modulo);
+    }
   }
   /*
   encrypt_64bit(ptr) / decrypt_64bit(ptr)
@@ -79,7 +84,7 @@ impl Key1Encryption {
 
 
     for i in range {
-      let z = self.key_buf[i+1] ^ x;
+      let z = self.key_buf[i] ^ x;
       x = self.key_buf[(0x48 / 4 + ((z >> 24) & 0xff)) as usize];
       x = self.key_buf[(0x448 / 4 + ((z >> 16) & 0xff)) as usize] + x;
       x = self.key_buf[(0x848 / 4 + ((z >> 8) & 0xff)) as usize] ^ x;
@@ -98,26 +103,37 @@ impl Key1Encryption {
     }
   }
 
-  fn decrypt_64bit(&mut self, ptr: &mut [u32]) {
+  pub fn decrypt_64bit(&mut self, ptr: &mut [u32]) {
     self.encrypt_decrypt64bit(ptr, true);
   }
 
-  fn encrypt_64bit(&mut self, ptr: &mut [u32]) {
+  pub fn encrypt_64bit(&mut self, ptr: &mut [u32]) {
     self.encrypt_decrypt64bit(ptr, false);
   }
-
+  /*
+    apply_keycode(modulo)
+      encrypt_64bit(keycode+4)
+      encrypt_64bit(keycode+0)
+      [scratch]=0000000000000000h   ;S=0 (64bit)
+      FOR I=0 TO 44h STEP 4         ;xor with reversed byte-order (bswap)
+        [keybuf+I]=[keybuf+I] XOR bswap_32bit([keycode+(I MOD modulo)])
+      NEXT I
+      FOR I=0 TO 1040h STEP 8
+        encrypt_64bit(scratch)      ;encrypt S (64bit) by keybuf
+        [keybuf+I+0]=[scratch+4]    ;write S to keybuf (first upper 32bit)
+        [keybuf+I+4]=[scratch+0]    ;write S to keybuf (then lower 32bit)
+      NEXT I
+   */
   fn apply_keycode(&mut self, key_code: &mut [u32], modulo: u32) {
-    self.encrypt_64bit(&mut key_code[4 / 4..4 / 4 + 2]);
-    self.encrypt_64bit(&mut key_code[0 / 4..0 / 4 + 2]);
-
+    self.encrypt_64bit(&mut key_code[1..3]);
+    self.encrypt_64bit(&mut key_code[0..2]);
 
     let mut scratch = [0, 0];
 
-    for i in 0..0x44 {
-      self.encrypt_64bit(&mut scratch);
+    for i in 0..=0x44 / 4 {
       self.key_buf[i] ^= key_code[i % (modulo as usize)].swap_bytes();
     }
-    for i in (0..0x1040 / 4).step_by(2) {
+    for i in (0..=0x1040 / 4).step_by(2) {
       self.encrypt_64bit(&mut scratch);
       self.key_buf[i] = scratch[1];
       self.key_buf[i + 1] = scratch[0];

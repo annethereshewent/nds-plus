@@ -90,7 +90,8 @@ pub struct Cartridge {
   pub key1_encryption: Key1Encryption,
   pub spidata: u8,
   backup: BackupType,
-  file_path: String
+  file_path: String,
+  main_area_load: bool
 }
 
 impl Cartridge {
@@ -107,7 +108,8 @@ impl Cartridge {
       spidata: 0,
       current_word: 0,
       backup: BackupType::None,
-      file_path
+      file_path,
+      main_area_load: false
     };
 
     let path = Path::new(&cartridge.file_path).with_extension("sav");
@@ -270,9 +272,78 @@ impl Cartridge {
   }
 
   fn execute_encrypted_command(&mut self) {
-    todo!("oops not ready");
+    self.command.reverse();
+
+    let mut command_u32 = self.to_u32();
+
+    self.key1_encryption.decrypt_64bit(&mut command_u32);
+
+    self.command = self.to_u8(&command_u32);
+
+    self.command.reverse();
+
+    let command = self.command[0] >> 4;
+
+    match command {
+      0x4 => {
+        // Returns 910h dummy bytes
+        for _ in 0..self.rom_bytes_left / 4 {
+          self.out_fifo.push_back(0xffff_ffff);
+        }
+      }
+      0x1 => {
+        for _ in 0..self.rom_bytes_left / 4 {
+          self.out_fifo.push_back(CHIP_ID);
+        }
+      }
+      0x2 => {
+        todo!("oops not ready");
+      }
+      0xa => {
+        self.key1_encryption.ready = false;
+        self.main_area_load = true;
+
+        for _ in 0..self.rom_bytes_left / 4 {
+          self.out_fifo.push_back(0);
+        }
+      }
+      _ => {
+        println!("unrecognized encrypted command received!");
+        for _ in 0..self.rom_bytes_left / 4 {
+          self.out_fifo.push_back(0);
+        }
+      }
+    }
   }
 
+  fn to_u32(&self) -> Vec<u32> {
+    let mut buffer = Vec::new();
+    for i in (0..self.command.len()).step_by(4) {
+      let value = u32::from_le_bytes(self.command[i..i+4].try_into().unwrap());
+      buffer.push(value);
+    }
+
+    buffer
+  }
+
+  fn to_u8(&self, command_u32: &[u32]) -> [u8; 8] {
+    let mut buffer: [u8; 8] = [0; 8];
+
+    let mut index = 0;
+
+    for i in 0..command_u32.len() {
+      let word = command_u32[i];
+
+      buffer[index] = (word & 0xff) as u8;
+      buffer[index + 1] = ((word >> 8) & 0xff) as u8;
+      buffer[index + 2] = ((word >> 16) & 0xff) as u8;
+      buffer[index + 3] = ((word >> 24) & 0xff) as u8;
+
+      index += 4;
+    }
+
+    buffer
+  }
   fn get_data(&mut self) {
     let mut address = u32::from_be_bytes(self.command[1..5].try_into().unwrap());
 
@@ -325,7 +396,10 @@ impl Cartridge {
         }
       }
       _ => {
-        println!("unhandled command received: {:x}", command)
+        println!("unhandled command received: {:x}", command);
+        for _ in 0..self.rom_bytes_left / 4 {
+          self.out_fifo.push_back(0);
+        }
       }
     }
   }
