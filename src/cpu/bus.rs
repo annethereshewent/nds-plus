@@ -35,29 +35,19 @@ use super::{
     division_control_register::{
       DivisionControlRegister,
       DivisionMode
-    },
-    external_key_input_register::ExternalKeyInputRegister,
-    external_memory::{
+    }, external_key_input_register::ExternalKeyInputRegister, external_memory::{
       AccessRights,
       ExternalMemory
-    },
-    interrupt_enable_register::InterruptEnableRegister,
-    interrupt_request_register::InterruptRequestRegister,
-    ipc_fifo_control_register::{
+    }, interrupt_enable_register::InterruptEnableRegister, interrupt_request_register::InterruptRequestRegister, ipc_fifo_control_register::{
       IPCFifoControlRegister,
       FIFO_CAPACITY
-    },
-    ipc_sync_register::IPCSyncRegister,
-    key_input_register::KeyInputRegister,
-    spi_control_register::{
+    }, ipc_sync_register::IPCSyncRegister, key_input_register::KeyInputRegister, real_time_clock_register::RealTimeClockRegister, spi_control_register::{
       DeviceSelect,
       SPIControlRegister
-    },
-    square_root_control_register::{
+    }, square_root_control_register::{
       BitMode,
       SquareRootControlRegister
-    },
-    wram_control_register::WRAMControlRegister
+    }, wram_control_register::WRAMControlRegister
   },
   timers::Timers,
   MemoryAccess
@@ -124,7 +114,8 @@ pub struct Arm7Bus {
   pub spicnt: SPIControlRegister,
   pub extkeyin: ExternalKeyInputRegister,
   pub haltcnt: HaltMode,
-  pub apu: APU
+  pub apu: APU,
+  pub rtc: RealTimeClockRegister
 }
 
 pub struct Bus {
@@ -211,7 +202,8 @@ impl Bus {
         spicnt: SPIControlRegister::new(),
         extkeyin: ExternalKeyInputRegister::new(),
         haltcnt: HaltMode::None,
-        apu: APU::new(&mut scheduler, audio_buffer)
+        apu: APU::new(&mut scheduler, audio_buffer),
+        rtc: RealTimeClockRegister::new()
       },
       scheduler,
       debug_on: false

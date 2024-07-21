@@ -120,11 +120,7 @@ impl Bus {
       0x400_0130 => self.key_input_register.bits(),
       0x400_0134 => 0, // RCNT register, some kind of debug thing idk
       0x400_0136 => self.arm7.extkeyin.bits(),
-      0x400_0138 => {
-        // TODO
-        println!("ignoring reads to RTC register");
-        0
-      }
+      0x400_0138 => self.arm7.rtc.read() as u16,
       0x400_0180 => self.arm7.ipcsync.read() as u16,
       0x400_0184 => self.arm7.ipcfifocnt.read(&mut self.arm9.ipcfifocnt.fifo) as u16,
       0x400_01a0 => self.cartridge.spicnt.read(self.exmem.nds_access_rights == AccessRights::Arm7),
@@ -310,9 +306,7 @@ impl Bus {
       0x400_010c => self.arm7.timers.t[3].reload_timer_value(value),
       0x400_010e => self.arm7.timers.t[3].write_timer_control(value, &mut self.scheduler),
       0x400_0134 => (), // RCNT
-      0x400_0138 => {
-        // println!("ignoring writes to rtc register");
-      }
+      0x400_0138 => self.arm7.rtc.write(value),
       0x400_0180 => self.arm7.ipcsync.write(&mut self.arm9.ipcsync, &mut self.arm9.interrupt_request, value),
       0x400_0184 => self.arm7.ipcfifocnt.write(&mut self.arm7.interrupt_request,&mut self.arm9.ipcfifocnt.fifo,value),
       0x400_01a0 => self.cartridge.spicnt.write(value, self.exmem.nds_access_rights == AccessRights::Arm7, None),
@@ -375,7 +369,7 @@ impl Bus {
 
     match address {
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
-      0x400_0138 => println!("ignoring writes to rtc register"),
+      0x400_0138 => self.arm7.rtc.write(value as u16),
       0x400_01a0 => self.cartridge.spicnt.write(value as u16, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff00)),
       0x400_01a1 => self.cartridge.spicnt.write((value as u16) << 8, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff)),
       0x400_01a8..=0x400_01af => {

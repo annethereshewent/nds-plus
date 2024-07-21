@@ -105,17 +105,15 @@ impl RealTimeClockRegister {
   fn on_write(&mut self, previous_sck: bool) {
     match self.mode {
       CommandMode::AwaitingCommand(false) => {
-        if self.sck && !self.cs {
+        if !self.cs {
           self.mode = CommandMode::AwaitingCommand(true)
         }
       }
       CommandMode::AwaitingCommand(true) => {
-        if self.cs {
+        if self.cs && self.sck {
           self.mode = CommandMode::AcceptingCommand;
           self.current_command_byte = 0;
           self.current_command_bits = 0;
-        } else {
-          self.mode = CommandMode::AwaitingCommand(false);
         }
       }
       CommandMode::AcceptingCommand => {
@@ -125,6 +123,7 @@ impl RealTimeClockRegister {
             self.current_command_bits += 1;
 
             if self.current_command_bits == 8 {
+
               self.param = Param::from((self.current_command_byte >> 1) & 0x7);
 
               self.data_bytes_remaining = match self.param {
@@ -134,6 +133,8 @@ impl RealTimeClockRegister {
               };
 
               self.current_data_byte = 0;
+              self.current_command_byte = 0;
+              self.current_command_bits = 0;
 
               if self.current_command_byte & 0b1 == 1 {
                 self.read_data();
