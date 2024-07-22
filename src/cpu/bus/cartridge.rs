@@ -297,7 +297,9 @@ impl Cartridge {
         }
       }
       0x2 => {
-        todo!("oops not ready");
+        let address = ((self.command[2] as usize) & 0xf0) << 8;
+
+        self.copy_rom(address..address+self.rom_bytes_left);
       }
       0xa => {
         self.key1_encryption.ready = false;
