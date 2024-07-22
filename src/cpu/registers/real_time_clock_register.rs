@@ -1,11 +1,10 @@
 use super::date_time_register::DateTimeRegister;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum CommandMode {
   AwaitingCommand(bool),
   AcceptingCommand,
   ExecutingCommand,
-  FinishedTransmitting,
   FinishingCommand
 }
 
@@ -16,7 +15,7 @@ enum Access {
   None
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum Param {
   StatusRegister1 = 0,
   StatusRegister2 = 1,
@@ -123,7 +122,6 @@ impl RealTimeClockRegister {
             self.current_command_bits += 1;
 
             if self.current_command_bits == 8 {
-
               self.param = Param::from((self.current_command_byte >> 1) & 0x7);
 
               self.data_bytes_remaining = match self.param {
@@ -141,6 +139,7 @@ impl RealTimeClockRegister {
               } else {
                 self.access = Access::Writing;
               }
+
               self.current_data_bits = 0;
               self.current_command_byte = 0;
 
@@ -155,12 +154,13 @@ impl RealTimeClockRegister {
             Access::Reading => {
               if self.current_data_bits < 8 {
                 self.data = self.current_data_byte & 0b1 == 1;
+
                 self.current_data_byte >>= 1;
 
                 self.current_data_bits += 1;
 
                 if self.current_data_bits == 8 {
-                  self.mode = CommandMode::FinishedTransmitting;
+                  self.on_finished_transmitting();
                   self.current_data_bits = 0;
                 }
               }
@@ -172,28 +172,12 @@ impl RealTimeClockRegister {
 
                 if self.current_data_bits == 8 {
                   self.write_data();
-                  self.mode = CommandMode::FinishedTransmitting;
+                  self.on_finished_transmitting();
                   self.current_data_bits = 0;
                 }
               }
             }
             _ => unreachable!()
-          }
-        }
-      }
-      CommandMode::FinishedTransmitting => {
-        if previous_sck && !self.sck {
-          if self.data_bytes_remaining == 0 {
-            self.mode = CommandMode::FinishingCommand;
-          } else {
-            self.current_data_bits = 0;
-            self.current_data_byte = 0;
-
-            if self.access == Access::Reading {
-              self.read_data();
-            }
-
-            self.mode = CommandMode::ExecutingCommand;
           }
         }
       }
@@ -205,8 +189,24 @@ impl RealTimeClockRegister {
     }
   }
 
+  fn on_finished_transmitting(&mut self) {
+    if self.data_bytes_remaining == 0 {
+      self.mode = CommandMode::FinishingCommand;
+    } else {
+      self.current_data_bits = 0;
+      self.current_data_byte = 0;
+
+      if self.access == Access::Reading {
+        self.read_data();
+      }
+
+      self.mode = CommandMode::ExecutingCommand;
+    }
+  }
+
   fn read_data(&mut self) {
     self.data_bytes_remaining -= 1;
+
     self.current_data_byte = match self.param {
       Param::StatusRegister1 => self.date_time.read_status1(),
       Param::StatusRegister2 => self.date_time.read_status2(),
