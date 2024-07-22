@@ -300,6 +300,38 @@ impl Cartridge {
         let address = ((self.command[2] as usize) & 0xf0) << 8;
 
         self.copy_rom(address..address+self.rom_bytes_left);
+
+        if address == 0x4000 {
+          // encryObj string
+          self.out_fifo[0] = 0x72636e65;
+          self.out_fifo[1] = 0x6a624f79;
+
+          self.key1_encryption.init_keycode(self.header.game_code, 3, 2);
+
+          for i in (0..512).step_by(2) {
+            let mut data = Vec::new();
+            data.push(self.out_fifo[i]);
+            data.push(self.out_fifo[i+1]);
+
+            self.key1_encryption.encrypt_64bit(&mut data);
+
+            self.out_fifo[i] = data[0];
+            self.out_fifo[i+1] = data[1];
+          }
+
+          self.key1_encryption.init_keycode(self.header.game_code, 2, 2);
+
+          let mut data = Vec::new();
+          data.push(self.out_fifo[0]);
+          data.push(self.out_fifo[1]);
+
+          self.key1_encryption.encrypt_64bit(&mut data);
+
+          self.out_fifo[0] = data[0];
+          self.out_fifo[1] = data[1];
+        }
+
+
       }
       0xa => {
         self.key1_encryption.ready = false;
