@@ -133,7 +133,6 @@ impl RealTimeClockRegister {
               };
 
               self.current_data_byte = 0;
-              self.current_command_byte = 0;
               self.current_command_bits = 0;
 
               if self.current_command_byte & 0b1 == 1 {
@@ -143,6 +142,7 @@ impl RealTimeClockRegister {
                 self.access = Access::Writing;
               }
               self.current_data_bits = 0;
+              self.current_command_byte = 0;
 
               self.mode = CommandMode::ExecutingCommand;
             }
