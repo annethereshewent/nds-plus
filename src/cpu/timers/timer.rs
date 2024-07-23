@@ -48,18 +48,18 @@ impl Timer {
   }
 
   pub fn handle_overflow(&mut self, interrupt_request: &mut InterruptRequestRegister, scheduler: &mut Scheduler, cycles_left: usize) {
-    self.value = self.reload_value;
+    if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+      let event_type = if self.is_arm9 {
+        EventType::Timer9(self.id)
+      } else {
+        EventType::Timer7(self.id)
+      };
 
-    let event_type = if self.is_arm9 {
-      EventType::Timer9(self.id)
-    } else {
-      EventType::Timer7(self.id)
-    };
-
-    let cycles_till_overflow = self.prescalar_frequency * (0x1_0000 - self.value as u32);
-
-    scheduler.schedule(event_type, cycles_till_overflow as usize - cycles_left);
-    self.start_cycles = scheduler.cycles;
+      self.value = self.reload_value;
+      let cycles_till_overflow = self.prescalar_frequency * (0x1_0000 - self.value as u32);
+      scheduler.schedule(event_type, cycles_till_overflow as usize - cycles_left);
+      self.start_cycles = scheduler.cycles;
+    }
 
     if self.timer_ctl.contains(TimerControl::IRQ_ENABLE) {
       // trigger irq
@@ -100,22 +100,19 @@ impl Timer {
       EventType::Timer7(self.id)
     };
 
-    scheduler.remove(event_type);
-
     if new_ctl.contains(TimerControl::ENABLED) && !self.timer_ctl.contains(TimerControl::ENABLED) {
       self.value = self.reload_value;
       self.running = true;
 
-      if !self.timer_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+      if !new_ctl.contains(TimerControl::COUNT_UP_TIMING) {
         self.start_cycles = scheduler.cycles;
 
         let cycles_till_overflow = self.prescalar_frequency * (0x1_0000 - self.value as u32);
 
         scheduler.schedule(event_type, cycles_till_overflow as usize);
       }
-    } else if !new_ctl.contains(TimerControl::ENABLED) {
-
-      self.running = false;
+    } else if !new_ctl.contains(TimerControl::ENABLED) || new_ctl.contains(TimerControl::COUNT_UP_TIMING) {
+      scheduler.remove(event_type);
     }
 
     self.timer_ctl = new_ctl;

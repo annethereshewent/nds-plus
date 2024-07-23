@@ -341,18 +341,19 @@ impl Bus {
       0x400_0206 => (),
       0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
       0x400_0210 => {
-        let mut value = self.arm7.interrupt_enable.bits() & 0xffff0000;
+        let mut val = self.arm7.interrupt_enable.bits() & 0xffff0000;
 
-        value |= value as u32;
+        val |= value as u32;
 
-        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
+
+        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val);
       }
       0x400_0212 => {
-        let mut value = self.arm7.interrupt_enable.bits() & 0xffff;
+        let mut val = self.arm7.interrupt_enable.bits() & 0xffff;
 
-        value |= (value as u32) << 16;
+        val |= (value as u32) << 16;
 
-        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(value);
+        self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val);
       }
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !value as u32),
       0x400_0216 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !((value as u32) << 16)),

@@ -211,6 +211,7 @@ impl RealTimeClockRegister {
       Param::StatusRegister1 => self.date_time.read_status1(),
       Param::StatusRegister2 => self.date_time.read_status2(),
       Param::AlarmTime1FrequencyDuty if self.date_time.status_register2.int1_mode & 0b1 == 0 => {
+        self.data_bytes_remaining = 0;
         self.date_time.frequency_duty_setting as u8
       }
       Param::AlarmTime1FrequencyDuty => self.date_time.read_alarm1(2 - self.data_bytes_remaining),
@@ -219,7 +220,7 @@ impl RealTimeClockRegister {
       Param::Time => self.date_time.read_time(2 - self.data_bytes_remaining),
       Param::ClockAdjust => self.date_time.clock_adjust,
       Param::None => unreachable!()
-    }
+    };
   }
 
   fn write_data(&mut self) {
@@ -229,7 +230,8 @@ impl RealTimeClockRegister {
       Param::StatusRegister1 => self.date_time.write_status1(self.current_data_byte),
       Param::StatusRegister2 => self.date_time.write_status2(self.current_data_byte),
       Param::AlarmTime1FrequencyDuty if self.date_time.status_register2.int1_mode & 0b1 == 0 => {
-        self.date_time.frequency_duty_setting = self.current_data_byte != 0
+        self.data_bytes_remaining = 0;
+        self.date_time.frequency_duty_setting = self.current_data_byte != 0;
       }
       Param::AlarmTime1FrequencyDuty => self.date_time.write_alarm1(self.current_data_byte, 2 - self.data_bytes_remaining),
       Param::AlarmTime2 => self.date_time.write_alarm2(self.current_data_byte, 2 - self.data_bytes_remaining),

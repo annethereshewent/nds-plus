@@ -299,6 +299,7 @@ impl Cartridge {
       0x2 => {
         let address = ((self.command[2] as usize) & 0xf0) << 8;
 
+        // TODO: possibly move the code below into copy_rom?
         self.copy_rom(address..address+self.rom_bytes_left);
 
         if address == 0x4000 {
