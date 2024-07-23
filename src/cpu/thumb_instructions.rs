@@ -757,18 +757,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn sbc(&mut self, operand1: u32, operand2: u32) -> u32 {
-    let carry_to_subtract = if self.cpsr.contains(PSRRegister::CARRY) { 0 } else { 1 };
-
-    let (result1, carry1) = operand1.overflowing_sub(operand2);
-    let (result2, carry2) = result1.overflowing_sub(carry_to_subtract);
-
-    let (temp, overflow1) = (operand1 as i32).overflowing_sub(operand2 as i32);
-    let (_, overflow2) = temp.overflowing_sub(carry_to_subtract as i32);
-
-    self.set_carry_zero_and_negative_flags(result2, carry1 || carry2);
-    self.cpsr.set(PSRRegister::OVERFLOW, overflow1 || overflow2);
-
-    result2
+    self.adc(operand1, !operand2)
   }
 
   fn lsl_offset(&mut self, offset: u8, rs: u8, rd: u8) {

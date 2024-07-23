@@ -330,8 +330,6 @@ impl Cartridge {
           self.out_fifo[0] = data[0];
           self.out_fifo[1] = data[1];
         }
-
-
       }
       0xa => {
         self.key1_encryption.ready = false;
