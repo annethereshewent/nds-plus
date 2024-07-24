@@ -46,6 +46,7 @@ impl Bus {
       0x400_02b4 => self.arm9.sqrt_result,
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
+      0x400_0600 => self.gpu.engine3d.read_geometry_status(),
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
       0x400_4000..=0x400_4010 => 0,
       0x410_0000 => self.receive_from_fifo(true),
@@ -371,6 +372,7 @@ impl Bus {
         self.arm9.sqrt_result = self.start_sqrt_calculation();
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
+      0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {

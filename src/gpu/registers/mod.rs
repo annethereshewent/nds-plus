@@ -14,3 +14,4 @@ pub mod brightness_register;
 pub mod color_effects_register;
 pub mod display_capture_control_register;
 pub mod display_3d_control_register;
+pub mod geometry_status_register;
