@@ -64,5 +64,6 @@ fn main() {
     // render stuff
     frontend.render(&mut bus.gpu);
     frontend.handle_events(bus);
+    frontend.handle_touchscreen(bus);
   }
 }

@@ -335,7 +335,7 @@ impl Bus {
         self.arm7_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_01b0..=0x400_01ba => println!("ignoring writes to key2 encryption seed io"),
-      0x400_01c0 => self.arm7.spicnt.write(value),
+      0x400_01c0 => self.write_spicnt(value),
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
       0x400_0206 => (),

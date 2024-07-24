@@ -244,11 +244,20 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         };
 
         if let Some(blend_layer) = layer {
-          if let Some(color2) = self.bg_lines[blend_layer.index][x] {
-            self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+          if blend_layer.index != 4 {
+            if let Some(color2) = self.bg_lines[blend_layer.index][x] {
+              self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+            } else {
+              color
+            }
           } else {
-            color
+            if let Some(color2) = self.obj_lines[x].color {
+              self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+            } else {
+              color
+            }
           }
+
         } else {
           color
         }

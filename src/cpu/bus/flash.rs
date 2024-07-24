@@ -123,6 +123,10 @@ impl Flash {
     }
   }
 
+  pub fn deselect(&mut self) {
+    self.mode = CommandMode::AwaitingCommand;
+  }
+
   pub fn read(&self) -> u8 {
     self.current_byte
   }

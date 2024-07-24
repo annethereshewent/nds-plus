@@ -1,7 +1,7 @@
 [package]
 name = "ds-emulator-desktop"
 version = "0.1.0"
-authors = ["Anne Castrillon <anne.castrillon@gmail.com>"]
+authors = ["Anne Castrillon"]
 edition = "2021"
 
 [dependencies.ds-emulator]

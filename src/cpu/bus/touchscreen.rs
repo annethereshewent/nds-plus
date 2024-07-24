@@ -30,12 +30,26 @@ impl Touchscreen {
         1 => self.y << 3,
         5 => self.x << 3,
         6 => 0,
-        _ => 0x7ff8
+        _ => 0xfff
       }
     }
   }
 
+  pub fn deselect(&mut self) {
+    self.data = 0;
+  }
+
   pub fn read(&self) -> u8 {
     self.return_byte
+  }
+
+  pub fn touch_screen(&mut self, x: u16, y: u16) {
+    self.x = x << 4;
+    self.y = y << 4;
+  }
+
+  pub fn release_screen(&mut self) {
+    self.x = 0;
+    self.y = 0xfff;
   }
 }

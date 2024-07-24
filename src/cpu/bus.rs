@@ -630,6 +630,21 @@ impl Bus {
     }
   }
 
+  fn write_spicnt(&mut self, value: u16) {
+    let previous_enable = self.arm7.spicnt.spi_bus_enabled;
+    let previous_device = self.arm7.spicnt.device;
+
+    self.arm7.spicnt.write(value);
+
+    if previous_enable && !self.arm7.spicnt.spi_bus_enabled {
+      match previous_device {
+        DeviceSelect::Firmware => self.spi.firmware.deselect(),
+        DeviceSelect::Touchscreen => self.touchscreen.deselect(),
+        _ => ()
+      }
+    }
+  }
+
   pub fn write_sqrtcnt(&mut self, value: u16) {
     self.arm9.sqrtcnt.write(value);
   }

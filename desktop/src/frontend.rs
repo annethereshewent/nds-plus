@@ -1,4 +1,13 @@
-use std::{collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
+use std::{
+  collections::{
+    HashMap,
+    VecDeque
+  },
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
 use ds_emulator::{
   apu::Sample,
@@ -186,6 +195,20 @@ impl Frontend {
     }
   }
 
+  pub fn handle_touchscreen(&mut self, bus: &mut Bus) {
+    let state = self.event_pump.mouse_state();
+
+    let y = state.y();
+    let x = state.x();
+
+    if state.left() && y >= SCREEN_HEIGHT as i32 * 2 && x >= 0 {
+      bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+      bus.touchscreen.touch_screen(x as u16 / 2, y as u16 / 2 - SCREEN_HEIGHT);
+    } else if !state.left() {
+      bus.touchscreen.release_screen();
+      bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
+    }
+  }
 
   pub fn handle_events(&mut self, bus: &mut Bus) {
     for event in self.event_pump.poll_iter() {
