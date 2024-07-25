@@ -456,6 +456,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     };
 
     if color_raw != 0 {
+    if color_raw != COLOR_TRANSPARENT && palette_index != 0 {
       Some(Color::from(color_raw))
     } else {
       None

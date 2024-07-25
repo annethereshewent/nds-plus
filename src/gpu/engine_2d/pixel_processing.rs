@@ -50,9 +50,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let mut occupied = [false; SCREEN_WIDTH as usize];
 
     if self.dispcnt.windows_enabled() {
-      if self.debug_on && IS_ENGINE_B {
-        println!("windows are enabled");
-      }
       if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_WINDOW0) {
         let mut sorted_window_layers: Vec<usize> = Vec::new();
         if y >= self.winv[0].y1 && y < self.winv[0].y2 {
