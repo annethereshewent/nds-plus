@@ -27,9 +27,6 @@ use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   fn render_affine_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
-    if self.debug_on {
-      println!("rendering affine object");
-    }
     let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
 
     let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
@@ -573,9 +570,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   fn render_bitmap_object(&mut self, x: usize, x_pos_in_sprite: u32, y_pos_in_sprite: u32, obj_width: u32, obj_attributes: &OamAttributes, vram: &VRam) {
-    if self.debug_on {
-      println!("rendering da bitmap object");
-    }
     // 1d object
     let (tile_base, width) = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
       // means the object is a square which isnt allowed in 1d mode
