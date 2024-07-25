@@ -128,16 +128,24 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       self.render_objects(y, vram);
     }
 
+    if self.bg_mode_enabled(0) {
+      if !IS_ENGINE_B && (self.dispcnt.bg_mode == BgMode::Mode6 || self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_3D_SELECTION)) {
+        // TODO: 3d rendering
+      } else {
+        self.render_text_line(0, y, vram);
+      }
+    }
+
     match self.dispcnt.bg_mode {
       BgMode::Mode0 => {
-        for i in 0..4 {
+        for i in 1..4 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
         }
       }
       BgMode::Mode1 => {
-        for i in 0..3 {
+        for i in 1..3 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
@@ -148,7 +156,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode2 => {
-        for i in 0..2 {
+        for i in 1..2 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
@@ -161,7 +169,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode3 => {
-        for i in 0..3 {
+        for i in 1..3 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
@@ -172,7 +180,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode4 => {
-        for i in 0..2 {
+        for i in 1..2 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
@@ -187,7 +195,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode5 => {
-        for i in 0..2 {
+        for i in 1..2 {
           if self.bg_mode_enabled(i) {
             self.render_text_line(i, y, vram);
           }
