@@ -1,5 +1,5 @@
 use super::{
-  registers::{
+  color::Color, registers::{
     alpha_blend_register::AlphaBlendRegister,
     bg_control_register::BgControlRegister,
     brightness_register::BrightnessRegister,
@@ -10,10 +10,7 @@ use super::{
     window_in_register::WindowInRegister,
     window_out_register::WindowOutRegister,
     window_vertical_register::WindowVerticalRegister
-  },
-  BgProps,
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH
+  }, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
 pub mod rendering2d;
@@ -79,47 +76,6 @@ impl ObjectPixel {
       color: None,
       is_window: false,
       is_transparent: false
-    }
-  }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Color {
-  pub r: u8,
-  pub g: u8,
-  pub b: u8
-}
-
-impl Color {
-  pub fn convert(&mut self) -> Self {
-    self.r = (self.r << 3) | (self.r >> 2);
-    self.g = (self.g << 3) | (self.g >> 2);
-    self.b = (self.b << 3) | (self.b >> 2);
-
-    *self
-  }
-
-  pub fn to_rgb24(val: u16) -> Self {
-    let mut r = (val & 0x1f) as u8;
-    let mut g = ((val >> 5) & 0x1f) as u8;
-    let mut b = ((val >> 10) & 0x1f) as u8;
-
-    r = (r << 3) | (r >> 2);
-    g = (g << 3) | (g >> 2);
-    b = (b << 3) | (b >> 2);
-
-    Color {
-      r,
-      g,
-      b
-    }
-  }
-
-  pub fn from(val: u16) -> Self {
-    Color {
-      r: (val & 0x1f) as u8,
-      g: ((val >> 5) & 0x1f) as u8,
-      b: ((val >> 10) & 0x1f) as u8
     }
   }
 }

@@ -48,7 +48,7 @@ impl Bus {
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_0600 => self.gpu.engine3d.read_geometry_status(),
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
-      0x400_4000..=0x400_4010 => 0,
+      0x400_4000..=0x400_4010 => 0, // DSi I/O ports
       0x410_0000 => self.receive_from_fifo(true),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
       _ => panic!("unsupported io address received: {:X}", address)
@@ -208,6 +208,7 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
       0x400_4000..=0x400_4fff => 0,
       _ => panic!("register not implemented: {:X}", address)
@@ -370,16 +371,23 @@ impl Bus {
         self.arm9.sqrt_result = self.start_sqrt_calculation();
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
+      0x400_0330..=0x400_033f => {
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
+      }
       0x400_0350 => self.gpu.engine3d.write_clear_color(value),
       0x400_0358 => self.gpu.engine3d.write_fog_color(value),
+      0x400_0360..=0x400_03bf => {
+        // toon table and fog table
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
+      }
       0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value),
       0x400_0440..=0x400_05c8 => self.gpu.engine3d.write_geometry_command(address, value),
       0x400_0600 => self.gpu.engine3d.write_geometry_status(value),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
-        // self.gpu.engine_b.write_register(address, value as u16);
-        // self.gpu.engine_b.write_register(address + 2, (value >> 16) as u16);
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
@@ -469,9 +477,15 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
+      0x400_0330..=0x400_033f => self.gpu.engine3d.write_edge_color(address, value),
       0x400_0354 => self.gpu.engine3d.write_clear_depth(value),
       0x400_0356 => self.gpu.engine3d.write_clear_image_offset(value),
       0x400_035c => self.gpu.engine3d.write_fog_offset(value),
+      0x400_0360..=0x400_037f => {
+        self.arm9_io_write_8(address, value as u8);
+        self.arm9_io_write_8(address + 1, (value >> 8) as u8);
+      }
+      0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
       0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
@@ -509,6 +523,7 @@ impl Bus {
       0x400_0247 => self.wramcnt.write(value),
       0x400_0248 => self.gpu.write_vramcnt(7, value),
       0x400_0249 => self.gpu.write_vramcnt(8, value),
+      0x400_0360..=0x400_037f => self.gpu.engine3d.write_fog_table(address, value),
       0x400_1008..=0x400_105f => {
         let actual_address = address & !(0b1);
 

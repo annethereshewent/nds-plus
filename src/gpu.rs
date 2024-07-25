@@ -2,15 +2,49 @@ use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
 
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
-use registers::{display_3d_control_register::Display3dControlRegister, display_capture_control_register::{CaptureSource, DisplayCaptureControlRegister, ScreenSourceA, ScreenSourceB}, display_control_register::{BgMode, DisplayMode}, display_status_register::{DispStatFlags, DisplayStatusRegister}, power_control_register1::PowerControlRegister1, power_control_register2::PowerControlRegister2, vram_control_register::VramControlRegister};
+use registers::{
+  display_3d_control_register::Display3dControlRegister,
+  display_capture_control_register::{
+    CaptureSource,
+    DisplayCaptureControlRegister,
+    ScreenSourceA, ScreenSourceB
+  },
+  display_control_register::{
+    BgMode,
+    DisplayMode
+  },
+  display_status_register::{
+    DispStatFlags,
+    DisplayStatusRegister
+  },
+  power_control_register1::PowerControlRegister1,
+  power_control_register2::PowerControlRegister2,
+  vram_control_register::VramControlRegister
+};
 use vram::{Bank, VRam};
 
-use crate::{cpu::{dma::{dma_channel::registers::dma_control_register::DmaTiming, dma_channels::DmaChannels}, registers::{interrupt_request_register::InterruptRequestRegister, mosaic_register::MosaicRegister}}, scheduler::{EventType, Scheduler}};
+use crate::{
+  cpu::{
+    dma::{
+      dma_channel::registers::dma_control_register::DmaTiming,
+      dma_channels::DmaChannels
+    },
+    registers::{
+      interrupt_request_register::InterruptRequestRegister,
+      mosaic_register::MosaicRegister
+    }
+  },
+  scheduler::{
+    EventType,
+    Scheduler
+  }
+};
 
 pub mod registers;
 pub mod engine_2d;
 pub mod engine_3d;
 pub mod vram;
+pub mod color;
 
 const NUM_LINES: u16 = 263;
 

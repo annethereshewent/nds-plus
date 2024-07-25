@@ -1,4 +1,4 @@
-use crate::gpu::engine_2d::Color;
+use crate::gpu::color::Color;
 
 enum BrightnessMode {
   Disabled = 0,

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::registers::{clear_color_register::ClearColorRegister, fog_color_register::FogColorRegister, geometry_status_register::GeometryStatusRegister};
+use super::{color::Color, registers::{clear_color_register::ClearColorRegister, fog_color_register::FogColorRegister, geometry_status_register::GeometryStatusRegister}};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Command {
@@ -127,7 +127,8 @@ impl Command {
       0x540 => SwapBuffers,
       0x580 => Viewport,
       0x5c0 => BoxTest,
-      _ => panic!("invalid address given to command::from_address: {:x}", address)
+      0x5c8 => VecTest,
+      _ => panic!("invalid address given to Command::from_address: {:x}", address)
     }
   }
 
@@ -211,7 +212,10 @@ pub struct Engine3d {
   clear_offset_x: u16,
   clear_offset_y: u16,
   fog_color: FogColorRegister,
-  fog_offset: u16
+  fog_offset: u16,
+  fog_table: [u8; 32],
+  edge_colors: [Color; 8],
+  toon_table: [Color; 32]
 }
 
 impl Engine3d {
@@ -229,12 +233,33 @@ impl Engine3d {
       clear_offset_x: 0,
       clear_offset_y: 0,
       fog_color: FogColorRegister::new(),
-      fog_offset: 0
+      fog_offset: 0,
+      edge_colors:  [Color::new(); 8],
+      toon_table: [Color::new(); 32],
+      fog_table: [0; 32]
     }
   }
 
   pub fn read_geometry_status(&self) -> u32 {
     self.gxstat.read(0, 0, &self.fifo)
+  }
+
+  pub fn write_fog_table(&mut self, address: u32, value: u8) {
+    let offset = address - 0x400_0360;
+
+    self.fog_table[offset as usize] = value & 0x7f;
+  }
+
+  pub fn write_edge_color(&mut self, address: u32, value: u16) {
+    let offset = (address - 0x400_0330) / 2;
+
+    self.edge_colors[offset as usize].write(value);
+  }
+
+  pub fn write_toon_table(&mut self, address: u32, value: u16) {
+    let offset = (address - 0x400_0380) / 2;
+
+    self.toon_table[offset as usize].write(value);
   }
 
   pub fn write_fog_color(&mut self, value: u32) {
@@ -268,6 +293,30 @@ impl Engine3d {
     self.fifo.push_back(GeometryCommand::from(command, value));
   }
 
+  fn process_commands(&mut self, value: u32) {
+    while let Some(command) = self.packed_commands.pop_front() {
+      self.current_command = Some(Command::from(command));
+
+      let current_command = self.current_command.unwrap();
+
+      self.params_processed = 1;
+
+      self.num_params = current_command.get_num_params();
+
+      if current_command != Command::Nop {
+        self.fifo.push_back(GeometryCommand::from(current_command, value));
+      }
+
+      if current_command.get_num_params() > 1 {
+        break;
+      }
+    }
+
+    if self.num_params == self.params_processed {
+      self.sent_commands = false;
+    }
+  }
+
   pub fn write_geometry_fifo(&mut self, value: u32) {
     if !self.sent_commands {
       if value == 0 {
@@ -279,6 +328,8 @@ impl Engine3d {
 
       let mut val = value;
 
+      println!("received value {:x}", value);
+
       while val != 0 {
         self.packed_commands.push_back(val as u8);
         val >>= 8;
@@ -288,49 +339,20 @@ impl Engine3d {
     } else {
       // process parameters for the commands
       if self.current_command.is_none() {
-        if let Some(command) = self.packed_commands.pop_front() {
-          self.current_command = Some(Command::from(command));
-
-          let mut current_command = self.current_command.unwrap();
-
-          while current_command.get_num_params() == 0 {
-            if current_command != Command::Nop {
-              self.fifo.push_back(GeometryCommand::from(current_command, 0));
-            }
-            if let Some(command) = self.packed_commands.pop_front() {
-              current_command = Command::from(command);
-            } else {
-              // we have finished processing all the packed commands
-              self.sent_commands = false;
-              break;
-            }
-          }
-
-          self.params_processed = 1;
-
-          self.num_params = current_command.get_num_params();
-
-          if current_command != Command::Nop {
-            self.fifo.push_back(GeometryCommand::from(current_command, value));
-          }
-
-          if self.params_processed == self.num_params {
-            self.current_command = None;
-          }
-        } else {
-          // we have finished processing all the packed commands
-          self.sent_commands = false;
-        }
+        self.process_commands(value);
       } else if self.params_processed < self.num_params {
         let current_command = self.current_command.unwrap();
 
         self.fifo.push_back(GeometryCommand::from(current_command, value));
 
         self.params_processed += 1;
-      } else {
-        self.current_command = None;
-      }
 
+        if self.params_processed == self.num_params && self.packed_commands.is_empty() {
+          self.sent_commands = false;
+        }
+      } else {
+        self.process_commands(value);
+      }
     }
   }
 }
