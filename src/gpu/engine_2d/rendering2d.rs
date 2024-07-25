@@ -105,13 +105,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             self.get_obj_pixel_index_bpp4(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
           };
 
-          let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-            self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
-          } else {
-            self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
-          };
-
           if palette_index != 0 {
+            let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+              self.get_obj_extended_palette(palette_index as u32, obj_attributes.palette_number as u32, vram)
+            } else {
+              self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+            };
+
             self.obj_lines[x as usize] = ObjectPixel {
               priority: obj_attributes.priority,
               color,
@@ -448,14 +448,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let address = slot as u32 * 8 * 0x400 + (palette_index + palette_bank * 256) as u32 * 2;
 
-
     let color_raw = if !IS_ENGINE_B {
       vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8
     } else {
       vram.read_engine_b_extended_bg_palette(address) as u16 | (vram.read_engine_b_extended_bg_palette(address + 1) as u16) << 8
     };
 
-    if color_raw != 0 {
     if color_raw != COLOR_TRANSPARENT && palette_index != 0 {
       Some(Color::from(color_raw))
     } else {
@@ -480,7 +478,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (vram.read_engine_b_extended_obj_palette(address) as u16) | (vram.read_engine_b_extended_obj_palette(address + 1) as u16) << 8
     };
 
-    if color != 0 {
+    if self.debug_on && IS_ENGINE_B {
+      println!("got {:x} for index {index} and bank {palette_bank}", color);
+    }
+
+    if color != COLOR_TRANSPARENT {
       Some(Color::from(color))
     } else {
       None
