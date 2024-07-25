@@ -42,6 +42,21 @@ impl GeometryStatusRegister {
       (fifo.is_empty() as u32) << 26 |
       (self.geometry_engine_busy as u32) << 27 |
       (self.geometry_irq as u32) << 30
+  }
 
+  pub fn write(&mut self, value: u32) {
+    self.geometry_irq = match (value >> 30) & 0x3 {
+      0 => GeometryIrq::Never,
+      1 => GeometryIrq::LessThanHalfFull,
+      2 => GeometryIrq::Empty,
+      _ => panic!("invalid value given for geometry irq: {}", (value >> 30) & 0x3)
+    };
+
+    if value >> 15 & 0b1 == 1 {
+      // todo: reset matrix stack levels here
+      self.matrix_stack_error = false;
+    }
+
+    // todo: interrupts here
   }
 }

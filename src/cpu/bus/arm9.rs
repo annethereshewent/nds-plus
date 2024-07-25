@@ -210,9 +210,7 @@ impl Bus {
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
       0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
       0x400_4000..=0x400_4fff => 0,
-      _ => {
-        panic!("register not implemented: {:X}", address);
-      }
+      _ => panic!("register not implemented: {:X}", address)
     }
   }
 
@@ -372,7 +370,11 @@ impl Bus {
         self.arm9.sqrt_result = self.start_sqrt_calculation();
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
+      0x400_0350 => self.gpu.engine3d.write_clear_color(value),
+      0x400_0358 => self.gpu.engine3d.write_fog_color(value),
       0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value),
+      0x400_0440..=0x400_05c8 => self.gpu.engine3d.write_geometry_command(address, value),
+      0x400_0600 => self.gpu.engine3d.write_geometry_status(value),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
@@ -467,6 +469,9 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
+      0x400_0354 => self.gpu.engine3d.write_clear_depth(value),
+      0x400_0356 => self.gpu.engine3d.write_clear_image_offset(value),
+      0x400_035c => self.gpu.engine3d.write_fog_offset(value),
       0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
