@@ -136,7 +136,12 @@ impl Cartridge {
           self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 2));
         }
         "eeprom_large" => {
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 3));
+          let address_width = if entry.ram_capacity > 0x1_0000 {
+            3
+          } else {
+            2
+          };
+          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, address_width));
         }
         "flash" => {
           self.backup = BackupType::Flash(Flash::new(backup_file));

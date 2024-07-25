@@ -92,7 +92,7 @@ impl Command {
 
   pub fn from_address(address: u32) -> Self {
     use Command::*;
-    match address & 0xfff {
+    match address {
       0x440 => MtxMode,
       0x444 => MtxPush,
       0x448 => MtxPop,
@@ -288,9 +288,9 @@ impl Engine3d {
   }
 
   pub fn write_geometry_command(&mut self, address: u32, value: u32) {
-    let command = Command::from_address(address);
+    let command = Command::from_address(address & 0xfff);
 
-    self.fifo.push_back(GeometryCommand::from(command, value));
+    // self.fifo.push_back(GeometryCommand::from(command, value));
   }
 
   fn process_commands(&mut self, value: u32) {
@@ -303,6 +303,8 @@ impl Engine3d {
 
       self.num_params = current_command.get_num_params();
 
+      println!("num params = {}", self.num_params);
+
       if current_command != Command::Nop {
         self.fifo.push_back(GeometryCommand::from(current_command, value));
       }
@@ -313,46 +315,51 @@ impl Engine3d {
     }
 
     if self.num_params == self.params_processed {
+      println!("waiting for the next command");
       self.sent_commands = false;
     }
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32) {
-    if !self.sent_commands {
-      if value == 0 {
-        // there's nothing to do here, just short circuit early
-        return;
-      }
+    // if !self.sent_commands {
+    //   println!("writing to the geometry fifo value {:x}", value);
+    //   if value == 0 {
+    //     // there's nothing to do here, just short circuit early
+    //     return;
+    //   }
 
-      self.packed_commands = VecDeque::with_capacity(4);
+    //   self.packed_commands = VecDeque::with_capacity(4);
 
-      let mut val = value;
+    //   let mut val = value;
 
-      println!("received value {:x}", value);
+    //   println!("received value {:x}", value);
 
-      while val != 0 {
-        self.packed_commands.push_back(val as u8);
-        val >>= 8;
-      }
+    //   while val != 0 {
+    //     self.packed_commands.push_back(val as u8);
+    //     val >>= 8;
+    //   }
 
-      self.sent_commands = true;
-    } else {
-      // process parameters for the commands
-      if self.current_command.is_none() {
-        self.process_commands(value);
-      } else if self.params_processed < self.num_params {
-        let current_command = self.current_command.unwrap();
+    //   self.sent_commands = true;
+    // } else {
+    //   // process parameters for the commands
+    //   if self.current_command.is_none() {
+    //     self.process_commands(value);
+    //   } else if self.params_processed < self.num_params {
+    //     let current_command = self.current_command.unwrap();
 
-        self.fifo.push_back(GeometryCommand::from(current_command, value));
+    //     self.fifo.push_back(GeometryCommand::from(current_command, value));
 
-        self.params_processed += 1;
+    //     self.params_processed += 1;
 
-        if self.params_processed == self.num_params && self.packed_commands.is_empty() {
-          self.sent_commands = false;
-        }
-      } else {
-        self.process_commands(value);
-      }
-    }
+    //     println!("params processed = {}", self.params_processed);
+
+    //     if self.params_processed == self.num_params && self.packed_commands.is_empty() {
+    //       println!("waiting for the next command");
+    //       self.sent_commands = false;
+    //     }
+    //   } else {
+    //     self.process_commands(value);
+    //   }
+    // }
   }
 }

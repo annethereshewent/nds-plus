@@ -210,6 +210,7 @@ impl Bus {
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
+      0x400_106c => self.gpu.engine_b.master_brightness.read(),
       0x400_4000..=0x400_4fff => 0,
       _ => panic!("register not implemented: {:X}", address)
     }

@@ -12,7 +12,6 @@ impl BackupFile {
       file.write_all(&vec![0xff; capacity]).unwrap();
     }
 
-
     let mut file = fs::OpenOptions::new()
       .read(true)
       .write(true)
