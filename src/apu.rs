@@ -8,8 +8,7 @@ use std::{
 
 use channel::Channel;
 use registers::{
-  sound_capture_control_register::SoundCaptureControlRegister,
-  sound_control_register::{
+  sound_capture_control_register::SoundCaptureControlRegister, sound_channel_control_register::RepeatMode, sound_control_register::{
     OutputSource,
     SoundControlRegister
   }
@@ -280,7 +279,7 @@ impl APU {
             val
           } else {
             if address & 0x3 == 2 {
-              old_value & 0xffff | (val << 16)
+              old_value & 0x0000ffff | (val << 16)
             } else {
               old_value & 0xffff0000 | val
             }
@@ -299,7 +298,7 @@ impl APU {
             if address & 0b1 == 0 {
               old_value & 0xff00 | val
             } else {
-              old_value & 0x00ff | val
+              old_value & 0x00ff | (val << 8)
             }
           }
         }
@@ -315,6 +314,8 @@ impl APU {
         let channel = &mut self.channels[channel_id as usize];
 
         if !previous_is_started && channel.soundcnt.is_started {
+          channel.noise_lfsr = None;
+          channel.current_psg_value = None;
           channel.schedule(scheduler, false, 0);
         } else if !channel.soundcnt.is_started {
           scheduler.remove(EventType::StepAudio(channel_id as usize));

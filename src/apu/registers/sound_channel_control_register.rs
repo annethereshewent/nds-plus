@@ -7,7 +7,7 @@ pub enum SoundFormat {
   PSG
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RepeatMode {
   Manual = 0,
   Loop = 1,
