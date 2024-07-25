@@ -156,18 +156,34 @@ impl Channel {
     return_address
   }
 
-  pub fn step_sample_8(&mut self) {
+  pub fn step_sample_8(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     // self.current_sample = (sample as i16) << 8;
     self.current_sample = (self.sample_fifo as i8 as f32) / i8::MAX as f32;
     self.sample_fifo >>= 8;
     self.pcm_samples_left -= 1;
+
+    let mut reset = false;
+
+    if self.bytes_left == 0 && self.pcm_samples_left == 0 {
+      reset = self.handle_end();
+    }
+
+    self.schedule(scheduler, reset, cycles_left);
   }
 
-  pub fn step_sample_16(&mut self) {
+  pub fn step_sample_16(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     self.current_sample = (self.sample_fifo as i16 as f32) / i16::MAX as f32;
 
     self.sample_fifo >>= 16;
     self.pcm_samples_left -= 1;
+
+    let mut reset = false;
+
+    if self.bytes_left == 0 && self.pcm_samples_left == 0 {
+      reset = self.handle_end();
+    }
+
+    self.schedule(scheduler, reset, cycles_left);
   }
 
   pub fn step_adpcm_data(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {

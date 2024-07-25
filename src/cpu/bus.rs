@@ -556,7 +556,7 @@ impl Bus {
           self.arm7.apu.channels[channel_id].pcm_samples_left = 4;
         }
 
-        self.arm7.apu.channels[channel_id].step_sample_8();
+        self.arm7.apu.channels[channel_id].step_sample_8(&mut self.scheduler, cycles_left);
       }
       SoundFormat::PCM16 => {
         if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
@@ -567,7 +567,7 @@ impl Bus {
           self.arm7.apu.channels[channel_id].pcm_samples_left = 2;
         }
 
-        self.arm7.apu.channels[channel_id].step_sample_16();
+        self.arm7.apu.channels[channel_id].step_sample_16(&mut self.scheduler, cycles_left);
       }
       SoundFormat::IMAADPCM => {
         if self.arm7.apu.channels[channel_id].has_initial_header() {
