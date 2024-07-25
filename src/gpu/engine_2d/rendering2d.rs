@@ -478,10 +478,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (vram.read_engine_b_extended_obj_palette(address) as u16) | (vram.read_engine_b_extended_obj_palette(address + 1) as u16) << 8
     };
 
-    if self.debug_on && IS_ENGINE_B {
-      println!("got {:x} for index {index} and bank {palette_bank}", color);
-    }
-
     if color != COLOR_TRANSPARENT {
       Some(Color::from(color))
     } else {
@@ -686,7 +682,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         if palette_index != 0 {
           // need to determine whether to look at extended palette or regular obj palette
           let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-            self.get_obj_extended_palette(palette_index as u32, palette_bank as u32, vram)
+            self.get_obj_extended_palette(palette_index as u32, obj_attributes.palette_number as u32, vram)
           } else {
             if bit_depth == 8 {
               palette_bank = 0;
