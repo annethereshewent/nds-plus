@@ -120,6 +120,8 @@ impl Bus {
     // };
 
     match address {
+      0x400_0000 => self.gpu.engine_a.dispcnt.read() as u16,
+      0x400_0002 => (self.gpu.engine_a.dispcnt.read() >> 16) as u16,
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.vcount,
       0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
@@ -209,6 +211,8 @@ impl Bus {
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
+      0x400_1000 => self.gpu.engine_b.dispcnt.read() as u16,
+      0x400_1002 => (self.gpu.engine_b.dispcnt.read() >> 16) as u16,
       0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
       0x400_106c => self.gpu.engine_b.master_brightness.read(),
       0x400_4000..=0x400_4fff => 0,
@@ -301,7 +305,7 @@ impl Bus {
 
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.write(value),
+      0x400_0000 => self.gpu.engine_a.dispcnt.write(value, None),
       0x400_0004 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
@@ -386,7 +390,7 @@ impl Bus {
       0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value),
       0x400_0440..=0x400_05c8 => self.gpu.engine3d.write_geometry_command(address, value),
       0x400_0600 => self.gpu.engine3d.write_geometry_status(value),
-      0x400_1000 => self.gpu.engine_b.dispcnt.write(value),
+      0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
         self.arm9_io_write_16(address, value as u16);
@@ -408,9 +412,12 @@ impl Bus {
     // };
 
     match address {
+      0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000)),
+      0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff)),
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
       0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
+      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
       0x400_006c => self.gpu.engine_a.master_brightness.write(value),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0x3);
@@ -487,7 +494,8 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
-      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
+      0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000)),
+      0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff)),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {

@@ -43,7 +43,15 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
     }
   }
 
-  pub fn write(&mut self, value: u32) {
+  pub fn write(&mut self, val: u32, mask: Option<u32>) {
+    let mut value = 0;
+
+    if let Some(mask) = mask {
+      value = self.value & mask;
+    }
+
+    value |= val;
+
     self.value = value;
 
     self.flags = DisplayControlRegisterFlags::from_bits_retain(value);
