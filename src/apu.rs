@@ -340,6 +340,10 @@ impl APU {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
 
           self.channels[channel_id as usize].bytes_left = (self.channels[channel_id as usize].loop_start as u32 + self.channels[channel_id as usize].sound_length) * 4;
+
+          if self.channels[channel_id as usize].soundcnt.is_started {
+            self.channels[channel_id as usize].schedule(scheduler, false, 0);
+          }
         }
       }
       0xa => {
