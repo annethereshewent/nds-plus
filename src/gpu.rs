@@ -264,7 +264,7 @@ impl GPU {
       2 * start_address
     };
 
-    let mut source_b: [u8; SCREEN_WIDTH as usize] = [0; SCREEN_WIDTH as usize];
+    let mut source_b: [u8; 2 * SCREEN_WIDTH as usize] = [0; 2 * SCREEN_WIDTH as usize];
 
     source_b[..2 * width].copy_from_slice(&self.vram.banks[block as usize][read_offset..read_offset + 2 * width]);
 
