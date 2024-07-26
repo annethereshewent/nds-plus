@@ -5,6 +5,6 @@ bitflags! {
     const ENGINE_3D_ENABLE = 1 << 2;
     const ENGINE_3D_GEOMETRY_ENABLE = 1 << 3;
     const ENGINE_B_ENABLE = 1 << 9;
-    const DISPLAY_SWAP = 1 << 15;
+    const TOP_A = 1 << 15;
   }
 }
