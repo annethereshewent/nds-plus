@@ -6,7 +6,7 @@ use crate::scheduler::{
 use super::{
   registers::sound_channel_control_register::{
     RepeatMode,
-    SoundChannelControlRegister, SoundFormat
+    SoundChannelControlRegister
   },
   Sample,
   ADPCM_TABLE,
@@ -133,12 +133,11 @@ impl Channel {
     }
   }
 
-  pub fn get_adpcm_header_address(&mut self, scheduler: &mut Scheduler, cycles_left: usize) -> u32 {
+  pub fn get_adpcm_header_address(&mut self) -> u32 {
     let return_address = self.source_address;
     self.bytes_left -= 4;
     self.current_address += 4;
 
-    self.schedule(scheduler, false, cycles_left);
 
     return_address
   }
@@ -258,14 +257,7 @@ impl Channel {
         true
       }
       RepeatMode::Loop => {
-        // take into account adpcm header
-        let loop_point = if self.soundcnt.format == SoundFormat::IMAADPCM {
-          1 + self.loop_start
-        } else {
-          self.loop_start
-        };
-
-        self.current_address = self.source_address + loop_point as u32 * 4;
+        self.current_address = self.source_address + self.loop_start as u32 * 4;
 
         self.bytes_left = self.sound_length * 4;
 

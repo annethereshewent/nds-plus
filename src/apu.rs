@@ -8,7 +8,8 @@ use std::{
 
 use channel::Channel;
 use registers::{
-  sound_capture_control_register::SoundCaptureControlRegister, sound_channel_control_register::RepeatMode, sound_control_register::{
+  sound_capture_control_register::SoundCaptureControlRegister,
+  sound_control_register::{
     OutputSource,
     SoundControlRegister
   }
@@ -319,6 +320,7 @@ impl APU {
 
           channel.noise_lfsr = None;
           channel.current_psg_value = None;
+          channel.current_sample = 0.0;
 
           channel.current_address = channel.source_address;
           channel.bytes_left = (channel.loop_start as u32 + channel.sound_length) * 4;
