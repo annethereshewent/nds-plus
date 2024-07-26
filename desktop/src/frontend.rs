@@ -239,12 +239,20 @@ impl Frontend {
           } else if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, false);
           }
+
+          if button == Button::X {
+            bus.arm7.apu.debug_on = true;
+          }
         }
         Event::ControllerButtonUp { button, .. } => {
           if let Some(button) = self.ext_button_map.get(&button) {
             bus.arm7.extkeyin.set(*button, true);
           } else if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, true);
+          }
+
+          if button == Button::X {
+            bus.arm7.apu.debug_on = false;
           }
         }
         _ => ()

@@ -95,7 +95,8 @@ pub struct APU {
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-  pub phase: f32
+  pub phase: f32,
+  pub debug_on: bool
 }
 
 impl APU {
@@ -106,7 +107,8 @@ impl APU {
       channels: Self::create_channels(),
       sndcapcnt: [SoundCaptureControlRegister::new(); 2],
       audio_buffer,
-      phase: 0.0
+      phase: 0.0,
+      debug_on: false
     };
 
     scheduler.schedule(
@@ -314,8 +316,13 @@ impl APU {
         let channel = &mut self.channels[channel_id as usize];
 
         if !previous_is_started && channel.soundcnt.is_started {
+
           channel.noise_lfsr = None;
           channel.current_psg_value = None;
+
+          channel.current_address = channel.source_address;
+          channel.bytes_left = (channel.loop_start as u32 + channel.sound_length) * 4;
+
           channel.schedule(scheduler, false, 0);
         } else if !channel.soundcnt.is_started {
           scheduler.remove(EventType::StepAudio(channel_id as usize));
@@ -348,6 +355,10 @@ impl APU {
           let old_value = self.channels[channel_id as usize].sound_length;
 
           self.channels[channel_id as usize].sound_length = (old_value & 0xffff0000) | (value >> 16);
+
+          if self.channels[channel_id as usize].soundcnt.is_started {
+            self.channels[channel_id as usize].schedule(scheduler, false, 0);
+          }
         }
       }
       0xc => {
