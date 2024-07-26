@@ -1,5 +1,5 @@
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SoundFormat {
   PCM8,
   PCM16,
