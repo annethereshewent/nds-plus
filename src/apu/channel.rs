@@ -100,7 +100,7 @@ impl Channel {
     }
   }
 
-  pub fn step_noise(&mut self) {
+  pub fn step_noise(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     if let Some(lfsr) = self.noise_lfsr {
       if lfsr & 0b1 == 1 {
         self.noise_lfsr = Some((lfsr >> 1) ^ 0x6000);
@@ -109,10 +109,14 @@ impl Channel {
         self.noise_lfsr = Some(lfsr >> 1);
         self.current_sample = 1.0;
       }
+
+      if self.soundcnt.is_started {
+        self.schedule(scheduler, false, cycles_left);
+      }
     }
   }
 
-  pub fn step_psg(&mut self) {
+  pub fn step_psg(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     if let Some(current_value) = self.current_psg_value {
       if current_value ^ 0x7 > self.soundcnt.wave_duty {
         self.current_sample = 1.0;
@@ -121,6 +125,11 @@ impl Channel {
       }
 
       self.current_psg_value = Some((current_value + 1) & 0x7);
+
+
+      if self.soundcnt.is_started {
+        self.schedule(scheduler, false, cycles_left);
+      }
     }
   }
 
@@ -138,20 +147,12 @@ impl Channel {
     self.current_address == self.source_address
   }
 
-  pub fn get_sample_address(&mut self, scheduler: &mut Scheduler, cycles_left: usize) -> u32 {
+  pub fn get_sample_address(&mut self) -> u32 {
     let return_address = self.current_address;
 
     self.bytes_left -= 4;
 
     self.current_address += 4;
-
-    let reset = if self.bytes_left == 0 && self.pcm_samples_left == 0 {
-      self.handle_end()
-    } else {
-      false
-    };
-
-    self.schedule(scheduler, reset, cycles_left);
 
     return_address
   }
@@ -168,7 +169,9 @@ impl Channel {
       reset = self.handle_end();
     }
 
-    self.schedule(scheduler, reset, cycles_left);
+    if self.soundcnt.is_started {
+      self.schedule(scheduler, reset, cycles_left);
+    }
   }
 
   pub fn step_sample_16(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
@@ -183,7 +186,9 @@ impl Channel {
       reset = self.handle_end();
     }
 
-    self.schedule(scheduler, reset, cycles_left);
+    if self.soundcnt.is_started {
+      self.schedule(scheduler, reset, cycles_left);
+    }
   }
 
   pub fn step_adpcm_data(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
@@ -236,7 +241,9 @@ impl Channel {
       reset = self.handle_end();
     }
 
-    self.schedule(scheduler, reset, cycles_left);
+    if self.soundcnt.is_started {
+      self.schedule(scheduler, reset, cycles_left);
+    }
   }
 
   pub fn reset_audio(&mut self) {

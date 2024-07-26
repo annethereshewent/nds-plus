@@ -549,7 +549,7 @@ impl Bus {
     match self.arm7.apu.channels[channel_id].soundcnt.format {
       SoundFormat::PCM8 => {
         if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
-          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
+          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address();
 
           let word = self.arm7_mem_read_32(sample_address);
           self.arm7.apu.channels[channel_id].sample_fifo = word;
@@ -560,7 +560,7 @@ impl Bus {
       }
       SoundFormat::PCM16 => {
         if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
-          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address(&mut self.scheduler, cycles_left);
+          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address();
 
           let word = self.arm7_mem_read_32(sample_address);
           self.arm7.apu.channels[channel_id].sample_fifo = word;
@@ -597,8 +597,8 @@ impl Bus {
         }
 
         match self.arm7.apu.channels[channel_id].get_channel_type() {
-          ChannelType::Noise => self.arm7.apu.channels[channel_id].step_noise(),
-          ChannelType::PSG => self.arm7.apu.channels[channel_id].step_psg(),
+          ChannelType::Noise => self.arm7.apu.channels[channel_id].step_noise(&mut self.scheduler, cycles_left),
+          ChannelType::PSG => self.arm7.apu.channels[channel_id].step_psg(&mut self.scheduler, cycles_left),
           ChannelType::Normal => println!("warning: using a normal channel for psg samples")
         }
       }
