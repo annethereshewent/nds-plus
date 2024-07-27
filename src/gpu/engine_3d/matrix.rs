@@ -1,11 +1,11 @@
 pub const UNIT_MATRIX: [[i32; 4]; 4] = [
-  [1,0,0,0],
-  [0,1,0,0],
-  [0,0,1,0],
-  [0,0,0,1]
+  [0x1000,0,0,0],
+  [0,0x1000,0,0],
+  [0,0,0x1000,0],
+  [0,0,0,0x1000]
 ];
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Matrix {
   pub data: Vec<Vec<i32>>
 }
@@ -14,6 +14,12 @@ impl Matrix {
   pub fn new() -> Self {
     Self {
       data: UNIT_MATRIX.iter().map(|row| row.to_vec()).collect()
+    }
+  }
+
+  pub fn from(data: Vec<Vec<i32>>) -> Self {
+    Self {
+      data
     }
   }
 

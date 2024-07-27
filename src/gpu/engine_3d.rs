@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use matrix::Matrix;
 use polygon_attributes::PolygonAttributes;
 use texture_params::TextureParams;
+use viewport::Viewport;
 
 use super::{
   color::Color,
@@ -17,6 +18,7 @@ pub mod matrix;
 pub mod polygon_attributes;
 pub mod texture_params;
 pub mod rendering3d;
+pub mod viewport;
 
 #[derive(Copy, Clone, PartialEq)]
 enum MatrixMode {
@@ -260,7 +262,9 @@ pub struct Engine3d {
   palette_base: u32,
   transluscent_polygon_sort: bool,
   depth_buffering_with_w: bool,
-  polygons_ready: bool
+  polygons_ready: bool,
+  viewport: Viewport,
+  temp_matrix: Vec<Vec<i32>>
 }
 
 impl Engine3d {
@@ -302,7 +306,9 @@ impl Engine3d {
       palette_base: 0,
       transluscent_polygon_sort: false,
       depth_buffering_with_w: false,
-      polygons_ready: false
+      polygons_ready: false,
+      viewport: Viewport::new(),
+      temp_matrix: Vec::new()
     }
   }
 
@@ -472,9 +478,114 @@ impl Engine3d {
 
         self.polygons_ready = true;
       }
+      Viewport => {
+        self.viewport.write(entry.param);
+      }
+      MtxLoad4x4 => {
+        // if !self.command_started {
+        //   self.command_started = true;
+        //   self.command_params = MtxLoad4x4.get_num_params();
+
+        //   self.temp_matrix = Vec::with_capacity(4);
+
+        //   for _ in 0..4 {
+        //     self.temp_matrix.push(Vec::with_capacity(4));
+        //   }
+        // }
+
+        // if self.command_params > 0 {
+
+        //   let index_raw = MtxLoad4x4.get_num_params() - self.command_params;
+
+        //   let row = index_raw / 4;
+
+        //   self.temp_matrix[row].push(entry.param as i32);
+
+        //   self.command_params -= 1;
+
+        //   if self.command_params == 0 {
+        //     // load the matrix
+        //     let matrix = Matrix::from(self.temp_matrix.clone());
+
+        //     println!("{:x?}", matrix);
+
+        //     self.load_matrix(matrix);
+
+        //     self.command_started = false;
+        //     self.temp_matrix = Vec::new();
+        //   }
+        // }
+        self.load_4_by_n_matrix(entry, MtxLoad4x4.get_num_params(), 4);
+      }
+      MtxLoad4x3 => {
+        self.load_4_by_n_matrix(entry, MtxLoad4x3.get_num_params(), 3);
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
+  }
 
+  fn load_4_by_n_matrix(&mut self, entry: GeometryCommandEntry, num_params: usize, n: usize) {
+    if !self.command_started {
+      self.command_started = true;
+      self.command_params = num_params;
+
+      self.temp_matrix = Vec::with_capacity(4);
+
+      for _ in 0..4 {
+        self.temp_matrix.push(Vec::with_capacity(4));
+      }
+    }
+
+    if self.command_params > 0 {
+
+      let index_raw = num_params - self.command_params;
+
+      let row = index_raw / n;
+
+      self.temp_matrix[row].push(entry.param as i32);
+
+      self.command_params -= 1;
+
+      if self.command_params == 0 {
+        if n == 3 {
+          // for 4x3 matrices, fill the fourth column of each row with 0, or the last slot with a fixed point 1
+          for row in 0..3 {
+            self.temp_matrix[row].push(0);
+          }
+          self.temp_matrix[3].push(0x1000);
+        }
+
+        // load the matrix
+        let matrix = Matrix::from(self.temp_matrix.clone());
+
+        println!("{:x?}", matrix);
+
+        self.load_matrix(matrix);
+
+        self.command_started = false;
+        self.temp_matrix = Vec::new();
+      }
+    }
+  }
+
+  fn load_matrix(&mut self, matrix: Matrix) {
+    // TODO: recalculate clip matrix
+    match self.matrix_mode {
+      MatrixMode::Position  => {
+        self.current_position_matrix = matrix;
+
+      }
+      MatrixMode::Projection => {
+        self.current_projection_matrix = matrix;
+      }
+      MatrixMode::Texture => {
+        self.current_texture_matrix = matrix;
+      }
+      MatrixMode::PositionAndVector => {
+        self.current_position_matrix = matrix.clone();
+        self.current_projection_matrix = matrix;
+      }
+    }
   }
 
   fn process_commands(&mut self, value: u32) {
