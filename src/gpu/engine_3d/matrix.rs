@@ -26,4 +26,13 @@ impl Matrix {
 
     vec.try_into().unwrap_or_else(|vec: Vec<Matrix>| panic!("expected a vector of length 32 but got a vector of length {}", vec.len()))
   }
+
+  pub fn multiply_row(&self, row: &[i32]) -> (i32, i32, i32) {
+    let matrix = self.0;
+    (
+      (row[0] * matrix[0][0] + row[1] * matrix[1][0] + row[2] * matrix[2][0]) >> 12,
+      (row[0] * matrix[0][1] + row[1] * matrix[1][1] + row[2] * matrix[2][1]) >> 12,
+      (row[0] * matrix[0][2] + row[1] * matrix[1][2] + row[2] * matrix[2][2]) >> 12
+    )
+  }
 }

@@ -28,6 +28,20 @@ impl Color {
     self.b = ((value >> 10) & 0x1f) as u8;
   }
 
+  pub fn to_rgb6(&mut self) {
+    self.r = Self::to_rgb6_internal(self.r);
+    self.g = Self::to_rgb6_internal(self.g);
+    self.b = Self::to_rgb6_internal(self.b);
+  }
+
+  fn to_rgb6_internal(value: u8) -> u8 {
+    if value == 0 {
+      return 0;
+    }
+
+    value * 2 + 1
+  }
+
   pub fn to_rgb24(val: u16) -> Self {
     let mut r = (val & 0x1f) as u8;
     let mut g = ((val >> 5) & 0x1f) as u8;

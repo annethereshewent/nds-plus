@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use diffuse_color::DiffuseColor;
+use light::Light;
 use matrix::Matrix;
 use polygon_attributes::PolygonAttributes;
 use specular_color::SpecularColor;
@@ -23,6 +24,7 @@ pub mod rendering3d;
 pub mod viewport;
 pub mod diffuse_color;
 pub mod specular_color;
+pub mod light;
 
 #[derive(Copy, Clone, PartialEq)]
 enum MatrixMode {
@@ -272,7 +274,9 @@ pub struct Engine3d {
   diffuse_reflection: DiffuseColor,
   ambient_reflection: Color,
   specular_reflection: SpecularColor,
-  emission: Color
+  emission: Color,
+  lights: [Light; 4],
+  vertex_color: Color
 }
 
 impl Engine3d {
@@ -320,7 +324,9 @@ impl Engine3d {
       diffuse_reflection: DiffuseColor::new(),
       ambient_reflection: Color::new(),
       emission: Color::new(),
-      specular_reflection: SpecularColor::new()
+      specular_reflection: SpecularColor::new(),
+      lights: [Light::new(); 4],
+      vertex_color: Color::new()
     }
   }
 
@@ -488,12 +494,43 @@ impl Engine3d {
       MtxLoad4x3 => self.load_4_by_n_matrix(entry, MtxLoad4x3.get_num_params(), 3),
       DifAmb => {
         self.diffuse_reflection.write(entry.param as u16);
+
+        if self.diffuse_reflection.set_vertex_color {
+          self.vertex_color.write(entry.param as u16);
+        }
+
         self.ambient_reflection.write((entry.param >> 16) as u16);
       }
       SpeEmi => {
         self.specular_reflection.write(entry.param as u16);
         self.emission.write((entry.param >> 16) as u16);
       }
+      LightColor => {
+        let i = ((entry.param >> 30) & 0x3) as usize;
+
+        self.lights[i].color.write(entry.param as u16);
+      }
+      LightVector => {
+        let x = (entry.param as i16) << 6 >> 6;
+        let y = ((entry.param >> 4) as i16) >> 6;
+        let z = ((entry.param >> 14) as i16) >> 6;
+        let i = ((entry.param >> 30) & 0x3) as usize;
+
+        let (x, y, z) = self.current_vector_matrix.multiply_row(&[x as i32, y as i32, z as i32]);
+
+        self.lights[i].x = x as i16;
+        self.lights[i].y = y as i16;
+        self.lights[i].z = z as i16;
+
+        println!("{:?}", self.lights[i]);
+      }
+      Color => {
+        self.vertex_color.write(entry.param as u16);
+        self.vertex_color.to_rgb6();
+
+        println!("{:x?}", self.vertex_color);
+      }
+
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
