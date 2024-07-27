@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
+use diffuse_color::DiffuseColor;
 use matrix::Matrix;
 use polygon_attributes::PolygonAttributes;
+use specular_color::SpecularColor;
 use texture_params::TextureParams;
 use viewport::Viewport;
 
@@ -19,6 +21,8 @@ pub mod polygon_attributes;
 pub mod texture_params;
 pub mod rendering3d;
 pub mod viewport;
+pub mod diffuse_color;
+pub mod specular_color;
 
 #[derive(Copy, Clone, PartialEq)]
 enum MatrixMode {
@@ -264,7 +268,11 @@ pub struct Engine3d {
   depth_buffering_with_w: bool,
   polygons_ready: bool,
   viewport: Viewport,
-  temp_matrix: Matrix
+  temp_matrix: Matrix,
+  diffuse_reflection: DiffuseColor,
+  ambient_reflection: Color,
+  specular_reflection: SpecularColor,
+  emission: Color
 }
 
 impl Engine3d {
@@ -308,7 +316,11 @@ impl Engine3d {
       depth_buffering_with_w: false,
       polygons_ready: false,
       viewport: Viewport::new(),
-      temp_matrix: Matrix::new()
+      temp_matrix: Matrix::new(),
+      diffuse_reflection: DiffuseColor::new(),
+      ambient_reflection: Color::new(),
+      emission: Color::new(),
+      specular_reflection: SpecularColor::new()
     }
   }
 
@@ -376,7 +388,7 @@ impl Engine3d {
       }
     }
 
-    // TODO: check interrupts here, also DMA timing
+    // TODO: check interrupts here, possibly dma also?
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
@@ -446,7 +458,6 @@ impl Engine3d {
         }
 
         if self.command_params > 0 {
-          // process shininess values
           let i = (Shininess.get_num_params() - self.command_params) * 4;
 
           self.shininess_table[i] = entry.param as u8;
@@ -461,15 +472,9 @@ impl Engine3d {
           }
         }
       }
-      PolygonAttr => {
-        self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param);
-      }
-      TexImageParam => {
-        self.texture_params = TextureParams::from_bits_retain(entry.param);
-      }
-      PlttBase => {
-        self.palette_base = entry.param & 0xfff;
-      }
+      PolygonAttr => self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param),
+      TexImageParam => self.texture_params = TextureParams::from_bits_retain(entry.param),
+      PlttBase => self.palette_base = entry.param & 0xfff,
       SwapBuffers => {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
@@ -478,47 +483,16 @@ impl Engine3d {
 
         self.polygons_ready = true;
       }
-      Viewport => {
-        self.viewport.write(entry.param);
+      Viewport => self.viewport.write(entry.param),
+      MtxLoad4x4 => self.load_4_by_n_matrix(entry, MtxLoad4x4.get_num_params(), 4),
+      MtxLoad4x3 => self.load_4_by_n_matrix(entry, MtxLoad4x3.get_num_params(), 3),
+      DifAmb => {
+        self.diffuse_reflection.write(entry.param as u16);
+        self.ambient_reflection.write((entry.param >> 16) as u16);
       }
-      MtxLoad4x4 => {
-        // if !self.command_started {
-        //   self.command_started = true;
-        //   self.command_params = MtxLoad4x4.get_num_params();
-
-        //   self.temp_matrix = Vec::with_capacity(4);
-
-        //   for _ in 0..4 {
-        //     self.temp_matrix.push(Vec::with_capacity(4));
-        //   }
-        // }
-
-        // if self.command_params > 0 {
-
-        //   let index_raw = MtxLoad4x4.get_num_params() - self.command_params;
-
-        //   let row = index_raw / 4;
-
-        //   self.temp_matrix[row].push(entry.param as i32);
-
-        //   self.command_params -= 1;
-
-        //   if self.command_params == 0 {
-        //     // load the matrix
-        //     let matrix = Matrix::from(self.temp_matrix.clone());
-
-        //     println!("{:x?}", matrix);
-
-        //     self.load_matrix(matrix);
-
-        //     self.command_started = false;
-        //     self.temp_matrix = Vec::new();
-        //   }
-        // }
-        self.load_4_by_n_matrix(entry, MtxLoad4x4.get_num_params(), 4);
-      }
-      MtxLoad4x3 => {
-        self.load_4_by_n_matrix(entry, MtxLoad4x3.get_num_params(), 3);
+      SpeEmi => {
+        self.specular_reflection.write(entry.param as u16);
+        self.emission.write((entry.param >> 16) as u16);
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
