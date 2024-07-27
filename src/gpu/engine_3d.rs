@@ -228,6 +228,7 @@ pub struct Engine3d {
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
   toon_table: [Color; 32],
+  shininess_table: [u8; 128],
   matrix_mode: MatrixMode,
   current_position_matrix: Matrix,
   current_vector_matrix: Matrix,
@@ -239,7 +240,9 @@ pub struct Engine3d {
   texture_stack: Matrix,
   position_stack: [Matrix; 32],
   vector_stack: [Matrix; 32],
-  projection_stack: Matrix
+  projection_stack: Matrix,
+  command_started: bool,
+  command_params: usize
 }
 
 impl Engine3d {
@@ -260,6 +263,7 @@ impl Engine3d {
       fog_offset: 0,
       edge_colors:  [Color::new(); 8],
       toon_table: [Color::new(); 32],
+      shininess_table: [0; 128],
       fog_table: [0; 32],
       matrix_mode: MatrixMode::Projection,
       current_position_matrix: Matrix::new(),
@@ -272,7 +276,9 @@ impl Engine3d {
       texture_stack: Matrix::new(),
       position_vector_sp: 0,
       projection_sp: 0,
-      texture_sp: 0
+      texture_sp: 0,
+      command_started: false,
+      command_params: 0
     }
   }
 
@@ -393,6 +399,26 @@ impl Engine3d {
 
             self.current_texture_matrix = self.texture_stack.clone();
           }
+        }
+      }
+      Shininess => {
+        if !self.command_started {
+          self.command_started = true;
+          self.command_params = Shininess.get_num_params();
+        }
+
+        if self.command_params > 0 {
+          // process shininess values
+          let i = (Shininess.get_num_params() - self.command_params) * 4;
+
+          self.shininess_table[i] = entry.param as u8;
+          self.shininess_table[i + 1] = (entry.param >> 8) as u8;
+          self.shininess_table[i + 2] = (entry.param >> 16) as u8;
+          self.shininess_table[i + 3] = (entry.param >> 24) as u8;
+
+          self.command_params -= 1;
+        } else {
+          self.command_started = false;
         }
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
