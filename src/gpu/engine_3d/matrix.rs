@@ -5,22 +5,16 @@ pub const UNIT_MATRIX: [[i32; 4]; 4] = [
   [0,0,0,0x1000]
 ];
 
-#[derive(Clone, Debug)]
-pub struct Matrix {
-  pub data: Vec<Vec<i32>>
-}
+#[derive(Clone, Copy, Debug)]
+pub struct Matrix(pub [[i32; 4]; 4]);
 
 impl Matrix {
   pub fn new() -> Self {
-    Self {
-      data: UNIT_MATRIX.iter().map(|row| row.to_vec()).collect()
-    }
+    Matrix(UNIT_MATRIX)
   }
 
-  pub fn from(data: Vec<Vec<i32>>) -> Self {
-    Self {
-      data
-    }
+  pub fn from(data: [[i32; 4]; 4]) -> Self {
+    Matrix(data)
   }
 
   pub fn create_vector_position_stack() -> [Matrix; 32] {

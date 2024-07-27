@@ -264,7 +264,7 @@ pub struct Engine3d {
   depth_buffering_with_w: bool,
   polygons_ready: bool,
   viewport: Viewport,
-  temp_matrix: Vec<Vec<i32>>
+  temp_matrix: Matrix
 }
 
 impl Engine3d {
@@ -308,7 +308,7 @@ impl Engine3d {
       depth_buffering_with_w: false,
       polygons_ready: false,
       viewport: Viewport::new(),
-      temp_matrix: Vec::new()
+      temp_matrix: Matrix::new()
     }
   }
 
@@ -529,11 +529,7 @@ impl Engine3d {
       self.command_started = true;
       self.command_params = num_params;
 
-      self.temp_matrix = Vec::with_capacity(4);
-
-      for _ in 0..4 {
-        self.temp_matrix.push(Vec::with_capacity(4));
-      }
+      self.temp_matrix = Matrix::new();
     }
 
     if self.command_params > 0 {
@@ -541,8 +537,9 @@ impl Engine3d {
       let index_raw = num_params - self.command_params;
 
       let row = index_raw / n;
+      let column = index_raw % n;
 
-      self.temp_matrix[row].push(entry.param as i32);
+      self.temp_matrix.0[row][column] = entry.param as i32;
 
       self.command_params -= 1;
 
@@ -550,40 +547,37 @@ impl Engine3d {
         if n == 3 {
           // for 4x3 matrices, fill the fourth column of each row with 0, or the last slot with a fixed point 1
           for row in 0..3 {
-            self.temp_matrix[row].push(0);
+            self.temp_matrix.0[row][3] = 0;
           }
-          self.temp_matrix[3].push(0x1000);
+          self.temp_matrix.0[3][3] = 0x1000;
         }
 
         // load the matrix
-        let matrix = Matrix::from(self.temp_matrix.clone());
+        println!("{:x?}", self.temp_matrix);
 
-        println!("{:x?}", matrix);
-
-        self.load_matrix(matrix);
+        self.load_matrix();
 
         self.command_started = false;
-        self.temp_matrix = Vec::new();
       }
     }
   }
 
-  fn load_matrix(&mut self, matrix: Matrix) {
+  fn load_matrix(&mut self) {
     // TODO: recalculate clip matrix
     match self.matrix_mode {
       MatrixMode::Position  => {
-        self.current_position_matrix = matrix;
+        self.current_position_matrix = self.temp_matrix;
 
       }
       MatrixMode::Projection => {
-        self.current_projection_matrix = matrix;
+        self.current_projection_matrix = self.temp_matrix;
       }
       MatrixMode::Texture => {
-        self.current_texture_matrix = matrix;
+        self.current_texture_matrix = self.temp_matrix;
       }
       MatrixMode::PositionAndVector => {
-        self.current_position_matrix = matrix.clone();
-        self.current_projection_matrix = matrix;
+        self.current_position_matrix = self.temp_matrix;
+        self.current_projection_matrix = self.temp_matrix;
       }
     }
   }
