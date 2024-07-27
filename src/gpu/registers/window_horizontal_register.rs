@@ -1,4 +1,6 @@
-#[derive(Clone, Copy)]
+use crate::gpu::SCREEN_WIDTH;
+
+#[derive(Clone, Copy, Debug)]
 pub struct WindowHorizontalRegister {
   pub x1: u16,
   pub x2: u16,
@@ -18,10 +20,16 @@ impl WindowHorizontalRegister {
     self.val = value;
 
     let mut x2 = value & 0xff;
-    let x1 = value >> 8;
+    let mut x1 = value >> 8;
 
-    if x1 > x2 || x2 > 240 {
-      x2 = 240;
+    if x1 > x2 {
+      let temp = x2;
+      x2 = x1;
+      x1 = temp;
+    }
+
+    if x2 > SCREEN_WIDTH {
+      x2 = SCREEN_WIDTH;
     }
 
     self.x1 = x1;

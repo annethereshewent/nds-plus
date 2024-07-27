@@ -1,4 +1,6 @@
-#[derive(Clone, Copy)]
+use crate::gpu::SCREEN_HEIGHT;
+
+#[derive(Clone, Copy, Debug)]
 pub struct WindowVerticalRegister {
   pub val: u16,
   pub y1: u16,
@@ -18,10 +20,16 @@ impl WindowVerticalRegister {
     self.val = value;
 
     let mut y2 = value & 0xff;
-    let y1 = value >> 8;
+    let mut y1 = value >> 8;
 
-    if y1 > y2 || y2 > 160 {
-      y2 = 160;
+    if y1 > y2 {
+      let temp = y2;
+      y2 = y1;
+      y1 = temp;
+    }
+
+    if y2 > SCREEN_HEIGHT {
+      y2 = SCREEN_HEIGHT;
     }
 
     self.y1 = y1;
