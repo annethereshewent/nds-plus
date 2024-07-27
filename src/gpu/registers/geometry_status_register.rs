@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::gpu::engine_3d::GeometryCommand;
+use crate::gpu::engine_3d::GeometryCommandEntry;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum GeometryIrq {
@@ -30,7 +30,7 @@ impl GeometryStatusRegister {
     }
   }
 
-  pub fn read(&self, position_stack_level: u32, projection_stack_level: u32, fifo: &VecDeque<GeometryCommand>) -> u32 {
+  pub fn read(&self, position_stack_level: u32, projection_stack_level: u32, fifo: &VecDeque<GeometryCommandEntry>) -> u32 {
     (self.test_busy as u32) |
       (self.box_test_result as u32) << 1 |
       (position_stack_level & 0x1f) << 8 |

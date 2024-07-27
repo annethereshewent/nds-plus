@@ -236,6 +236,9 @@ impl GPU {
       self.frame_finished = true;
 
       self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
+    } else if self.vcount == NUM_LINES - 48 {
+      // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
+      self.engine3d.start_rendering();
     }
 
     for i in 0..2 {
@@ -459,7 +462,6 @@ impl GPU {
     for dispstat in &mut self.dispstat {
       dispstat.flags.insert(DispStatFlags::VBLANK);
     }
-    // TODO: 3d rendering and possibly other stuff
   }
 
   fn render_line(&mut self) {

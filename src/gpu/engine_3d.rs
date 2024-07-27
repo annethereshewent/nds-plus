@@ -1,6 +1,18 @@
 use std::collections::VecDeque;
 
+use matrix::{Matrix, UNIT_MATRIX};
+
 use super::{color::Color, registers::{clear_color_register::ClearColorRegister, fog_color_register::FogColorRegister, geometry_status_register::GeometryStatusRegister}};
+
+pub  mod matrix;
+
+#[derive(Copy, Clone, PartialEq)]
+enum MatrixMode {
+  Projection,
+  Position,
+  PositionAndVector,
+  Texture
+}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Command {
@@ -178,12 +190,12 @@ impl Command {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct GeometryCommand {
+pub struct GeometryCommandEntry {
   command: Command,
   param: u32
 }
 
-impl GeometryCommand {
+impl GeometryCommandEntry {
   pub fn new() -> Self {
     Self {
       command: Command::Nop,
@@ -200,7 +212,7 @@ impl GeometryCommand {
 }
 
 pub struct Engine3d {
-  fifo: VecDeque<GeometryCommand>,
+  fifo: VecDeque<GeometryCommandEntry>,
   sent_commands: bool,
   packed_commands: VecDeque<u8>,
   current_command: Option<Command>,
@@ -215,7 +227,19 @@ pub struct Engine3d {
   fog_offset: u16,
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
-  toon_table: [Color; 32]
+  toon_table: [Color; 32],
+  matrix_mode: MatrixMode,
+  current_position_matrix: Matrix,
+  current_vector_matrix: Matrix,
+  current_projection_matrix: Matrix,
+  current_texture_matrix: Matrix,
+  position_vector_sp: u8,
+  projection_sp: u8,
+  texture_sp: u8,
+  texture_stack: Matrix,
+  position_stack: [Matrix; 32],
+  vector_stack: [Matrix; 32],
+  projection_stack: Matrix
 }
 
 impl Engine3d {
@@ -236,7 +260,19 @@ impl Engine3d {
       fog_offset: 0,
       edge_colors:  [Color::new(); 8],
       toon_table: [Color::new(); 32],
-      fog_table: [0; 32]
+      fog_table: [0; 32],
+      matrix_mode: MatrixMode::Projection,
+      current_position_matrix: Matrix::new(),
+      current_projection_matrix: Matrix::new(),
+      current_vector_matrix: Matrix::new(),
+      current_texture_matrix: Matrix::new(),
+      projection_stack: Matrix::new(),
+      position_stack: Matrix::create_vector_position_stack(),
+      vector_stack: Matrix::create_vector_position_stack(),
+      texture_stack: Matrix::new(),
+      position_vector_sp: 0,
+      projection_sp: 0,
+      texture_sp: 0
     }
   }
 
@@ -290,7 +326,77 @@ impl Engine3d {
   pub fn write_geometry_command(&mut self, address: u32, value: u32) {
     let command = Command::from_address(address & 0xfff);
 
-    // self.fifo.push_back(GeometryCommand::from(command, value));
+    self.fifo.push_back(GeometryCommandEntry::from(command, value));
+  }
+
+  pub fn start_rendering(&mut self) {
+    while let Some(entry) = self.fifo.pop_front() {
+      self.execute_command(entry);
+    }
+  }
+
+  fn execute_command(&mut self, entry: GeometryCommandEntry) {
+    use Command::*;
+    match entry.command {
+      EndVtxs => (), // just a NOP,
+      MtxMode => {
+        self.matrix_mode = match entry.param & 0x3 {
+          0 => MatrixMode::Projection,
+          1 => MatrixMode::Position,
+          2 => MatrixMode::PositionAndVector,
+          3 => MatrixMode::Texture,
+          _ => unreachable!()
+        };
+      }
+      MtxIdentity => {
+        match self.matrix_mode {
+          MatrixMode::Position => {
+            self.current_position_matrix = Matrix::new();
+          }
+          MatrixMode::PositionAndVector => {
+            self.current_position_matrix = Matrix::new();
+            self.current_vector_matrix = Matrix::new();
+          }
+          MatrixMode::Projection => {
+            self.current_projection_matrix = Matrix::new();
+          }
+          MatrixMode::Texture => {
+            self.current_texture_matrix = Matrix::new();
+          }
+        }
+      }
+      MtxPop => {
+        let offset =((entry.param & 0x3f) as i8) << 2 >> 2;
+        match self.matrix_mode {
+          MatrixMode::PositionAndVector | MatrixMode::Position => {
+            self.position_vector_sp = (self.position_vector_sp as i8).wrapping_sub(offset).clamp(0, 63) as u8;
+
+            // TODO: set overflow true on value greater than or equal to 31
+
+            self.current_position_matrix = self.position_stack[(self.position_vector_sp as usize) & 31].clone();
+            self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31].clone();
+            // TODO: recalculate clip matrix
+          }
+          MatrixMode::Projection => {
+            if self.projection_sp > 0 {
+              self.projection_sp -= 1;
+            }
+
+            self.current_projection_matrix = self.projection_stack.clone();
+
+            // TODO: recalculate clip matrix
+          }
+          MatrixMode::Texture => {
+            if self.texture_sp > 0 {
+              self.texture_sp -= 1;
+            }
+
+            self.current_texture_matrix = self.texture_stack.clone();
+          }
+        }
+      }
+      _ => panic!("command not implemented yet: {:?}", entry.command)
+    }
   }
 
   fn process_commands(&mut self, value: u32) {
@@ -303,10 +409,8 @@ impl Engine3d {
 
       self.num_params = current_command.get_num_params();
 
-      println!("num params = {}", self.num_params);
-
       if current_command != Command::Nop {
-        self.fifo.push_back(GeometryCommand::from(current_command, value));
+        self.fifo.push_back(GeometryCommandEntry::from(current_command, value));
       }
 
       if current_command.get_num_params() > 1 {
@@ -315,51 +419,44 @@ impl Engine3d {
     }
 
     if self.num_params == self.params_processed {
-      println!("waiting for the next command");
       self.sent_commands = false;
     }
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32) {
-    // if !self.sent_commands {
-    //   println!("writing to the geometry fifo value {:x}", value);
-    //   if value == 0 {
-    //     // there's nothing to do here, just short circuit early
-    //     return;
-    //   }
+    if !self.sent_commands {
+      if value == 0 {
+        // there's nothing to do here, just short circuit early
+        return;
+      }
 
-    //   self.packed_commands = VecDeque::with_capacity(4);
+      self.packed_commands = VecDeque::with_capacity(4);
 
-    //   let mut val = value;
+      let mut val = value;
 
-    //   println!("received value {:x}", value);
+      while val != 0 {
+        self.packed_commands.push_back(val as u8);
+        val >>= 8;
+      }
 
-    //   while val != 0 {
-    //     self.packed_commands.push_back(val as u8);
-    //     val >>= 8;
-    //   }
+      self.sent_commands = true;
+    } else {
+      // process parameters for the commands
+      if self.current_command.is_none() {
+        self.process_commands(value);
+      } else if self.params_processed < self.num_params {
+        let current_command = self.current_command.unwrap();
 
-    //   self.sent_commands = true;
-    // } else {
-    //   // process parameters for the commands
-    //   if self.current_command.is_none() {
-    //     self.process_commands(value);
-    //   } else if self.params_processed < self.num_params {
-    //     let current_command = self.current_command.unwrap();
+        self.fifo.push_back(GeometryCommandEntry::from(current_command, value));
 
-    //     self.fifo.push_back(GeometryCommand::from(current_command, value));
+        self.params_processed += 1;
 
-    //     self.params_processed += 1;
-
-    //     println!("params processed = {}", self.params_processed);
-
-    //     if self.params_processed == self.num_params && self.packed_commands.is_empty() {
-    //       println!("waiting for the next command");
-    //       self.sent_commands = false;
-    //     }
-    //   } else {
-    //     self.process_commands(value);
-    //   }
-    // }
+        if self.params_processed == self.num_params && self.packed_commands.is_empty() {
+          self.sent_commands = false;
+        }
+      } else {
+        self.process_commands(value);
+      }
+    }
   }
 }
