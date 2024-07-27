@@ -17,7 +17,7 @@ impl BgControlRegister {
   }
 
   pub fn screen_base_block(&self) -> u16 {
-    (self.bits() >> 8) & 0b11111
+    (self.bits() >> 8) & 0x1f
   }
 
   pub fn screen_size(&self) -> u16 {

@@ -102,17 +102,18 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             if self.obj_lines[x as usize].is_window {
               self.finalize_pixel(x, y, &outside_layers, WindowType::Obj);
             } else {
-              self.finalize_pixel(x, y, &outside_layers, WindowType::Out)
+              self.finalize_pixel(x, y, &outside_layers, WindowType::Out);
             }
             occupied[x as usize] = true;
           }
         }
-      } else {
-        for x in 0..SCREEN_WIDTH {
-          if !occupied[x as usize] {
-            self.finalize_pixel(x, y, &outside_layers, WindowType::Out);
-            occupied[x as usize] = true;
-          }
+      }
+
+      // lastly do any remaining outside window pixels
+      for x in 0..SCREEN_WIDTH {
+        if !occupied[x as usize] {
+          self.finalize_pixel(x, y, &outside_layers, WindowType::Out);
+          occupied[x as usize] = true;
         }
       }
     } else {

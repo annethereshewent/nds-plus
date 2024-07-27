@@ -180,11 +180,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode4 => {
-        for i in 1..2 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
-          }
+        if self.bg_mode_enabled(1) {
+          self.render_text_line(1, y, vram);
         }
+
 
         if self.bg_mode_enabled(2) {
           self.render_affine_line(2, y, vram, AffineType::Normal);
@@ -195,10 +194,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode5 => {
-        for i in 1..2 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
-          }
+        if self.bg_mode_enabled(1) {
+          self.render_text_line(1, y, vram);
         }
 
         if self.bg_mode_enabled(2) {
@@ -210,10 +207,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
       }
       BgMode::Mode6 => {
-        // TODO: 3d rendering
-        // if self.bg_mode_enabled(0) {
-        //   self.render_3d_line();
-        // }
         self.render_affine_line(2, y, vram, AffineType::Large)
       }
     }
@@ -437,7 +430,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let lower = self.palette_ram[index];
       let upper = self.palette_ram[index + 1];
 
-      ((lower as u16) | (upper as u16) << 8) & 0x7fff
+      (lower as u16) | (upper as u16) << 8
     };
 
     if value == COLOR_TRANSPARENT {
@@ -486,7 +479,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       (vram.read_engine_b_extended_obj_palette(address) as u16) | (vram.read_engine_b_extended_obj_palette(address + 1) as u16) << 8
     };
 
-    if color != COLOR_TRANSPARENT {
+    if color != COLOR_TRANSPARENT && index != 0 {
       Some(Color::from(color))
     } else {
       None
@@ -837,10 +830,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
 
-          if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
+          if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
             self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
           } else {
-            self.get_bg_palette_color(palette_index as usize, 0 as usize)
+            self.get_bg_palette_color(palette_index as usize, 0)
           }
         }
         AffineType::Normal => {
@@ -886,7 +879,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.get_bg_palette_color(palette_index as usize, 0)
         }
         AffineType::Large => {
-          let palette_address = y as u32 * texture_size as u32 + x as u32;
+          let palette_address = transformed_y as u32 * texture_size as u32 + transformed_x as u32;
 
           let palette_index = if !IS_ENGINE_B {
             vram.read_engine_a_bg(palette_address)
@@ -897,6 +890,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.get_bg_palette_color(palette_index as usize, 0)
         }
       };
+    }
+  }
+
+  pub fn on_end_vblank(&mut self) {
+    for bg_prop in &mut self.bg_props {
+      bg_prop.internal_x = bg_prop.x;
+      bg_prop.internal_y = bg_prop.y;
     }
   }
 }
