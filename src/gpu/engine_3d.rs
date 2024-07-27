@@ -276,7 +276,8 @@ pub struct Engine3d {
   specular_reflection: SpecularColor,
   emission: Color,
   lights: [Light; 4],
-  vertex_color: Color
+  vertex_color: Color,
+  vec_result: [i32; 4]
 }
 
 impl Engine3d {
@@ -326,7 +327,8 @@ impl Engine3d {
       emission: Color::new(),
       specular_reflection: SpecularColor::new(),
       lights: [Light::new(); 4],
-      vertex_color: Color::new()
+      vertex_color: Color::new(),
+      vec_result: [0; 4]
     }
   }
 
@@ -497,6 +499,7 @@ impl Engine3d {
 
         if self.diffuse_reflection.set_vertex_color {
           self.vertex_color.write(entry.param as u16);
+          self.vertex_color.to_rgb6();
         }
 
         self.ambient_reflection.write((entry.param >> 16) as u16);
@@ -516,11 +519,11 @@ impl Engine3d {
         let z = ((entry.param >> 14) as i16) >> 6;
         let i = ((entry.param >> 30) & 0x3) as usize;
 
-        let (x, y, z) = self.current_vector_matrix.multiply_row(&[x as i32, y as i32, z as i32]);
+        let transformed = self.current_vector_matrix.multiply_row(&[x as i32, y as i32, z as i32, 0], 12);
 
-        self.lights[i].x = x as i16;
-        self.lights[i].y = y as i16;
-        self.lights[i].z = z as i16;
+        self.lights[i].x = transformed[0] as i16;
+        self.lights[i].y = transformed[1] as i16;
+        self.lights[i].z = transformed[2] as i16;
 
         println!("{:?}", self.lights[i]);
       }
@@ -530,7 +533,17 @@ impl Engine3d {
 
         println!("{:x?}", self.vertex_color);
       }
+      VecTest => {
+        let x = (entry.param as i16) << 6 >> 6;
+        let y = ((entry.param >> 4) as i16) >> 6;
+        let z = ((entry.param >> 14) as i16) >> 6;
 
+        let transformed = self.current_vector_matrix.multiply_row(&[x as i32, y as i32, z as i32, 0], 12);
+
+        println!("{:x?}", transformed);
+
+        self.vec_result = transformed;
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
