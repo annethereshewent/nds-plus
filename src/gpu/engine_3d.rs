@@ -356,7 +356,7 @@ impl Engine3d {
   pub fn write_geometry_command(&mut self, address: u32, value: u32) {
     let command = Command::from_address(address & 0xfff);
 
-    self.fifo.push_back(GeometryCommandEntry::from(command, value));
+    self.push_command(GeometryCommandEntry::from(command, value));
   }
 
   pub fn execute_commands(&mut self) {
@@ -376,7 +376,7 @@ impl Engine3d {
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
     use Command::*;
     match entry.command {
-      EndVtxs => (), // just a NOP,
+      EndVtxs => (), // just a NOP
       MtxMode => {
         self.matrix_mode = match entry.param & 0x3 {
           0 => MatrixMode::Projection,
@@ -488,7 +488,7 @@ impl Engine3d {
       self.num_params = current_command.get_num_params();
 
       if current_command != Command::Nop {
-        self.fifo.push_back(GeometryCommandEntry::from(current_command, value));
+        self.push_command(GeometryCommandEntry::from(current_command, value));
       }
 
       if current_command.get_num_params() > 1 {
@@ -499,6 +499,12 @@ impl Engine3d {
     if self.num_params == self.params_processed {
       self.sent_commands = false;
     }
+  }
+
+  pub fn push_command(&mut self, entry: GeometryCommandEntry) {
+    self.fifo.push_back(entry);
+
+    self.execute_commands();
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32) {
@@ -525,7 +531,7 @@ impl Engine3d {
       } else if self.params_processed < self.num_params {
         let current_command = self.current_command.unwrap();
 
-        self.fifo.push_back(GeometryCommandEntry::from(current_command, value));
+        self.push_command(GeometryCommandEntry::from(current_command, value));
 
         self.params_processed += 1;
 
