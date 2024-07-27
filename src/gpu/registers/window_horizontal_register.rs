@@ -20,15 +20,9 @@ impl WindowHorizontalRegister {
     self.val = value;
 
     let mut x2 = value & 0xff;
-    let mut x1 = value >> 8;
+    let x1 = value >> 8;
 
-    if x1 > x2 {
-      let temp = x2;
-      x2 = x1;
-      x1 = temp;
-    }
-
-    if x2 > SCREEN_WIDTH {
+    if x1 > x2 || x2 > SCREEN_WIDTH {
       x2 = SCREEN_WIDTH;
     }
 

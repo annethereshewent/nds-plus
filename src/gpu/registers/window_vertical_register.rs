@@ -20,15 +20,9 @@ impl WindowVerticalRegister {
     self.val = value;
 
     let mut y2 = value & 0xff;
-    let mut y1 = value >> 8;
+    let y1 = value >> 8;
 
-    if y1 > y2 {
-      let temp = y2;
-      y2 = y1;
-      y1 = temp;
-    }
-
-    if y2 > SCREEN_HEIGHT {
+    if y1 > y2 || y2 > SCREEN_HEIGHT {
       y2 = SCREEN_HEIGHT;
     }
 
