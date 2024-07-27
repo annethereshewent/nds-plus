@@ -10,12 +10,12 @@ pub enum GeometryIrq {
 }
 
 pub struct GeometryStatusRegister {
-  test_busy: bool,
-  box_test_result: bool,
-  matrix_stack_busy: bool,
-  matrix_stack_error: bool,
-  geometry_engine_busy: bool,
-  geometry_irq: GeometryIrq
+  pub test_busy: bool,
+  pub box_test_result: bool,
+  pub matrix_stack_busy: bool,
+  pub matrix_stack_error: bool,
+  pub geometry_engine_busy: bool,
+  pub geometry_irq: GeometryIrq
 }
 
 impl GeometryStatusRegister {

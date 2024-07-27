@@ -239,6 +239,8 @@ impl GPU {
     } else if self.vcount == NUM_LINES - 48 {
       // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
       self.engine3d.start_rendering();
+
+      self.engine3d.execute_commands();
     }
 
     for i in 0..2 {

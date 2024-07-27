@@ -1,10 +1,22 @@
 use std::collections::VecDeque;
 
-use matrix::{Matrix, UNIT_MATRIX};
+use matrix::Matrix;
+use polygon_attributes::PolygonAttributes;
+use texture_params::TextureParams;
 
-use super::{color::Color, registers::{clear_color_register::ClearColorRegister, fog_color_register::FogColorRegister, geometry_status_register::GeometryStatusRegister}};
+use super::{
+  color::Color,
+  registers::{
+    clear_color_register::ClearColorRegister,
+    fog_color_register::FogColorRegister,
+    geometry_status_register::GeometryStatusRegister
+  }
+};
 
-pub  mod matrix;
+pub mod matrix;
+pub mod polygon_attributes;
+pub mod texture_params;
+pub mod rendering3d;
 
 #[derive(Copy, Clone, PartialEq)]
 enum MatrixMode {
@@ -242,7 +254,13 @@ pub struct Engine3d {
   vector_stack: [Matrix; 32],
   projection_stack: Matrix,
   command_started: bool,
-  command_params: usize
+  command_params: usize,
+  polygon_attributes: PolygonAttributes,
+  texture_params: TextureParams,
+  palette_base: u32,
+  transluscent_polygon_sort: bool,
+  depth_buffering_with_w: bool,
+  polygons_ready: bool
 }
 
 impl Engine3d {
@@ -278,7 +296,13 @@ impl Engine3d {
       projection_sp: 0,
       texture_sp: 0,
       command_started: false,
-      command_params: 0
+      command_params: 0,
+      polygon_attributes: PolygonAttributes::from_bits_retain(0),
+      texture_params: TextureParams::from_bits_retain(0),
+      palette_base: 0,
+      transluscent_polygon_sort: false,
+      depth_buffering_with_w: false,
+      polygons_ready: false
     }
   }
 
@@ -335,10 +359,18 @@ impl Engine3d {
     self.fifo.push_back(GeometryCommandEntry::from(command, value));
   }
 
-  pub fn start_rendering(&mut self) {
-    while let Some(entry) = self.fifo.pop_front() {
-      self.execute_command(entry);
+  pub fn execute_commands(&mut self) {
+    if !self.polygons_ready {
+      while let Some(entry) = self.fifo.pop_front() {
+        self.execute_command(entry);
+
+        if self.polygons_ready {
+          break;
+        }
+      }
     }
+
+    // TODO: check interrupts here, also DMA timing
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
@@ -417,12 +449,32 @@ impl Engine3d {
           self.shininess_table[i + 3] = (entry.param >> 24) as u8;
 
           self.command_params -= 1;
-        } else {
-          self.command_started = false;
+
+          if self.command_params == 0 {
+            self.command_started = false;
+          }
         }
+      }
+      PolygonAttr => {
+        self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param);
+      }
+      TexImageParam => {
+        self.texture_params = TextureParams::from_bits_retain(entry.param);
+      }
+      PlttBase => {
+        self.palette_base = entry.param & 0xfff;
+      }
+      SwapBuffers => {
+        self.transluscent_polygon_sort = entry.param & 0b1 == 1;
+        self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
+
+        self.gxstat.geometry_engine_busy = true;
+
+        self.polygons_ready = true;
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
+
   }
 
   fn process_commands(&mut self, value: u32) {
