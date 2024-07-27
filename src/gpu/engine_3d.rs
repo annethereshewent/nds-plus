@@ -6,6 +6,7 @@ use matrix::Matrix;
 use polygon_attributes::PolygonAttributes;
 use specular_color::SpecularColor;
 use texture_params::TextureParams;
+use vertex::Vertex;
 use viewport::Viewport;
 
 use super::{
@@ -25,6 +26,27 @@ pub mod viewport;
 pub mod diffuse_color;
 pub mod specular_color;
 pub mod light;
+pub mod vertex;
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum PrimitiveType {
+  Triangles,
+  Quads,
+  QuadStrips,
+  TriangleStrips
+}
+
+impl PrimitiveType {
+  pub fn from(value: u32) -> Self {
+    match value & 0x3 {
+      0 => PrimitiveType::Triangles,
+      1 => PrimitiveType::Quads,
+      2 => PrimitiveType::TriangleStrips,
+      3 => PrimitiveType::QuadStrips,
+      _ => unreachable!()
+    }
+  }
+}
 
 #[derive(Copy, Clone, PartialEq)]
 enum MatrixMode {
@@ -264,6 +286,7 @@ pub struct Engine3d {
   command_started: bool,
   command_params: usize,
   polygon_attributes: PolygonAttributes,
+  internal_polygon_attributes: PolygonAttributes,
   texture_params: TextureParams,
   palette_base: u32,
   transluscent_polygon_sort: bool,
@@ -277,7 +300,10 @@ pub struct Engine3d {
   emission: Color,
   lights: [Light; 4],
   vertex_color: Color,
-  vec_result: [i32; 4]
+  vec_result: [i32; 4],
+  primitive_type: PrimitiveType,
+  current_vertices: Vec<Vertex>,
+  translation_matrix: [i32; 3]
 }
 
 impl Engine3d {
@@ -315,6 +341,7 @@ impl Engine3d {
       command_started: false,
       command_params: 0,
       polygon_attributes: PolygonAttributes::from_bits_retain(0),
+      internal_polygon_attributes: PolygonAttributes::from_bits_retain(0),
       texture_params: TextureParams::from_bits_retain(0),
       palette_base: 0,
       transluscent_polygon_sort: false,
@@ -328,7 +355,10 @@ impl Engine3d {
       specular_reflection: SpecularColor::new(),
       lights: [Light::new(); 4],
       vertex_color: Color::new(),
-      vec_result: [0; 4]
+      vec_result: [0; 4],
+      primitive_type: PrimitiveType::Triangles,
+      current_vertices: Vec::new(),
+      translation_matrix: [0; 3]
     }
   }
 
@@ -437,8 +467,10 @@ impl Engine3d {
 
             // TODO: set overflow true on value greater than or equal to 31
 
-            self.current_position_matrix = self.position_stack[(self.position_vector_sp as usize) & 31].clone();
-            self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31].clone();
+            self.current_position_matrix = self.position_stack[(self.position_vector_sp as usize) & 31];
+            self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31];
+
+            println!("vec matrix is now {:x?}", self.current_vector_matrix);
             // TODO: recalculate clip matrix
           }
           MatrixMode::Projection => {
@@ -446,7 +478,7 @@ impl Engine3d {
               self.projection_sp -= 1;
             }
 
-            self.current_projection_matrix = self.projection_stack.clone();
+            self.current_projection_matrix = self.projection_stack;
 
             // TODO: recalculate clip matrix
           }
@@ -455,7 +487,7 @@ impl Engine3d {
               self.texture_sp -= 1;
             }
 
-            self.current_texture_matrix = self.texture_stack.clone();
+            self.current_texture_matrix = self.texture_stack;
           }
         }
       }
@@ -544,6 +576,73 @@ impl Engine3d {
 
         self.vec_result = transformed;
       }
+      BeginVtxs => {
+        self.primitive_type = PrimitiveType::from(entry.param & 0x3);
+
+        self.internal_polygon_attributes = self.polygon_attributes;
+
+        self.current_vertices.clear();
+      }
+      MtxPush => {
+        match self.matrix_mode {
+          MatrixMode::PositionAndVector | MatrixMode::Position => {
+            // todo: set overflow on sp greater than 31
+
+            self.position_vector_sp += 1;
+
+            self.position_stack[(self.position_vector_sp & 31) as usize] = self.current_position_matrix;
+            self.vector_stack[(self.position_vector_sp & 31) as usize] = self.current_vector_matrix;
+          }
+          MatrixMode::Projection => {
+            self.projection_sp += 1;
+
+            self.projection_stack = self.current_projection_matrix;
+          }
+          MatrixMode::Texture => {
+            self.texture_sp += 1;
+
+            self.texture_stack = self.current_texture_matrix;
+          }
+        }
+      }
+      MtxTrans => {
+        if !self.command_started {
+          self.command_started = true;
+          self.command_params = MtxTrans.get_num_params();
+        }
+
+        if self.command_params > 0 {
+          let index = MtxTrans.get_num_params() - self.command_params;
+
+          self.translation_matrix[index] = entry.param as i32;
+
+          self.command_params -= 1;
+
+          if self.command_params == 0 {
+            match self.matrix_mode {
+              MatrixMode::Position => {
+                self.current_position_matrix.translate(&self.translation_matrix);
+              }
+              MatrixMode::PositionAndVector => {
+                self.current_position_matrix.translate(&self.translation_matrix);
+                self.current_vector_matrix.translate(&self.translation_matrix);
+
+                println!("{:x?}", self.current_vector_matrix);
+              }
+              MatrixMode::Projection => {
+                self.current_projection_matrix.translate(&self.translation_matrix);
+              }
+              MatrixMode::Texture => {
+                self.current_texture_matrix.translate(&self.translation_matrix);
+              }
+            }
+
+            self.command_started = false;
+          }
+        }
+
+
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
@@ -601,7 +700,7 @@ impl Engine3d {
       }
       MatrixMode::PositionAndVector => {
         self.current_position_matrix = self.temp_matrix;
-        self.current_projection_matrix = self.temp_matrix;
+        self.current_vector_matrix = self.temp_matrix;
       }
     }
   }

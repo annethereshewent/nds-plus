@@ -36,4 +36,15 @@ impl Matrix {
       (row[0] * matrix[0][3] + row[1] * matrix[1][3] + row[2] * matrix[2][3] + row[3] * matrix[3][3]) >> shift,
     ]
   }
+
+  pub fn translate(&mut self, row: &[i32]) {
+    let matrix = &mut self.0;
+
+    matrix[3][0] += (row[0] * matrix[0][0] + row[1] * matrix[1][0] + row[2] * matrix[3][0]) >> 12;
+    matrix[3][1] += (row[0] * matrix[0][1] + row[1] * matrix[1][1] + row[2] * matrix[3][1]) >> 12;
+    matrix[3][2] += (row[0] * matrix[0][2] + row[1] * matrix[1][2] + row[2] * matrix[3][2]) >> 12;
+    matrix[3][3] += (row[0] * matrix[0][3] + row[1] * matrix[1][3] + row[2] * matrix[3][3]) >> 12;
+
+    println!("{:x?}", matrix);
+  }
 }

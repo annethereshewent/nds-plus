@@ -5,7 +5,9 @@ pub enum PolygonMode {
   Shadow = 3
 }
 
+
 bitflags! {
+  #[derive(Copy, Clone)]
   pub struct PolygonAttributes: u32 {
     const SHOW_BACK_SURFACE = 1 << 6;
     const SHOW_FRONT_SURFACE = 1 << 7;
