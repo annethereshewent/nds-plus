@@ -212,6 +212,9 @@ impl GPU {
 
     if self.vcount == NUM_LINES {
       self.vcount = 0;
+
+      self.engine_a.on_end_vblank();
+      self.engine_b.on_end_vblank();
     }
 
     if self.vcount == 0 {
