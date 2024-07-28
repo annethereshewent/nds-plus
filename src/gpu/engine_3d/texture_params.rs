@@ -9,6 +9,8 @@ pub enum TextureFormat {
   Direct
 }
 
+
+#[derive(Copy, Clone, PartialEq)]
 pub enum TransformationMode {
   None = 0,
   TexCoord = 1,

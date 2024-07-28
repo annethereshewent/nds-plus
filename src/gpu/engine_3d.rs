@@ -5,7 +5,8 @@ use light::Light;
 use matrix::Matrix;
 use polygon_attributes::PolygonAttributes;
 use specular_color::SpecularColor;
-use texture_params::TextureParams;
+use texcoord::Texcoord;
+use texture_params::{TextureParams, TransformationMode};
 use vertex::Vertex;
 use viewport::Viewport;
 
@@ -27,6 +28,7 @@ pub mod diffuse_color;
 pub mod specular_color;
 pub mod light;
 pub mod vertex;
+pub mod texcoord;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum PrimitiveType {
@@ -44,6 +46,13 @@ impl PrimitiveType {
       2 => PrimitiveType::TriangleStrips,
       3 => PrimitiveType::QuadStrips,
       _ => unreachable!()
+    }
+  }
+
+  pub fn get_num_vertices(&self) -> usize {
+    match self {
+      Self::Triangles | Self::TriangleStrips => 3,
+      Self::Quads | Self::QuadStrips => 4
     }
   }
 }
@@ -303,7 +312,12 @@ pub struct Engine3d {
   vec_result: [i32; 4],
   primitive_type: PrimitiveType,
   current_vertices: Vec<Vertex>,
-  translation_matrix: [i32; 3]
+  translation_matrix: [i32; 3],
+  texcoord: Texcoord,
+  current_vertex: Vertex,
+  max_vertices: usize,
+  clip_vtx_recalculate: bool,
+  clip_matrix: Matrix
 }
 
 impl Engine3d {
@@ -358,7 +372,12 @@ impl Engine3d {
       vec_result: [0; 4],
       primitive_type: PrimitiveType::Triangles,
       current_vertices: Vec::new(),
-      translation_matrix: [0; 3]
+      translation_matrix: [0; 3],
+      texcoord: Texcoord::new(),
+      current_vertex: Vertex::new(),
+      max_vertices: 0,
+      clip_vtx_recalculate: false,
+      clip_matrix: Matrix::new()
     }
   }
 
@@ -446,13 +465,17 @@ impl Engine3d {
         match self.matrix_mode {
           MatrixMode::Position => {
             self.current_position_matrix = Matrix::new();
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::PositionAndVector => {
             self.current_position_matrix = Matrix::new();
             self.current_vector_matrix = Matrix::new();
+
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Projection => {
             self.current_projection_matrix = Matrix::new();
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Texture => {
             self.current_texture_matrix = Matrix::new();
@@ -471,7 +494,8 @@ impl Engine3d {
             self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31];
 
             println!("vec matrix is now {:x?}", self.current_vector_matrix);
-            // TODO: recalculate clip matrix
+
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Projection => {
             if self.projection_sp > 0 {
@@ -481,6 +505,7 @@ impl Engine3d {
             self.current_projection_matrix = self.projection_stack;
 
             // TODO: recalculate clip matrix
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Texture => {
             if self.texture_sp > 0 {
@@ -581,6 +606,8 @@ impl Engine3d {
 
         self.internal_polygon_attributes = self.polygon_attributes;
 
+        self.max_vertices = self.primitive_type.get_num_vertices();
+
         self.current_vertices.clear();
       }
       MtxPush => {
@@ -622,15 +649,20 @@ impl Engine3d {
             match self.matrix_mode {
               MatrixMode::Position => {
                 self.current_position_matrix.translate(&self.translation_matrix);
+
+                self.clip_vtx_recalculate = true;
               }
               MatrixMode::PositionAndVector => {
                 self.current_position_matrix.translate(&self.translation_matrix);
                 self.current_vector_matrix.translate(&self.translation_matrix);
 
                 println!("{:x?}", self.current_vector_matrix);
+
+                self.clip_vtx_recalculate = true;
               }
               MatrixMode::Projection => {
                 self.current_projection_matrix.translate(&self.translation_matrix);
+                self.clip_vtx_recalculate = true;
               }
               MatrixMode::Texture => {
                 self.current_texture_matrix.translate(&self.translation_matrix);
@@ -640,11 +672,117 @@ impl Engine3d {
             self.command_started = false;
           }
         }
+      }
+      Texcoord => {
+        self.texcoord.u = entry.param as i16;
+        self.texcoord.v = (entry.param >> 16) as i16;
 
+        let matrix = self.current_texture_matrix.0;
 
+        let mut u = self.texcoord.u;
+        let mut v = self.texcoord.v;
+
+        match self.texture_params.transformation_mode() {
+          TransformationMode::None => (),
+          TransformationMode::TexCoord => {
+            u = ((u as i64 * matrix[0][0] as i64 + v as i64 * matrix[1][0] as i64 + matrix[2][0] as i64 + matrix[3][0] as i64) >> 12) as i16;
+            v = ((u as i64 * matrix[0][1] as i64 + v as i64 * matrix[1][1] as i64 + matrix[2][1] as i64 + matrix[3][1] as i64) >> 12) as i16;
+          }
+          TransformationMode::Normal => (),
+          TransformationMode::Vertex => todo!("not implemented yet")
+        }
+
+        println!("u = {:x} v = {:x}", u, v);
+
+        self.texcoord = self::Texcoord {
+          u,
+          v
+        }
+      }
+      Vtx16 => {
+        if !self.command_started {
+          self.command_started = true;
+
+          self.command_params = Vtx16.get_num_params();
+        }
+
+        if self.command_params > 0 {
+          self.command_params -= 1;
+
+          if self.command_params == 1 {
+            self.current_vertex = Vertex::new();
+
+            self.current_vertex.x = entry.param as i16;
+            self.current_vertex.y = (entry.param >> 16) as i16;
+
+          } else if self.command_params == 0 {
+            self.current_vertex.z = entry.param as i16;
+
+            self.add_vertex(self.current_vertex);
+
+            self.command_started = false;
+          }
+        }
+      }
+      VtxXy => {
+        self.current_vertex.x = entry.param as i16;
+        self.current_vertex.y = (entry.param >> 16) as i16;
+
+        self.add_vertex(self.current_vertex);
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
+  }
+
+  fn add_vertex(&mut self, vertex: Vertex) {
+    // TODO: check polygon ram overflow here
+
+    // recalculate clip matrix
+    if self.clip_vtx_recalculate {
+      self.recalculate_clip_matrix();
+    }
+
+    // transform texture and polygon vertices if needed
+    let transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
+
+    self.current_vertex.x = transformed[0] as i16;
+    self.current_vertex.y = transformed[1] as i16;
+    self.current_vertex.z = transformed[2] as i16;
+
+    if self.texture_params.transformation_mode() == TransformationMode::Vertex {
+      let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 12);
+
+      self.texcoord.u += transformed[0] as i16;
+      self.texcoord.v += transformed[1] as i16;
+    }
+
+    self.current_vertex.texcoord = self.texcoord;
+    self.current_vertex.color = self.vertex_color;
+
+    println!("submitting vertex {:x?}", self.current_vertex);
+
+    self.current_vertices.push(self.current_vertex);
+    if self.current_vertices.len() == self.max_vertices {
+      // submit the polygon
+      if self.primitive_type == PrimitiveType::QuadStrips {
+        self.current_vertices.swap(2, 3);
+      }
+
+      self.submit_polygon();
+    }
+  }
+
+  fn submit_polygon(&mut self) {
+    todo!("oops not ready");
+  }
+
+  fn recalculate_clip_matrix(&mut self) {
+    self.clip_matrix = self.current_position_matrix * self.current_projection_matrix;
+
+    println!("clip matrix is now {:x?}", self.clip_matrix);
+
+    self.clip_vtx_recalculate = false;
+
   }
 
   fn load_4_by_n_matrix(&mut self, entry: GeometryCommandEntry, num_params: usize, n: usize) {
@@ -691,9 +829,11 @@ impl Engine3d {
       MatrixMode::Position  => {
         self.current_position_matrix = self.temp_matrix;
 
+        self.clip_vtx_recalculate = true;
       }
       MatrixMode::Projection => {
         self.current_projection_matrix = self.temp_matrix;
+        self.clip_vtx_recalculate = true;
       }
       MatrixMode::Texture => {
         self.current_texture_matrix = self.temp_matrix;
@@ -701,6 +841,7 @@ impl Engine3d {
       MatrixMode::PositionAndVector => {
         self.current_position_matrix = self.temp_matrix;
         self.current_vector_matrix = self.temp_matrix;
+        self.clip_vtx_recalculate = true;
       }
     }
   }
