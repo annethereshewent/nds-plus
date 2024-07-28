@@ -77,6 +77,25 @@ impl Matrix {
       row[1] as i64 * matrix[1][3] as i64 +
       row[2] as i64 * matrix[2][3] as i64) >> 12) as i32;
   }
+
+  pub fn scale(&mut self, vector: &[i32]) {
+    let matrix = &mut self.0;
+
+    matrix[0][0] = ((vector[0] as i64 * matrix[0][0] as i64) >> 12) as i32;
+    matrix[0][1] = ((vector[0] as i64 * matrix[0][1] as i64) >> 12) as i32;
+    matrix[0][2] = ((vector[0] as i64 * matrix[0][2] as i64) >> 12) as i32;
+    matrix[0][3] = ((vector[0] as i64 * matrix[0][3] as i64) >> 12) as i32;
+
+    matrix[1][0] = ((vector[1] as i64 * matrix[1][0] as i64) >> 12) as i32;
+    matrix[1][1] = ((vector[1] as i64 * matrix[1][1] as i64) >> 12) as i32;
+    matrix[1][2] = ((vector[1] as i64 * matrix[1][2] as i64) >> 12) as i32;
+    matrix[1][3] = ((vector[1] as i64 * matrix[1][3] as i64) >> 12) as i32;
+
+    matrix[2][0] = ((vector[2] as i64 * matrix[2][0] as i64) >> 12) as i32;
+    matrix[2][1] = ((vector[2] as i64 * matrix[2][1] as i64) >> 12) as i32;
+    matrix[2][2] = ((vector[2] as i64 * matrix[2][2] as i64) >> 12) as i32;
+    matrix[2][3] = ((vector[2] as i64 * matrix[2][3] as i64) >> 12) as i32;
+  }
 }
 
 impl Mul for Matrix {

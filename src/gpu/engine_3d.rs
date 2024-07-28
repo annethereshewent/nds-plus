@@ -314,14 +314,15 @@ pub struct Engine3d {
   vec_result: [i32; 4],
   primitive_type: PrimitiveType,
   current_vertices: Vec<Vertex>,
-  translation_matrix: [i32; 3],
+  translation_vector: [i32; 3],
   texcoord: Texcoord,
   current_vertex: Vertex,
   max_vertices: usize,
   clip_vtx_recalculate: bool,
   clip_matrix: Matrix,
   vertices_buffer: Vec<Vertex>,
-  polygon_buffer: Vec<Polygon>
+  polygon_buffer: Vec<Polygon>,
+  scale_vector: [i32; 3]
 }
 
 impl Engine3d {
@@ -376,7 +377,8 @@ impl Engine3d {
       vec_result: [0; 4],
       primitive_type: PrimitiveType::Triangles,
       current_vertices: Vec::new(),
-      translation_matrix: [0; 3],
+      translation_vector: [0; 3],
+      scale_vector: [0; 3],
       texcoord: Texcoord::new(),
       current_vertex: Vertex::new(),
       max_vertices: 0,
@@ -642,29 +644,29 @@ impl Engine3d {
         if self.command_params > 0 {
           let index = MtxTrans.get_num_params() - self.command_params;
 
-          self.translation_matrix[index] = entry.param as i32;
+          self.translation_vector[index] = entry.param as i32;
 
           self.command_params -= 1;
 
           if self.command_params == 0 {
             match self.matrix_mode {
               MatrixMode::Position => {
-                self.current_position_matrix.translate(&self.translation_matrix);
+                self.current_position_matrix.translate(&self.translation_vector);
 
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::PositionAndVector => {
-                self.current_position_matrix.translate(&self.translation_matrix);
-                self.current_vector_matrix.translate(&self.translation_matrix);
+                self.current_position_matrix.translate(&self.translation_vector);
+                self.current_vector_matrix.translate(&self.translation_vector);
 
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Projection => {
-                self.current_projection_matrix.translate(&self.translation_matrix);
+                self.current_projection_matrix.translate(&self.translation_vector);
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Texture => {
-                self.current_texture_matrix.translate(&self.translation_matrix);
+                self.current_texture_matrix.translate(&self.translation_vector);
               }
             }
 
@@ -727,6 +729,47 @@ impl Engine3d {
 
         self.add_vertex(self.current_vertex);
       }
+      MtxScale => {
+        if !self.command_started {
+          self.command_started = true;
+
+          self.command_params = MtxScale.get_num_params();
+        }
+
+        if self.command_params > 0 {
+          let index = MtxScale.get_num_params() - self.command_params;
+
+          self.scale_vector[index] = entry.param as i32;
+
+          self.command_params -= 1;
+
+          if self.command_params == 0 {
+            self.command_started = false;
+
+            match self.matrix_mode {
+              MatrixMode::Position => {
+                self.current_position_matrix.scale(&self.scale_vector);
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::PositionAndVector => {
+                self.current_position_matrix.scale(&self.scale_vector);
+                self.current_vector_matrix.scale(&self.scale_vector);
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Projection => {
+                self.current_projection_matrix.scale(&self.scale_vector);
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Texture => {
+                self.current_texture_matrix.scale(&self.scale_vector);
+              }
+            }
+          }
+        }
+
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
@@ -739,8 +782,12 @@ impl Engine3d {
       self.recalculate_clip_matrix();
     }
 
+    // println!("pre transformed vertex: {:x?}", [vertex.x, vertex.y, vertex.z, 0]);
+
     // transform texture and polygon vertices if needed
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
+
+    // println!("transformed: {:x?}", self.current_vertex.transformed);
 
     if self.texture_params.transformation_mode() == TransformationMode::Vertex {
       let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 12);
@@ -766,6 +813,7 @@ impl Engine3d {
   }
 
   fn submit_polygon(&mut self) {
+    //  println!("submitting polygon");
     let a = (
       self.current_vertices[0].transformed[0] - self.current_vertices[1].transformed[0],
       self.current_vertices[0].transformed[1] - self.current_vertices[1].transformed[1],
@@ -822,8 +870,11 @@ impl Engine3d {
     }
 
     if self.current_vertices.is_empty() {
+      // println!("returning because vertices are empty");
       return;
     }
+
+    // println!("we made it!");
 
     let mut polygon = Polygon {
       palette_base: self.palette_base as usize,
@@ -924,14 +975,14 @@ impl Engine3d {
       let previous = temp[previous_i];
 
       // current is inside negative part of plane
-      if current.transformed[i] >= -current.transformed[3] {
-        if previous.transformed[i] < -previous.transformed[3] {
+      if current.transformed[index] >= -current.transformed[3] {
+        if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
           let vertex = self.find_plane_intersection(index, current, previous, false);
           self.current_vertices.push(vertex);
         }
         self.current_vertices.push(current.clone());
-      } else if previous.transformed[i] >= -previous.transformed[3] {
+      } else if previous.transformed[index] >= -previous.transformed[3] {
         let vertex = self.find_plane_intersection(index, previous, current, false);
         self.current_vertices.push(vertex);
       }
@@ -945,7 +996,9 @@ impl Engine3d {
     let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
     let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
 
-    let sign = if positive_plane { 1 } else { -1 };
+    // println!("inside w = {:x} index = {index} inside coordinate = {:x}", inside.transformed[3], inside.transformed[index]);
+    // println!("inside = {:x?} outside = {:x?}", inside.transformed, outside.transformed);
+    // println!("numerator = {numerator} denominator = {denominator}");
 
     let new_w = Self::calculate_coordinates(
       index,
