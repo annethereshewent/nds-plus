@@ -21,4 +21,12 @@ impl Viewport {
     self.x2 = (value >> 16) as u8;
     self.y2 = (value >> 24) as u8;
   }
+
+  pub fn width(&self) -> i32 {
+    (self.x2 - self.x1) as i32
+  }
+
+  pub fn height(&self) -> i32 {
+    (self.y2 - self.y1) as i32
+  }
 }

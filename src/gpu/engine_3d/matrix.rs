@@ -76,8 +76,6 @@ impl Matrix {
     ((row[0] as i64 * matrix[0][3] as i64 +
       row[1] as i64 * matrix[1][3] as i64 +
       row[2] as i64 * matrix[2][3] as i64) >> 12) as i32;
-
-    println!("{:x?}", matrix);
   }
 }
 

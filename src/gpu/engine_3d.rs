@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use diffuse_color::DiffuseColor;
 use light::Light;
 use matrix::Matrix;
+use polygon::Polygon;
 use polygon_attributes::PolygonAttributes;
 use specular_color::SpecularColor;
 use texcoord::Texcoord;
@@ -29,6 +30,7 @@ pub mod specular_color;
 pub mod light;
 pub mod vertex;
 pub mod texcoord;
+pub mod polygon;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum PrimitiveType {
@@ -317,7 +319,9 @@ pub struct Engine3d {
   current_vertex: Vertex,
   max_vertices: usize,
   clip_vtx_recalculate: bool,
-  clip_matrix: Matrix
+  clip_matrix: Matrix,
+  vertices_buffer: Vec<Vertex>,
+  polygon_buffer: Vec<Polygon>
 }
 
 impl Engine3d {
@@ -377,7 +381,9 @@ impl Engine3d {
       current_vertex: Vertex::new(),
       max_vertices: 0,
       clip_vtx_recalculate: false,
-      clip_matrix: Matrix::new()
+      clip_matrix: Matrix::new(),
+      vertices_buffer: Vec::new(),
+      polygon_buffer: Vec::new()
     }
   }
 
@@ -488,12 +494,12 @@ impl Engine3d {
           MatrixMode::PositionAndVector | MatrixMode::Position => {
             self.position_vector_sp = (self.position_vector_sp as i8).wrapping_sub(offset).clamp(0, 63) as u8;
 
-            // TODO: set overflow true on value greater than or equal to 31
+            if self.position_vector_sp > 30 {
+              self.gxstat.matrix_stack_error = true;
+            }
 
             self.current_position_matrix = self.position_stack[(self.position_vector_sp as usize) & 31];
             self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31];
-
-            println!("vec matrix is now {:x?}", self.current_vector_matrix);
 
             self.clip_vtx_recalculate = true;
           }
@@ -504,7 +510,6 @@ impl Engine3d {
 
             self.current_projection_matrix = self.projection_stack;
 
-            // TODO: recalculate clip matrix
             self.clip_vtx_recalculate = true;
           }
           MatrixMode::Texture => {
@@ -581,14 +586,10 @@ impl Engine3d {
         self.lights[i].x = transformed[0] as i16;
         self.lights[i].y = transformed[1] as i16;
         self.lights[i].z = transformed[2] as i16;
-
-        println!("{:?}", self.lights[i]);
       }
       Color => {
         self.vertex_color.write(entry.param as u16);
         self.vertex_color.to_rgb6();
-
-        println!("{:x?}", self.vertex_color);
       }
       VecTest => {
         let x = (entry.param as i16) << 6 >> 6;
@@ -596,8 +597,6 @@ impl Engine3d {
         let z = ((entry.param >> 14) as i16) >> 6;
 
         let transformed = self.current_vector_matrix.multiply_row(&[x as i32, y as i32, z as i32, 0], 12);
-
-        println!("{:x?}", transformed);
 
         self.vec_result = transformed;
       }
@@ -613,9 +612,11 @@ impl Engine3d {
       MtxPush => {
         match self.matrix_mode {
           MatrixMode::PositionAndVector | MatrixMode::Position => {
-            // todo: set overflow on sp greater than 31
-
             self.position_vector_sp += 1;
+
+            if self.position_vector_sp > 30 {
+              self.gxstat.matrix_stack_error = true;
+            }
 
             self.position_stack[(self.position_vector_sp & 31) as usize] = self.current_position_matrix;
             self.vector_stack[(self.position_vector_sp & 31) as usize] = self.current_vector_matrix;
@@ -656,8 +657,6 @@ impl Engine3d {
                 self.current_position_matrix.translate(&self.translation_matrix);
                 self.current_vector_matrix.translate(&self.translation_matrix);
 
-                println!("{:x?}", self.current_vector_matrix);
-
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Projection => {
@@ -691,8 +690,6 @@ impl Engine3d {
           TransformationMode::Normal => (),
           TransformationMode::Vertex => todo!("not implemented yet")
         }
-
-        println!("u = {:x} v = {:x}", u, v);
 
         self.texcoord = self::Texcoord {
           u,
@@ -743,11 +740,7 @@ impl Engine3d {
     }
 
     // transform texture and polygon vertices if needed
-    let transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
-
-    self.current_vertex.x = transformed[0] as i16;
-    self.current_vertex.y = transformed[1] as i16;
-    self.current_vertex.z = transformed[2] as i16;
+    self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
 
     if self.texture_params.transformation_mode() == TransformationMode::Vertex {
       let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 12);
@@ -759,8 +752,6 @@ impl Engine3d {
     self.current_vertex.texcoord = self.texcoord;
     self.current_vertex.color = self.vertex_color;
 
-    println!("submitting vertex {:x?}", self.current_vertex);
-
     self.current_vertices.push(self.current_vertex);
     if self.current_vertices.len() == self.max_vertices {
       // submit the polygon
@@ -769,17 +760,257 @@ impl Engine3d {
       }
 
       self.submit_polygon();
+
+      // todo: handle triangle and quad strip cases here
     }
   }
 
   fn submit_polygon(&mut self) {
-    todo!("oops not ready");
+    let a = (
+      self.current_vertices[0].transformed[0] - self.current_vertices[1].transformed[0],
+      self.current_vertices[0].transformed[1] - self.current_vertices[1].transformed[1],
+      self.current_vertices[0].transformed[3] - self.current_vertices[1].transformed[3]
+    );
+
+    let b= (
+      self.current_vertices[2].transformed[0] - self.current_vertices[1].transformed[0],
+      self.current_vertices[2].transformed[1] - self.current_vertices[1].transformed[1],
+      self.current_vertices[2].transformed[3] - self.current_vertices[1].transformed[3]
+    );
+
+    let mut normal = [
+      (a.1 * b.2) as i64 - (a.2 * b.1) as i64,
+      (a.2 * b.0) as i64 - (a.0 * b.2) as i64,
+      (a.0 * b.1) as i64 - (a.1 * b.0) as i64
+    ];
+
+    while (normal[0] >> 31) ^ (normal[0] >> 63) != 0 ||
+      (normal[1] >> 31) ^ (normal[1] >> 63) != 0 ||
+      (normal[2] >> 31) ^ (normal[2] >> 63) != 0 {
+        normal[0] >>= 4;
+        normal[1] >>= 4;
+        normal[2] >>= 4;
+    }
+
+    let transformed = self.current_vertices[0].transformed;
+
+    let dot_product = normal[0] * transformed[0] as i64 + normal[1] * transformed[1] as i64 + normal[2] * transformed[3] as i64;
+
+    if dot_product == 0 {
+      self.current_vertices.clear();
+      return;
+    }
+
+    let mut is_front = false;
+
+    if dot_product < 0 {
+      is_front = true;
+
+      if !self.internal_polygon_attributes.contains(PolygonAttributes::SHOW_FRONT_SURFACE) {
+        self.current_vertices.clear();
+        return;
+      }
+    } else if dot_product > 0 {
+      if !self.internal_polygon_attributes.contains(PolygonAttributes::SHOW_BACK_SURFACE) {
+        self.current_vertices.clear();
+        return;
+      }
+    }
+
+    for i in (0..3).rev() {
+      self.clip_plane(i);
+    }
+
+    if self.current_vertices.is_empty() {
+      return;
+    }
+
+    let mut polygon = Polygon {
+      palette_base: self.palette_base as usize,
+      start: self.vertices_buffer.len(),
+      end: self.vertices_buffer.len() + self.current_vertices.len(),
+      attributes: self.internal_polygon_attributes,
+      is_front,
+      tex_params: self.texture_params,
+      top: 0,
+      bottom: 191
+    };
+
+    let mut size = 0;
+    for vertex in self.current_vertices.iter() {
+      let w = vertex.transformed[3] as u32;
+      while w >> size != 0 {
+        size += 4;
+      }
+    }
+    let (mut top, mut bottom) = (191, 0);
+
+    for vertex in self.current_vertices.drain(..) {
+      let mut temp = vertex.clone();
+
+      let transformed = temp.transformed;
+      // per martin korth:
+      // screen_x = (xx+ww)*viewport_width / (2*ww) + viewport_x1
+      // screen_y = (yy+ww)*viewport_height / (2*ww) + viewport_y1
+
+      temp.screen_x = if transformed[3] == 0 {
+        0
+      } else {
+        ((transformed[0] + transformed[3]) * (self.viewport.width()) / (2 * transformed[3]) + self.viewport.x1 as i32) as u32
+      };
+
+      temp.screen_y = if transformed[3] == 0 {
+        0
+      } else {
+        ((transformed[1] + transformed[3]) * (self.viewport.height()) / (2 * transformed[3]) + self.viewport.y1 as i32) as u32
+      };
+
+      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / transformed[3] as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
+      temp.normalized_w = if size < 16 {
+        transformed[3] << (16 - size)
+      } else {
+        transformed[3] >> (size - 16)
+      } as i16;
+
+      if vertex.screen_y < top {
+        top = vertex.screen_y;
+      }
+      if vertex.screen_y > bottom {
+        bottom = vertex.screen_y;
+      }
+
+      self.vertices_buffer.push(temp);
+    }
+
+    polygon.top = top;
+    polygon.bottom = bottom;
+
+    self.polygon_buffer.push(polygon);
+  }
+
+  fn clip_plane(&mut self, index: usize) {
+    let mut temp: Vec<Vertex> = Vec::with_capacity(10);
+
+    for i in 0..self.current_vertices.len() {
+      let current = self.current_vertices[i];
+      let previous_index = if i == 0 {
+        self.current_vertices.len() - 1
+      } else {
+        i - 1
+      };
+
+      let previous = self.current_vertices[previous_index];
+
+      // current is inside the positive part of plane
+      if current.transformed[index] <= current.transformed[3] {
+
+        // previous point is outside
+        if previous.transformed[index] > previous.transformed[3] {
+          temp.push(self.find_plane_intersection(index, current, previous, true));
+        }
+        temp.push(current.clone());
+
+      } else if previous.transformed[index] <= previous.transformed[3] {
+        temp.push(self.find_plane_intersection(index, previous, current, true));
+      }
+    }
+
+    self.current_vertices.clear();
+
+    for i in 0..temp.len() {
+      let current = temp[i];
+      let previous_i = if i == 0 { temp.len() - 1} else { i - 1 };
+
+      let previous = temp[previous_i];
+
+      // current is inside negative part of plane
+      if current.transformed[i] >= -current.transformed[3] {
+        if previous.transformed[i] < -previous.transformed[3] {
+          // previous is outside negative part of plane
+          let vertex = self.find_plane_intersection(index, current, previous, false);
+          self.current_vertices.push(vertex);
+        }
+        self.current_vertices.push(current.clone());
+      } else if previous.transformed[i] >= -previous.transformed[3] {
+        let vertex = self.find_plane_intersection(index, previous, current, false);
+        self.current_vertices.push(vertex);
+      }
+    }
+
+  }
+
+  fn find_plane_intersection(&mut self, index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
+    let sign = if positive_plane { 1 } else { -1 };
+
+    let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
+    let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
+
+    let sign = if positive_plane { 1 } else { -1 };
+
+    let new_w = Self::calculate_coordinates(
+      index,
+      3,
+      inside,
+      outside,
+      numerator,
+      denominator,
+      sign,
+      0
+    );
+
+    let x = Self::calculate_coordinates(index, 0, inside, outside, numerator, denominator, sign, new_w) as i32;
+    let y = Self::calculate_coordinates(index, 1, inside, outside, numerator, denominator, sign, new_w) as i32;
+    let z = Self::calculate_coordinates(index, 2, inside, outside, numerator, denominator, sign, new_w) as i32;
+
+    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, numerator, denominator) as u8;
+    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, numerator, denominator) as u8;
+    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, numerator, denominator) as u8;
+
+    let mut texcoord = Texcoord::new();
+
+    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, numerator, denominator) as i16;
+    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, numerator, denominator) as i16;
+    Vertex {
+      transformed: [x, y, z, new_w as i32],
+      screen_x: 0,
+      screen_y: 0,
+      z_depth: 0,
+      x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
+      y: 0, // see above
+      z: 0, // see above
+      texcoord,
+      color: Color {
+        r,
+        g,
+        b
+      },
+      normalized_w: 0
+    }
+  }
+
+  fn interpolate(inside: i64, outside: i64, numerator: i64, denominator: i64) -> i64 {
+    inside + (outside - inside) * (numerator / denominator)
+  }
+
+  fn calculate_coordinates(
+    current_index: usize,
+    index: usize,
+    inside: Vertex,
+    outside: Vertex,
+    numerator: i64,
+    denominator: i64,
+    sign: i64,
+    w: i64) -> i64
+  {
+    if current_index == index {
+      sign * w as i64
+    } else {
+      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, numerator, denominator)
+    }
   }
 
   fn recalculate_clip_matrix(&mut self) {
     self.clip_matrix = self.current_position_matrix * self.current_projection_matrix;
-
-    println!("clip matrix is now {:x?}", self.clip_matrix);
 
     self.clip_vtx_recalculate = false;
 
@@ -813,9 +1044,6 @@ impl Engine3d {
           self.temp_matrix.0[3][3] = 0x1000;
         }
 
-        // load the matrix
-        println!("{:x?}", self.temp_matrix);
-
         self.load_matrix();
 
         self.command_started = false;
@@ -824,7 +1052,6 @@ impl Engine3d {
   }
 
   fn load_matrix(&mut self) {
-    // TODO: recalculate clip matrix
     match self.matrix_mode {
       MatrixMode::Position  => {
         self.current_position_matrix = self.temp_matrix;

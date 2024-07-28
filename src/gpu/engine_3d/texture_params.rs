@@ -19,6 +19,7 @@ pub enum TransformationMode {
 }
 
 bitflags! {
+  #[derive(Copy, Clone, Debug)]
   pub struct TextureParams: u32 {
     const REPEAT_S = 1 << 16;
     const REPEAT_T = 1 << 17;

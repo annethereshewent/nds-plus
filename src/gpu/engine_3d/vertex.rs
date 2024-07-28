@@ -10,8 +10,10 @@ pub struct Vertex {
   pub x: i16,
   pub y: i16,
   pub z: i16,
+  pub transformed: [i32; 4],
   pub texcoord: Texcoord,
-  pub color: Color
+  pub color: Color,
+  pub normalized_w: i16
 }
 
 impl Vertex {
@@ -23,8 +25,10 @@ impl Vertex {
       x: 0,
       y: 0,
       z: 0,
+      transformed: [0; 4],
       texcoord: Texcoord::new(),
-      color: Color::new()
+      color: Color::new(),
+      normalized_w: 0
     }
   }
 }
