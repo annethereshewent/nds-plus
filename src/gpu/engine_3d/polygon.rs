@@ -1,4 +1,4 @@
-use super::{polygon_attributes::PolygonAttributes, texture_params::TextureParams};
+use super::{polygon_attributes::PolygonAttributes, texture_params::TextureParams, PrimitiveType};
 
 #[derive(Debug)]
 pub struct Polygon {
@@ -9,5 +9,6 @@ pub struct Polygon {
   pub is_front: bool,
   pub tex_params: TextureParams,
   pub top: u32,
-  pub bottom: u32
+  pub bottom: u32,
+  pub primitive_type: PrimitiveType
 }

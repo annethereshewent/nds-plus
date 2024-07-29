@@ -1,5 +1,5 @@
 use crate::gpu::
-{registers::
+{engine_3d::Pixel3d, registers::
   {
     bg_control_register::BgControlRegister,
     display_control_register::
@@ -8,10 +8,7 @@ use crate::gpu::
       DisplayControlRegisterFlags,
       DisplayMode
     }
-  },
-  vram::VRam,
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH
+  }, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -123,7 +120,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       }
     }
   }
-  pub fn render_normal_line(&mut self, y: u16, vram: &VRam) {
+
+  pub fn render_normal_line(&mut self, y: u16, vram: &VRam, frame_buffer: &[Pixel3d]) {
     if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
       self.render_objects(y, vram);
     }
@@ -131,6 +129,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     if self.bg_mode_enabled(0) {
       if !IS_ENGINE_B && (self.dispcnt.bg_mode == BgMode::Mode6 || self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_3D_SELECTION)) {
         // TODO: 3d rendering
+        self.render_3d_line(y, frame_buffer);
       } else {
         self.render_text_line(0, y, vram);
       }
@@ -226,6 +225,15 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     } else {
       // Extended
       self.render_affine_line(bg_index, y, vram, AffineType::Extended);
+    }
+  }
+
+  fn render_3d_line(&mut self, y: u16, frame_buffer: &[Pixel3d]) {
+
+    for x in 0..SCREEN_WIDTH {
+      let pixel = frame_buffer[(x + y * SCREEN_WIDTH) as usize];
+
+      self.bg_lines[0][x as usize] = pixel.color;
     }
   }
 
@@ -701,7 +709,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  pub fn render_line(&mut self, y: u16, vram: &mut VRam) {
+  pub fn render_line(&mut self, y: u16, vram: &mut VRam, frame_buffer: &[Pixel3d]) {
     match self.dispcnt.display_mode {
       DisplayMode::Mode0 => {
         let color = Color {
@@ -714,7 +722,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           self.set_pixel(x as usize, y as usize, color);
         }
       },
-      DisplayMode::Mode1 => self.render_normal_line(y, vram),
+      DisplayMode::Mode1 => self.render_normal_line(y, vram, frame_buffer),
       DisplayMode::Mode2 => {
         for x in 0..SCREEN_WIDTH {
           let index = 2 * (y as usize * SCREEN_WIDTH as usize + x as usize);

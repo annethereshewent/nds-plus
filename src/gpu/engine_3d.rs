@@ -17,7 +17,7 @@ use super::{
     clear_color_register::ClearColorRegister,
     fog_color_register::FogColorRegister,
     geometry_status_register::GeometryStatusRegister
-  }
+  }, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
 pub mod matrix;
@@ -32,7 +32,24 @@ pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug)]
+pub struct Pixel3d {
+  pub color: Option<Color>,
+  pub depth: u32,
+  pub alpha: u8
+}
+
+impl Pixel3d {
+  pub fn new() -> Self {
+    Self {
+      color: None,
+      depth: 0,
+      alpha: 0
+    }
+  }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum PrimitiveType {
   Triangles,
   Quads,
@@ -322,7 +339,8 @@ pub struct Engine3d {
   clip_matrix: Matrix,
   vertices_buffer: Vec<Vertex>,
   polygon_buffer: Vec<Polygon>,
-  scale_vector: [i32; 3]
+  scale_vector: [i32; 3],
+  pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize]
 }
 
 impl Engine3d {
@@ -385,7 +403,8 @@ impl Engine3d {
       clip_vtx_recalculate: false,
       clip_matrix: Matrix::new(),
       vertices_buffer: Vec::new(),
-      polygon_buffer: Vec::new()
+      polygon_buffer: Vec::new(),
+      frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize]
     }
   }
 
@@ -884,7 +903,8 @@ impl Engine3d {
       is_front,
       tex_params: self.texture_params,
       top: 0,
-      bottom: 191
+      bottom: 191,
+      primitive_type: self.primitive_type
     };
 
     let mut size = 0;

@@ -1,3 +1,5 @@
+
+#[derive(Debug)]
 pub enum TextureFormat {
   None,
   A315Transluscent,
@@ -25,7 +27,7 @@ bitflags! {
     const REPEAT_T = 1 << 17;
     const FLIP_S = 1 << 18;
     const FLIP_T = 1 << 19;
-    const DISPLAY_COLOR_0 = 1 << 29;
+    const COLOR0_TRANSPARENT = 1 << 29;
   }
 }
 
@@ -35,11 +37,11 @@ impl TextureParams {
   }
 
   pub fn texture_s_size(&self) -> u32 {
-    self.bits() >> 20 & 0x7
+    8 << (self.bits() >> 20 & 0x7)
   }
 
   pub fn texture_t_size(&self) -> u32 {
-    self.bits() >> 23 & 0x7
+    8 << (self.bits() >> 23 & 0x7)
   }
 
   pub fn texture_format(&self) -> TextureFormat {

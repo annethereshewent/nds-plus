@@ -468,7 +468,7 @@ impl GPU {
 
   fn render_line(&mut self) {
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
-      self.engine_a.render_line(self.vcount, &mut self.vram);
+      self.engine_a.render_line(self.vcount, &mut self.vram, &self.engine3d.frame_buffer);
 
       // capture image if needed
       if self.is_capturing && self.vcount < self.dispcapcnt.get_capture_height() {
@@ -477,7 +477,7 @@ impl GPU {
       }
     }
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
-      self.engine_b.render_line(self.vcount, &mut self.vram);
+      self.engine_b.render_line(self.vcount, &mut self.vram, &self.engine3d.frame_buffer);
     }
   }
 }

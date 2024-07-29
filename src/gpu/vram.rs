@@ -247,6 +247,14 @@ impl VRam {
     Self::read_mapping(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
+  pub fn read_texture(&self, address: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
+  }
+
+  pub fn read_texture_palette(&self, index: u32) -> u8 {
+    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
+  }
+
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {
     let mut size = BANK_SIZES[bank as usize];
     match vramcnt.vram_mst {
