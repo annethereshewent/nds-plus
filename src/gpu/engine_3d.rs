@@ -913,7 +913,7 @@ impl Engine3d {
       temp.screen_y = if transformed[3] == 0 {
         0
       } else {
-        ((transformed[1] + transformed[3]) * (self.viewport.height()) / (2 * transformed[3]) + self.viewport.y1 as i32) as u32
+        ((-transformed[1] + transformed[3]) * (self.viewport.height()) / (2 * transformed[3]) + self.viewport.y1 as i32) as u32
       };
 
       temp.z_depth = ((((transformed[2] as i64 * 0x4000 / transformed[3] as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
@@ -929,7 +929,6 @@ impl Engine3d {
       if vertex.screen_y > bottom {
         bottom = vertex.screen_y;
       }
-
       self.vertices_buffer.push(temp);
     }
 
