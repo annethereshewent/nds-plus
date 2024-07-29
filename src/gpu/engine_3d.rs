@@ -686,10 +686,7 @@ impl Engine3d {
         if !self.command_started {
           self.command_started = true;
           self.command_params = MtxTrans.get_num_params();
-          println!("starting command, command params is now {}", self.command_params);
         }
-
-        println!("command params is now {}", self.command_params);
 
         if self.command_params > 0 {
           let index = MtxTrans.get_num_params() - self.command_params;
@@ -896,20 +893,19 @@ impl Engine3d {
       MtxMult4x4 => {
         if !self.command_started {
           self.command_started = true;
-          self.command_params = MtxMult4x3.get_num_params();
+          self.command_params = MtxMult4x4.get_num_params();
         }
 
         if self.command_params > 0 {
-          let index = MtxMult4x3.get_num_params() - self.command_params;
-          let row = index / 3;
-          let column = index % 3;
+          let index = MtxMult4x4.get_num_params() - self.command_params;
+          let row = index / 4;
+          let column = index % 4;
 
           self.temp_matrix.0[row][column as usize] = entry.param as i32;
 
           self.command_params -= 1;
 
           if self.command_params == 0 {
-
             match self.matrix_mode {
               MatrixMode::Position => {
                 self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
@@ -928,7 +924,7 @@ impl Engine3d {
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Texture => {
-                self.current_texture_matrix.multiply_4x3(self.temp_matrix);
+                self.current_texture_matrix = self.current_texture_matrix * self.temp_matrix;
               }
             }
 
@@ -1302,13 +1298,13 @@ impl Engine3d {
 
       self.num_params = current_command.get_num_params();
 
+      if self.num_params > 0 {
+        break;
+      }
+
       if current_command != Command::Nop {
         self.params_processed = 1;
         self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
-      }
-
-      if current_command.get_num_params() > 1 {
-        break;
       }
     }
 
@@ -1340,34 +1336,24 @@ impl Engine3d {
       }
 
       self.sent_commands = true;
+    }
 
-      // refactor this because this sucks
-      // check if the command has 0 parameters. if it does, just push it and set sent commands to false.
-      let command = Command::from(self.packed_commands[0]);
+    // process parameters for the commands
+    if self.current_command.is_none() {
+      self.process_commands(value, interrupt_request);
+    } else if self.params_processed < self.num_params {
+      let current_command = self.current_command.unwrap();
 
-      if command.get_num_params() == 0 {
-        self.packed_commands.pop_front().unwrap();
-        self.push_command(GeometryCommandEntry::from(command, 0), interrupt_request);
+      self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
+
+      self.params_processed += 1;
+
+      if self.params_processed == self.num_params && self.packed_commands.is_empty() {
         self.sent_commands = false;
       }
-
     } else {
-      // process parameters for the commands
-      if self.current_command.is_none() {
-        self.process_commands(value, interrupt_request);
-      } else if self.params_processed < self.num_params {
-        let current_command = self.current_command.unwrap();
-
-        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
-
-        self.params_processed += 1;
-
-        if self.params_processed == self.num_params && self.packed_commands.is_empty() {
-          self.sent_commands = false;
-        }
-      } else {
-        self.process_commands(value, interrupt_request);
-      }
+      self.process_commands(value, interrupt_request);
     }
+
   }
 }
