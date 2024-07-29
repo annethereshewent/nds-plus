@@ -857,17 +857,33 @@ impl Engine3d {
           }
         }
       }
-      MtxMult4x4 => {
-        self.multiply_m_by_n(4, 4, entry);
-      }
+      MtxMult4x4 => self.multiply_m_by_n(4, 4, entry),
       VtxYz => {
         self.current_vertex.y = entry.param as i16;
         self.current_vertex.z = (entry.param >> 16) as i16;
 
         self.add_vertex()
       }
-      MtxMult3x3 => {
-        self.multiply_m_by_n(3, 3, entry);
+      MtxMult3x3 => self.multiply_m_by_n(3, 3, entry),
+      MtxRestore => {
+        match self.matrix_mode {
+          MatrixMode::Position | MatrixMode::PositionAndVector => {
+            let offset = entry.param & 0x1f;
+
+            if offset > 30 {
+              self.gxstat.matrix_stack_error = true;
+            }
+
+            self.current_position_matrix = self.position_stack[offset as usize];
+            self.current_vector_matrix = self.vector_stack[offset as usize];
+          }
+          MatrixMode::Projection => {
+            self.current_projection_matrix = self.projection_stack;
+          }
+          MatrixMode::Texture => {
+            self.current_texture_matrix = self.texture_stack;
+          }
+        }
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
@@ -927,7 +943,6 @@ impl Engine3d {
               (3, 3) => matrix.multiply_3x3(self.temp_matrix),
               _ => panic!("invalid option given for m x n: {m} x {n}")
             }
-            println!("result matrix = {:x?}", matrix);
           }
 
         }
