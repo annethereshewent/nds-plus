@@ -122,8 +122,6 @@ impl Matrix {
       matrix2[3][2] as i64 * matrix1[2][3] as i64 +
       0x1000 * matrix1[3][3] as i64) >> 12) as i32;
 
-    panic!("{:x?}", result_mtx);
-
     self.0 = *result_mtx;
   }
 

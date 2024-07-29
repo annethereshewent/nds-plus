@@ -686,7 +686,10 @@ impl Engine3d {
         if !self.command_started {
           self.command_started = true;
           self.command_params = MtxTrans.get_num_params();
+          println!("starting command, command params is now {}", self.command_params);
         }
+
+        println!("command params is now {}", self.command_params);
 
         if self.command_params > 0 {
           let index = MtxTrans.get_num_params() - self.command_params;
@@ -890,8 +893,48 @@ impl Engine3d {
           }
         }
       }
-      MtxMult3x3 => {
+      MtxMult4x4 => {
+        if !self.command_started {
+          self.command_started = true;
+          self.command_params = MtxMult4x3.get_num_params();
+        }
 
+        if self.command_params > 0 {
+          let index = MtxMult4x3.get_num_params() - self.command_params;
+          let row = index / 3;
+          let column = index % 3;
+
+          self.temp_matrix.0[row][column as usize] = entry.param as i32;
+
+          self.command_params -= 1;
+
+          if self.command_params == 0 {
+
+            match self.matrix_mode {
+              MatrixMode::Position => {
+                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::PositionAndVector => {
+                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
+                self.current_vector_matrix = self.current_vector_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Projection => {
+                self.current_projection_matrix = self.current_projection_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Texture => {
+                self.current_texture_matrix.multiply_4x3(self.temp_matrix);
+              }
+            }
+
+            self.command_started = false;
+          }
+        }
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
@@ -1297,6 +1340,17 @@ impl Engine3d {
       }
 
       self.sent_commands = true;
+
+      // refactor this because this sucks
+      // check if the command has 0 parameters. if it does, just push it and set sent commands to false.
+      let command = Command::from(self.packed_commands[0]);
+
+      if command.get_num_params() == 0 {
+        self.packed_commands.pop_front().unwrap();
+        self.push_command(GeometryCommandEntry::from(command, 0), interrupt_request);
+        self.sent_commands = false;
+      }
+
     } else {
       // process parameters for the commands
       if self.current_command.is_none() {
