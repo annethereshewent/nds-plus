@@ -29,6 +29,78 @@ impl Matrix {
     vec.try_into().unwrap_or_else(|vec: Vec<Matrix>| panic!("expected a vector of length 32 but got a vector of length {}", vec.len()))
   }
 
+  pub fn multiply_3x3(&mut self, matrix2: Matrix) {
+    let matrix1 = self.0;
+    let matrix2 = matrix2.0;
+
+    let mut result = Matrix::new();
+
+    let result_mtx = &mut result.0;
+
+    result_mtx[0][0] =
+    ((matrix2[0][0] as i64 * matrix1[0][0] as i64 +
+      matrix2[0][1] as i64 * matrix1[1][0] as i64 +
+      matrix2[0][2] as i64 * matrix1[2][0] as i64) >> 12) as i32;
+
+    result_mtx[0][1] =
+    ((matrix2[0][0] as i64 * matrix1[0][1] as i64 +
+      matrix2[0][1] as i64 * matrix1[1][1] as i64 +
+      matrix2[0][2] as i64 * matrix1[2][1] as i64) >> 12) as i32;
+
+    result_mtx[0][2] =
+    ((matrix2[0][0] as i64 * matrix1[0][2] as i64 +
+      matrix2[0][1] as i64 * matrix1[1][2] as i64 +
+      matrix2[0][2] as i64 * matrix1[2][2] as i64) >> 12) as i32;
+
+    result_mtx[0][3] =
+    ((matrix2[0][0] as i64 * matrix1[0][3] as i64 +
+      matrix2[0][1] as i64 * matrix1[1][3] as i64 +
+      matrix2[0][2] as i64 * matrix1[2][3] as i64) >> 12) as i32;
+
+    result_mtx[1][0] =
+    ((matrix2[1][0] as i64 * matrix1[0][0] as i64 +
+      matrix2[1][1] as i64 * matrix1[1][0] as i64 +
+      matrix2[1][2] as i64 * matrix1[2][0] as i64) >> 12) as i32;
+
+    result_mtx[1][1] =
+    ((matrix2[1][0] as i64 * matrix1[0][1] as i64 +
+      matrix2[1][1] as i64 * matrix1[1][1] as i64 +
+      matrix2[1][2] as i64 * matrix1[2][1] as i64) >> 12) as i32;
+
+    result_mtx[1][2] =
+    ((matrix2[1][0] as i64 * matrix1[0][2] as i64 +
+      matrix2[1][1] as i64 * matrix1[1][2] as i64 +
+      matrix2[1][2] as i64 * matrix1[2][2] as i64) >> 12) as i32;
+
+    result_mtx[1][3] =
+    ((matrix2[1][0] as i64 * matrix1[0][3] as i64 +
+      matrix2[1][1] as i64 * matrix1[1][3] as i64 +
+      matrix2[1][2] as i64 * matrix1[2][3] as i64) >> 12) as i32;
+
+    result_mtx[2][0] =
+    ((matrix2[2][0] as i64 * matrix1[0][0] as i64 +
+      matrix2[2][1] as i64 * matrix1[1][0] as i64 +
+      matrix2[2][2] as i64 * matrix1[2][0] as i64) >> 12) as i32;
+
+    result_mtx[2][1] =
+    ((matrix2[2][0] as i64 * matrix1[0][1] as i64 +
+      matrix2[2][1] as i64 * matrix1[1][1] as i64 +
+      matrix2[2][2] as i64 * matrix1[2][1] as i64) >> 12) as i32;
+
+    result_mtx[2][2] =
+    ((matrix2[2][0] as i64 * matrix1[0][2] as i64 +
+      matrix2[2][1] as i64 * matrix1[1][2] as i64 +
+      matrix2[2][2] as i64 * matrix1[2][2] as i64) >> 12) as i32;
+
+    result_mtx[2][3] =
+    ((matrix2[2][0] as i64 * matrix1[0][3] as i64 +
+      matrix2[2][1] as i64 * matrix1[1][3] as i64 +
+      matrix2[2][2] as i64 * matrix1[2][3] as i64) >> 12) as i32;
+
+
+    self.0 = *result_mtx;
+  }
+
   pub fn multiply_4x3(&mut self, matrix2: Matrix) {
     let matrix1 = self.0;
     let matrix2 = matrix2.0;

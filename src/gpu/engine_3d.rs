@@ -345,7 +345,9 @@ pub struct Engine3d {
   vertices_buffer: Vec<Vertex>,
   polygon_buffer: Vec<Polygon>,
   scale_vector: [i32; 3],
-  pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize]
+  pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
+  alpha_ref: u8,
+  max_params: usize
 }
 
 impl Engine3d {
@@ -409,7 +411,9 @@ impl Engine3d {
       clip_matrix: Matrix::new(),
       vertices_buffer: Vec::new(),
       polygon_buffer: Vec::new(),
-      frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize]
+      frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
+      alpha_ref: 0,
+      max_params: 0
     }
   }
 
@@ -421,6 +425,10 @@ impl Engine3d {
 
   pub fn read_geometry_status(&self) -> u32 {
     self.gxstat.read(0, 0, &self.fifo)
+  }
+
+  pub fn write_alpha_ref(&mut self, value: u16) {
+    self.alpha_ref = (value & 0x1f) as u8;
   }
 
   pub fn write_fog_table(&mut self, address: u32, value: u8) {
@@ -756,8 +764,6 @@ impl Engine3d {
           self.command_params -= 1;
 
           if self.command_params == 1 {
-            self.current_vertex = Vertex::new();
-
             self.current_vertex.x = entry.param as i16;
             self.current_vertex.y = (entry.param >> 16) as i16;
 
@@ -816,46 +822,7 @@ impl Engine3d {
         }
       }
       MtxMult4x3 => {
-        if !self.command_started {
-          self.command_started = true;
-          self.command_params = MtxMult4x3.get_num_params();
-        }
-
-        if self.command_params > 0 {
-          let index = MtxMult4x3.get_num_params() - self.command_params;
-          let row = index / 3;
-          let column = index % 3;
-
-          self.temp_matrix.0[row][column as usize] = entry.param as i32;
-
-          self.command_params -= 1;
-
-          if self.command_params == 0 {
-
-            match self.matrix_mode {
-              MatrixMode::Position => {
-                self.current_position_matrix.multiply_4x3(self.temp_matrix);
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::PositionAndVector => {
-                self.current_position_matrix.multiply_4x3(self.temp_matrix);
-                self.current_vector_matrix.multiply_4x3(self.temp_matrix);
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::Projection => {
-                self.current_projection_matrix.multiply_4x3(self.temp_matrix);
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::Texture => {
-                self.current_texture_matrix.multiply_4x3(self.temp_matrix);
-              }
-            }
-            self.command_started = false;
-          }
-        }
+        self.multiply_m_by_n(4, 3, entry);
       }
       Vtx10 => {
         self.current_vertex.x = (entry.param as i16) << 6;
@@ -891,48 +858,81 @@ impl Engine3d {
         }
       }
       MtxMult4x4 => {
-        if !self.command_started {
-          self.command_started = true;
-          self.command_params = MtxMult4x4.get_num_params();
-        }
+        self.multiply_m_by_n(4, 4, entry);
+      }
+      VtxYz => {
+        self.current_vertex.y = entry.param as i16;
+        self.current_vertex.z = (entry.param >> 16) as i16;
 
-        if self.command_params > 0 {
-          let index = MtxMult4x4.get_num_params() - self.command_params;
-          let row = index / 4;
-          let column = index % 4;
-
-          self.temp_matrix.0[row][column as usize] = entry.param as i32;
-
-          self.command_params -= 1;
-
-          if self.command_params == 0 {
-            match self.matrix_mode {
-              MatrixMode::Position => {
-                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::PositionAndVector => {
-                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
-                self.current_vector_matrix = self.current_vector_matrix * self.temp_matrix;
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::Projection => {
-                self.current_projection_matrix = self.current_projection_matrix * self.temp_matrix;
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::Texture => {
-                self.current_texture_matrix = self.current_texture_matrix * self.temp_matrix;
-              }
-            }
-
-            self.command_started = false;
-          }
-        }
+        self.add_vertex()
+      }
+      MtxMult3x3 => {
+        self.multiply_m_by_n(3, 3, entry);
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
+    }
+  }
+
+
+  fn multiply_m_by_n(&mut self, m: usize, n: usize, entry: GeometryCommandEntry) {
+    use Command::*;
+    if !self.command_started {
+      self.command_started = true;
+      self.command_params = match (m, n) {
+        (4, 4) => MtxMult4x4.get_num_params(),
+        (4, 3) => MtxMult4x3.get_num_params(),
+        (3, 3) => MtxMult3x3.get_num_params(),
+        _ => panic!("invalid values given for multiply m x n: {m} x {n}")
+      };
+
+      self.max_params = self.command_params
+    }
+
+    if self.command_params > 0 {
+      let index = self.max_params - self.command_params;
+      let row = index / n;
+      let column = index % n;
+
+      self.temp_matrix.0[row][column as usize] = entry.param as i32;
+
+      self.command_params -= 1;
+
+      if self.command_params == 0 {
+        let matrices = match self.matrix_mode {
+          MatrixMode::Position => {
+            self.clip_vtx_recalculate = true;
+
+            [Some(&mut self.current_position_matrix), None]
+          }
+          MatrixMode::PositionAndVector => {
+            self.clip_vtx_recalculate = true;
+
+            [Some(&mut self.current_position_matrix), Some(&mut self.current_vector_matrix)]
+          }
+          MatrixMode::Projection => {
+            self.clip_vtx_recalculate = true;
+
+            [Some(&mut self.current_projection_matrix), None]
+          }
+          MatrixMode::Texture => {
+           [Some(&mut self.current_texture_matrix), None]
+          }
+        };
+
+        for matrix in matrices {
+          if let Some(matrix) = matrix {
+            match (m, n) {
+              (4, 4) => *matrix = *matrix * self.temp_matrix,
+              (4, 3) => matrix.multiply_4x3(self.temp_matrix),
+              (3, 3) => matrix.multiply_3x3(self.temp_matrix),
+              _ => panic!("invalid option given for m x n: {m} x {n}")
+            }
+            println!("result matrix = {:x?}", matrix);
+          }
+
+        }
+        self.command_started = false;
+      }
     }
   }
 

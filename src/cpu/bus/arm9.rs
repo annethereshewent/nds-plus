@@ -486,6 +486,7 @@ impl Bus {
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
       0x400_0330..=0x400_033f => self.gpu.engine3d.write_edge_color(address, value),
+      0x400_0340 => self.gpu.engine3d.write_alpha_ref(value),
       0x400_0354 => self.gpu.engine3d.write_clear_depth(value),
       0x400_0356 => self.gpu.engine3d.write_clear_image_offset(value),
       0x400_035c => self.gpu.engine3d.write_fog_offset(value),
