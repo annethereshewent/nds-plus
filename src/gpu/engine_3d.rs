@@ -11,12 +11,14 @@ use texture_params::{TextureParams, TransformationMode};
 use vertex::Vertex;
 use viewport::Viewport;
 
+use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
+
 use super::{
   color::Color,
   registers::{
     clear_color_register::ClearColorRegister,
     fog_color_register::FogColorRegister,
-    geometry_status_register::GeometryStatusRegister
+    geometry_status_register::{GeometryIrq, GeometryStatusRegister}
   }, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
@@ -31,6 +33,8 @@ pub mod light;
 pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
+
+pub const FIFO_CAPACITY: usize = 256;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Pixel3d {
@@ -59,7 +63,8 @@ pub enum PrimitiveType {
 
 impl PrimitiveType {
   pub fn from(value: u32) -> Self {
-    match value & 0x3 {
+
+    match value {
       0 => PrimitiveType::Triangles,
       1 => PrimitiveType::Quads,
       2 => PrimitiveType::TriangleStrips,
@@ -408,6 +413,12 @@ impl Engine3d {
     }
   }
 
+  pub fn clear_frame_buffer(&mut self) {
+    for pixel in &mut self.frame_buffer {
+      *pixel = Pixel3d::new();
+    }
+  }
+
   pub fn read_geometry_status(&self) -> u32 {
     self.gxstat.read(0, 0, &self.fifo)
   }
@@ -455,13 +466,13 @@ impl Engine3d {
     self.gxstat.write(value);
   }
 
-  pub fn write_geometry_command(&mut self, address: u32, value: u32) {
+  pub fn write_geometry_command(&mut self, address: u32, value: u32, interrupt_request: &mut InterruptRequestRegister) {
     let command = Command::from_address(address & 0xfff);
 
-    self.push_command(GeometryCommandEntry::from(command, value));
+    self.push_command(GeometryCommandEntry::from(command, value), interrupt_request);
   }
 
-  pub fn execute_commands(&mut self) {
+  pub fn execute_commands(&mut self, interrupt_request: &mut InterruptRequestRegister) {
     if !self.polygons_ready {
       while let Some(entry) = self.fifo.pop_front() {
         self.execute_command(entry);
@@ -471,11 +482,28 @@ impl Engine3d {
         }
       }
     }
+    self.check_interrupts(interrupt_request);
+  }
 
-    // TODO: check interrupts here, possibly dma also?
+  pub fn should_run_dmas(&self) -> bool {
+    !self.polygons_ready && self.fifo.len() < FIFO_CAPACITY / 2
+  }
+
+  fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
+    match self.gxstat.geometry_irq {
+      GeometryIrq::Empty => if self.fifo.is_empty() {
+        interrupt_request.insert(InterruptRequestRegister::GEOMETRY_COMMAND);
+      }
+      GeometryIrq::LessThanHalfFull => if self.fifo.len() < FIFO_CAPACITY / 2 {
+        interrupt_request.insert(InterruptRequestRegister::GEOMETRY_COMMAND);
+      }
+      _ => ()
+    }
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
+    self.gxstat.geometry_engine_busy = false;
+
     use Command::*;
     match entry.command {
       EndVtxs => (), // just a NOP
@@ -736,7 +764,7 @@ impl Engine3d {
           } else if self.command_params == 0 {
             self.current_vertex.z = entry.param as i16;
 
-            self.add_vertex(self.current_vertex);
+            self.add_vertex();
 
             self.command_started = false;
           }
@@ -746,7 +774,7 @@ impl Engine3d {
         self.current_vertex.x = entry.param as i16;
         self.current_vertex.y = (entry.param >> 16) as i16;
 
-        self.add_vertex(self.current_vertex);
+        self.add_vertex();
       }
       MtxScale => {
         if !self.command_started {
@@ -773,7 +801,6 @@ impl Engine3d {
               }
               MatrixMode::PositionAndVector => {
                 self.current_position_matrix.scale(&self.scale_vector);
-                self.current_vector_matrix.scale(&self.scale_vector);
 
                 self.clip_vtx_recalculate = true;
               }
@@ -787,13 +814,92 @@ impl Engine3d {
             }
           }
         }
+      }
+      MtxMult4x3 => {
+        if !self.command_started {
+          self.command_started = true;
+          self.command_params = MtxMult4x3.get_num_params();
+        }
+
+        if self.command_params > 0 {
+          let index = MtxMult4x3.get_num_params() - self.command_params;
+          let row = index / 3;
+          let column = index % 3;
+
+          self.temp_matrix.0[row][column as usize] = entry.param as i32;
+
+          self.command_params -= 1;
+
+          if self.command_params == 0 {
+
+            match self.matrix_mode {
+              MatrixMode::Position => {
+                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::PositionAndVector => {
+                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
+                self.current_vector_matrix = self.current_vector_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Projection => {
+                self.current_projection_matrix = self.current_projection_matrix * self.temp_matrix;
+
+                self.clip_vtx_recalculate = true;
+              }
+              MatrixMode::Texture => {
+                self.current_texture_matrix.scale(&self.scale_vector);
+              }
+            }
+            self.command_started = false;
+          }
+        }
+      }
+      Vtx10 => {
+        self.current_vertex.x = (entry.param as i16) << 6;
+        self.current_vertex.y = ((entry.param >> 10) as i16) << 6;
+        self.current_vertex.z = ((entry.param >> 20) as i16) << 6;
+
+        self.add_vertex();
+      }
+      VtxXz => {
+        self.current_vertex.x = entry.param as i16;
+        self.current_vertex.z = (entry.param >> 16) as i16;
+
+        self.add_vertex();
+      }
+      MtxStore => {
+        let offset = entry.param & 0x1f;
+
+        if offset > 30 {
+          self.gxstat.matrix_stack_error = true;
+        }
+
+        match self.matrix_mode {
+          MatrixMode::Position | MatrixMode::PositionAndVector => {
+            self.position_stack[offset as usize] = self.current_position_matrix;
+            self.vector_stack[offset as usize] = self.current_vector_matrix;
+          }
+          MatrixMode::Projection => {
+            self.projection_stack = self.current_projection_matrix;
+          }
+          MatrixMode::Texture => {
+            self.texture_stack = self.current_texture_matrix;
+          }
+        }
+      }
+      MtxMult3x3 => {
 
       }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
 
-  fn add_vertex(&mut self, vertex: Vertex) {
+  fn add_vertex(&mut self) {
+    let vertex = self.current_vertex;
+
     // TODO: check polygon ram overflow here
 
     // recalculate clip matrix
@@ -807,13 +913,11 @@ impl Engine3d {
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
 
     // println!("transformed: {:x?}", self.current_vertex.transformed);
+;
+    // let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
-    if self.texture_params.transformation_mode() == TransformationMode::Vertex {
-      let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 12);
-
-      self.texcoord.u += transformed[0] as i16;
-      self.texcoord.v += transformed[1] as i16;
-    }
+    // self.texcoord.u += transformed[0] as i16;
+    // self.texcoord.v += transformed[1] as i16;
 
     self.current_vertex.texcoord = self.texcoord;
     self.current_vertex.color = self.vertex_color;
@@ -821,9 +925,9 @@ impl Engine3d {
     self.current_vertices.push(self.current_vertex);
     if self.current_vertices.len() == self.max_vertices {
       // submit the polygon
-      if self.primitive_type == PrimitiveType::QuadStrips {
-        self.current_vertices.swap(2, 3);
-      }
+      // if self.primitive_type == PrimitiveType::QuadStrips {
+      //   self.current_vertices.swap(2, 3);
+      // }
 
       self.submit_polygon();
 
@@ -1042,6 +1146,7 @@ impl Engine3d {
 
     texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, numerator, denominator) as i16;
     texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, numerator, denominator) as i16;
+
     Vertex {
       transformed: [x, y, z, new_w as i32],
       screen_x: 0,
@@ -1061,7 +1166,7 @@ impl Engine3d {
   }
 
   fn interpolate(inside: i64, outside: i64, numerator: i64, denominator: i64) -> i64 {
-    inside + (outside - inside) * (numerator / denominator)
+    inside + (outside - inside) * numerator / denominator
   }
 
   fn calculate_coordinates(
@@ -1085,7 +1190,6 @@ impl Engine3d {
     self.clip_matrix = self.current_position_matrix * self.current_projection_matrix;
 
     self.clip_vtx_recalculate = false;
-
   }
 
   fn load_4_by_n_matrix(&mut self, entry: GeometryCommandEntry, num_params: usize, n: usize) {
@@ -1109,7 +1213,7 @@ impl Engine3d {
 
       if self.command_params == 0 {
         if n == 3 {
-          // for 4x3 matrices, fill the fourth column of each row with 0, or the last slot with a fixed point 1
+          // for 4x3 matrices, fill the fourth column of each row with 0, or the last slot with a fixed point 1 (identity matrix)
           for row in 0..3 {
             self.temp_matrix.0[row][3] = 0;
           }
@@ -1145,18 +1249,19 @@ impl Engine3d {
     }
   }
 
-  fn process_commands(&mut self, value: u32) {
+  fn process_commands(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
     while let Some(command) = self.packed_commands.pop_front() {
       self.current_command = Some(Command::from(command));
 
       let current_command = self.current_command.unwrap();
 
-      self.params_processed = 1;
+      self.params_processed = 0;
 
       self.num_params = current_command.get_num_params();
 
       if current_command != Command::Nop {
-        self.push_command(GeometryCommandEntry::from(current_command, value));
+        self.params_processed = 1;
+        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
       }
 
       if current_command.get_num_params() > 1 {
@@ -1164,18 +1269,18 @@ impl Engine3d {
       }
     }
 
-    if self.num_params == self.params_processed {
+    if (self.num_params == self.params_processed || self.num_params == 0) && self.packed_commands.is_empty() {
       self.sent_commands = false;
     }
   }
 
-  pub fn push_command(&mut self, entry: GeometryCommandEntry) {
+  pub fn push_command(&mut self, entry: GeometryCommandEntry, interrupt_request: &mut InterruptRequestRegister) {
     self.fifo.push_back(entry);
 
-    self.execute_commands();
+    self.execute_commands(interrupt_request);
   }
 
-  pub fn write_geometry_fifo(&mut self, value: u32) {
+  pub fn write_geometry_fifo(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
     if !self.sent_commands {
       if value == 0 {
         // there's nothing to do here, just short circuit early
@@ -1195,11 +1300,11 @@ impl Engine3d {
     } else {
       // process parameters for the commands
       if self.current_command.is_none() {
-        self.process_commands(value);
+        self.process_commands(value, interrupt_request);
       } else if self.params_processed < self.num_params {
         let current_command = self.current_command.unwrap();
 
-        self.push_command(GeometryCommandEntry::from(current_command, value));
+        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
 
         self.params_processed += 1;
 
@@ -1207,7 +1312,7 @@ impl Engine3d {
           self.sent_commands = false;
         }
       } else {
-        self.process_commands(value);
+        self.process_commands(value, interrupt_request);
       }
     }
   }

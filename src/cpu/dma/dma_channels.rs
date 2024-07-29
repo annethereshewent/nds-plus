@@ -95,6 +95,14 @@ impl DmaChannels{
     }
   }
 
+  pub fn notify_geometry_fifo_event(&mut self) {
+    for channel in &mut self.channels {
+      if channel.dma_control.contains(DmaControlRegister::DMA_ENABLE) && channel.dma_control.dma_start_timing(self.is_arm9) == DmaTiming::GeometryCommandFifo {
+        channel.pending = true;
+      }
+    }
+  }
+
   pub fn get_transfer_parameters(&mut self) -> Vec<Option<DmaParams>> {
     let mut dma_params = Vec::new();
 

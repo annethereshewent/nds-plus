@@ -72,9 +72,10 @@ impl Engine3d {
         if vertices.len() == 3 {
           Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer);
         } else {
-          // break up into multiple triangles and then render the triangles that way lmao
+          // break up into multiple triangles and then render the triangles
           let mut i = 0;
-          while i + 3 < vertices.len() {
+          vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
+          while i + 2 < vertices.len() {
             let mut cloned = [Vertex::new(); 3];
 
             cloned.clone_from_slice(&vertices[i..i + 3]);
@@ -106,7 +107,6 @@ impl Engine3d {
     );
 
     if cross_product == 0 {
-      println!("found a 0 cross product");
       return;
     }
 
@@ -145,9 +145,7 @@ impl Engine3d {
       None
     };
 
-    let texture_coordinates: Vec<[i16; 2]> = vertices.iter().map(|vertex| [vertex.texcoord.u, vertex.texcoord.v]).collect();
-
-    println!("{:?}", texture_coordinates);
+    let texcoords: Vec<[i16; 2]> = vertices.iter().map(|vertex| [vertex.texcoord.u, vertex.texcoord.v]).collect();
 
     let mut y = min_y;
     let mut x = min_x;
@@ -173,9 +171,12 @@ impl Engine3d {
           let vram_offset = polygon.tex_params.vram_offset();
 
           let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
+          pixel.color = Some(vertices[0].color);
 
           match polygon.tex_params.texture_format() {
-            TextureFormat::None => (),
+            TextureFormat::None => {
+
+            },
             TextureFormat::A315Transluscent => {
 
             }

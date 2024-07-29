@@ -194,6 +194,6 @@ impl Mul for Matrix {
       matrix1[3][2] as i64 * matrix2[2][3] as i64 +
       matrix1[3][3] as i64 * matrix2[3][3] as i64) >> 12) as i32;
 
-    Matrix(*result_mtx)
+    result
   }
 }
