@@ -834,23 +834,23 @@ impl Engine3d {
 
             match self.matrix_mode {
               MatrixMode::Position => {
-                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
+                self.current_position_matrix.multiply_4x3(self.temp_matrix);
 
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::PositionAndVector => {
-                self.current_position_matrix = self.current_position_matrix * self.temp_matrix;
-                self.current_vector_matrix = self.current_vector_matrix * self.temp_matrix;
+                self.current_position_matrix.multiply_4x3(self.temp_matrix);
+                self.current_vector_matrix.multiply_4x3(self.temp_matrix);
 
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Projection => {
-                self.current_projection_matrix = self.current_projection_matrix * self.temp_matrix;
+                self.current_projection_matrix.multiply_4x3(self.temp_matrix);
 
                 self.clip_vtx_recalculate = true;
               }
               MatrixMode::Texture => {
-                self.current_texture_matrix.scale(&self.scale_vector);
+                self.current_texture_matrix.multiply_4x3(self.temp_matrix);
               }
             }
             self.command_started = false;
