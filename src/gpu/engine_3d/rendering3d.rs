@@ -186,6 +186,8 @@ impl Engine3d {
     let mut y = min_y;
     let mut x = min_x;
 
+    let texcoords: Vec<[i16; 2]> = vertices.iter().map(|vertex| [vertex.texcoord.u, vertex.texcoord.v]).collect();
+
     while y < max_y {
       let left_u = left_vertical_u.next();
       let right_u = right_vertical_u.next();
@@ -214,14 +216,10 @@ impl Engine3d {
       );
 
       while x < boundary2 as u32 {
-        let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size());
-        let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size());
+        let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size() - 1);
+        let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size() - 1);
 
         // render the pixel!
-        // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
-
-        // pixel.color = Some(vertices[0].color);
-
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
         let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);

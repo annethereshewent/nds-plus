@@ -601,7 +601,7 @@ impl Engine3d {
       }
       PolygonAttr => self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param),
       TexImageParam => self.texture_params = TextureParams::from_bits_retain(entry.param),
-      PlttBase => self.palette_base = entry.param & 0xfff,
+      PlttBase => self.palette_base = (entry.param & 0xfff) << 4,
       SwapBuffers => {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
@@ -970,11 +970,11 @@ impl Engine3d {
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
 
     // println!("transformed: {:x?}", self.current_vertex.transformed);
-;
-    // let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
-    // self.texcoord.u += transformed[0] as i16;
-    // self.texcoord.v += transformed[1] as i16;
+    let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
+
+    self.texcoord.u += transformed[0] as i16;
+    self.texcoord.v += transformed[1] as i16;
 
     self.current_vertex.texcoord = self.texcoord;
     self.current_vertex.color = self.vertex_color;
@@ -986,7 +986,9 @@ impl Engine3d {
       //   self.current_vertices.swap(2, 3);
       // }
 
-      self.submit_polygon();
+      if self.primitive_type != PrimitiveType::QuadStrips && self.primitive_type != PrimitiveType::TriangleStrips {
+        self.submit_polygon();
+      }
 
       // todo: handle triangle and quad strip cases here
     }
@@ -1088,13 +1090,17 @@ impl Engine3d {
       temp.screen_x = if transformed[3] == 0 {
         0
       } else {
-        ((transformed[0] + transformed[3]) * (self.viewport.width()) / (2 * transformed[3]) + self.viewport.x1 as i32) as u32
+        let x_offset = transformed[0] + transformed[3];
+        let denominator = 2 * transformed[3];
+        (x_offset * self.viewport.width() / denominator + self.viewport.x1 as i32) as u32
       };
 
       temp.screen_y = if transformed[3] == 0 {
         0
       } else {
-        ((-transformed[1] + transformed[3]) * (self.viewport.height()) / (2 * transformed[3]) + self.viewport.y1 as i32) as u32
+        let y_offset = -transformed[1] + transformed[3];
+        let denominator = 2 * transformed[3];
+        (y_offset * self.viewport.height() / denominator + self.viewport.y1 as i32) as u32
       };
 
       temp.z_depth = ((((transformed[2] as i64 * 0x4000 / transformed[3] as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
