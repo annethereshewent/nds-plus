@@ -18,12 +18,14 @@ enum Command {
   SE,
   DP,
   RDP,
-  None
+  None,
+  IR
 }
 
 impl Command {
   pub fn from(byte: u8) -> Self {
     match byte {
+      0x00 | 0x08 => Command::IR,
       0x06 => Command::WREN,
       0x04 => Command::WRDI,
       0x05 => Command::RDSR,
@@ -81,6 +83,7 @@ impl Flash {
         self.command = Command::from(data);
 
         match self.command {
+          Command::IR => (),
           Command::WREN => self.write_enable = true,
           Command::WRDI => self.write_enable = false,
           Command::READ => {
