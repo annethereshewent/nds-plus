@@ -91,6 +91,18 @@ impl Engine3d {
     }
   }
 
+  fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam) -> Option<Color> {
+    let address = palette_base + 2 * palette_index;
+
+    let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+
+    if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+      None
+    } else {
+      Some(Color::from(color_raw))
+    }
+  }
+
   fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d]) {
     vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
 
@@ -222,12 +234,21 @@ impl Engine3d {
 
         let address = vram_offset + texel;
 
-        match polygon.tex_params.texture_format() {
-          TextureFormat::None => {
+        let palette_base = polygon.palette_base;
 
+        pixel.color = match polygon.tex_params.texture_format() {
+          TextureFormat::None => {
+            Some(vertices[0].color)
           },
           TextureFormat::A315Transluscent => {
+            let byte = vram.read_texture(address);
 
+            let palette_index = byte & 0x1f;
+            let alpha = (byte >> 5) & 0x3;
+
+            pixel.alpha = alpha;
+
+            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
           }
           TextureFormat::A513Transluscent => {
             let byte = vram.read_texture(address);
@@ -236,44 +257,38 @@ impl Engine3d {
 
             let alpha = (byte >> 3) & 0x1f;
 
-            let palette_base = polygon.palette_base;
-
-            let address = palette_base as u32 + 2 * palette_index as u32;
-
-            let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
-
-            pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
-              None
-            } else {
-              Some(Color::from(color_raw))
-            };
-
             pixel.alpha = alpha;
+
+            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
           }
           TextureFormat::Color16 => {
+            let real_address = address & !0b1;
 
+            let byte = vram.read_texture(real_address);
+
+            let palette_index = if address & 0b1 == 0 {
+              byte & 0xf
+            } else {
+              (byte >> 4) & 0xf
+            };
+
+            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
           }
           TextureFormat::Color256 => {
             let palette_index = vram.read_texture(address);
 
-            let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
-
-            pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
-              None
-            } else {
-              Some(Color::from(color_raw))
-            };
+            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
           }
           TextureFormat::Color4x4 => {
-
+            todo!()
           }
           TextureFormat::Color4 => {
-
+            todo!()
           }
           TextureFormat::Direct => {
-
+            todo!()
           }
-        }
+        };
         x += 1;
       }
       y += 1;
