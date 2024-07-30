@@ -1326,6 +1326,15 @@ impl Engine3d {
       }
     }
 
+    if self.packed_commands.len() > 0 && self.params_processed == 0 && self.num_params > 0 {
+      let current_command = self.current_command.unwrap();
+
+      if current_command != Command::Nop {
+        self.params_processed = 1;
+        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
+      }
+    }
+
     if (self.num_params == self.params_processed || self.num_params == 0) && self.packed_commands.is_empty() {
       self.sent_commands = false;
     }
