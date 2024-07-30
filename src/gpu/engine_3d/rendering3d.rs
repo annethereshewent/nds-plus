@@ -179,7 +179,6 @@ impl Engine3d {
     let mut x = min_x;
 
     while y < max_y {
-      x = min_x;
       let left_u = left_vertical_u.next();
       let right_u = right_vertical_u.next();
 
@@ -187,6 +186,8 @@ impl Engine3d {
       let right_v = right_vertical_v.next();
 
       let (boundary1, boundary2) = Self::get_triangle_boundaries(vertices, p01_slope, p02_slope, p12_slope, y as i32);
+
+      x = boundary1 as u32;
 
       let mut u_d = TextureDeltas::new(
         left_u,
@@ -203,7 +204,8 @@ impl Engine3d {
         right_v - left_v,
         (boundary2 - boundary1) as f32
       );
-      while x < max_x {
+
+      while x < boundary2 as u32 {
         if (boundary1..boundary2).contains(&(x as i32)) {
           let curr_u = u_d.next() as u32 >> 4;
           let curr_v = v_d.next() as u32 >> 4;
@@ -219,6 +221,8 @@ impl Engine3d {
           let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
           pixel.color = Some(vertices[0].color);
 
+          let address = vram_offset + texel;
+
           match polygon.tex_params.texture_format() {
             TextureFormat::None => {
 
@@ -227,8 +231,6 @@ impl Engine3d {
 
             }
             TextureFormat::A513Transluscent => {
-              let address = vram_offset + texel;
-
               let byte = vram.read_texture(address);
 
               let palette_index = byte & 0x3;
@@ -253,7 +255,15 @@ impl Engine3d {
 
             }
             TextureFormat::Color256 => {
+              let palette_index = vram.read_texture(address);
 
+              let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+
+              pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+                None
+              } else {
+                Some(Color::from(color_raw))
+              };
             }
             TextureFormat::Color4x4 => {
 
