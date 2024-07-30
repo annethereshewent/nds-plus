@@ -33,7 +33,7 @@ bitflags! {
 
 impl TextureParams {
   pub fn vram_offset(&self) -> u32 {
-    self.bits() & 0xffff
+    (self.bits() & 0xffff) << 3
   }
 
   pub fn texture_s_size(&self) -> u32 {

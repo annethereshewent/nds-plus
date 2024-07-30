@@ -2,7 +2,7 @@ use std::cmp;
 
 use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, vram::VRam, SCREEN_WIDTH};
 
-use super::{polygon::Polygon, texcoord::Texcoord, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+use super::{polygon::Polygon, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
 #[derive(Debug)]
 pub struct TextureDeltas {
@@ -17,12 +17,12 @@ pub struct TextureDeltas {
 impl TextureDeltas {
   pub fn new(start: f32, w_start: f32, w_end: f32, diff: f32, num_steps: f32) -> Self {
     Self {
-      current: 0,
       start,
-      num_steps,
+      current: 0,
       w_start,
       w_end,
-      diff
+      diff,
+      num_steps
     }
   }
 
@@ -54,40 +54,6 @@ impl TextureDeltas {
 
     deltas
   }
-
-  // pub fn get_texture_deltas(v: &[Vertex], cross_product: i32) -> Self {
-  //   let dudx_cp = Engine3d::cross_product(
-  //     (v[0].texcoord.u >> 4) as i32, v[0].screen_y as i32,
-  //     (v[1].texcoord.u >> 4) as i32, v[1].screen_y as i32,
-  //     (v[2].texcoord.u >> 4) as i32, v[2].screen_y as i32
-  //   );
-
-  //   let dudy_cp = Engine3d::cross_product(
-  //     v[0].screen_x as i32, (v[0].texcoord.u >> 4) as i32,
-  //     v[1].screen_x as i32, (v[1].texcoord.u >> 4) as i32,
-  //     v[2].screen_x as i32, (v[2].texcoord.u >> 4) as i32
-  //   );
-
-  //   let dvdx_cp = Engine3d::cross_product(
-  //     (v[0].texcoord.v >> 4) as i32, v[0].screen_y as i32,
-  //     (v[1].texcoord.v >> 4) as i32, v[1].screen_y as i32,
-  //     (v[2].texcoord.v >> 4) as i32, v[2].screen_y as i32
-  //   );
-
-  //   let dvdy_cp = Engine3d::cross_product(
-  //     v[0].screen_x as i32, (v[0].texcoord.v >> 4) as i32,
-  //     v[1].screen_x as i32, (v[1].texcoord.v >> 4) as i32,
-  //     v[2].screen_x as i32, (v[2].texcoord.v >> 4) as i32,
-  //   );
-
-  //   let dudx = dudx_cp as f32 / cross_product as f32;
-  //   let dudy = dudy_cp as f32 / cross_product as f32;
-
-  //   let dvdx = dvdx_cp as f32 / cross_product as f32;
-  //   let dvdy = dvdy_cp as f32 / cross_product as f32;
-
-  //   Self::new(dudx, dudy, dvdx, dvdy)
-  // }
 }
 
 impl Engine3d {
@@ -95,30 +61,11 @@ impl Engine3d {
     (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
   }
 
-  pub fn cross_product_f32(ax: f32, ay: f32, bx: f32, by: f32, cx: f32, cy: f32) -> f32 {
-    (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-  }
-
-  fn to_floating_point(value: i16) -> f32 {
-    let integer_part = (value >> 4) as f32;
-
-    let mut fractional_part = 0.0;
-
-    for i in (0..4).rev() {
-      let bit = (value >> i) & 0b1;
-
-      if bit == 1 {
-        fractional_part += 1.0/(2 << (3 - i)) as f32;
-      }
-    }
-
-    integer_part + fractional_part
-  }
-
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
       for polygon in self.polygon_buffer.drain(..) {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
+
         if vertices.len() == 3 {
           Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer);
         } else {
@@ -160,7 +107,9 @@ impl Engine3d {
       return;
     }
 
-    let p02_is_left = cross_product < 0;
+    // let texture_d = TextureDeltas::get_texture_deltas(vertices, cross_product);
+
+    let p02_is_left = cross_product > 0;
 
     let min_y = cmp::min(vertices[0].screen_y, cmp::min(vertices[1].screen_y, vertices[2].screen_y));
     let max_y = cmp::max(vertices[0].screen_y, cmp::max(vertices[1].screen_y, vertices[2].screen_y));
@@ -173,6 +122,7 @@ impl Engine3d {
 
     let mut right_end: Option<Vertex> = None;
     let mut right_start: Option<Vertex> = None;
+
 
     let p01_slope = if vertices[0].screen_y != vertices[1].screen_y {
       let slope = (vertices[1].screen_x as i32 - vertices[0].screen_x as i32) as f32 / (vertices[1].screen_y as i32 - vertices[0].screen_y as i32) as f32;
@@ -262,6 +212,7 @@ impl Engine3d {
           // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
           // pixel.color = Some(vertices[0].color);
+
           let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
           let vram_offset = polygon.tex_params.vram_offset();
 
