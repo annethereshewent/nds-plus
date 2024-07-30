@@ -347,7 +347,8 @@ pub struct Engine3d {
   scale_vector: [i32; 3],
   pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
   alpha_ref: u8,
-  max_params: usize
+  max_params: usize,
+  swap_vertices: bool
 }
 
 impl Engine3d {
@@ -413,7 +414,8 @@ impl Engine3d {
       polygon_buffer: Vec::new(),
       frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
       alpha_ref: 0,
-      max_params: 0
+      max_params: 0,
+      swap_vertices: false
     }
   }
 
@@ -660,6 +662,7 @@ impl Engine3d {
       BeginVtxs => {
         self.primitive_type = PrimitiveType::from(entry.param & 0x3);
 
+        self.swap_vertices = false;
         self.internal_polygon_attributes = self.polygon_attributes;
 
         self.max_vertices = self.primitive_type.get_num_vertices();
@@ -986,8 +989,27 @@ impl Engine3d {
       //   self.current_vertices.swap(2, 3);
       // }
 
-      if self.primitive_type != PrimitiveType::QuadStrips && self.primitive_type != PrimitiveType::TriangleStrips {
-        self.submit_polygon();
+      match self.primitive_type {
+        PrimitiveType::QuadStrips => {
+          let new_vertex0 = self.current_vertices[2];
+          let new_vertex1 = self.current_vertices[3];
+          self.current_vertices.swap(2, 3);
+          self.submit_polygon();
+          self.current_vertices.push(new_vertex0);
+          self.current_vertices.push(new_vertex1);
+        }
+        PrimitiveType::TriangleStrips => {
+          let new_vertex0 = self.current_vertices[1];
+          let new_vertex1 = self.current_vertices[2];
+          if self.swap_vertices {
+            self.current_vertices.swap(1, 2);
+          }
+          self.swap_vertices = !self.swap_vertices;
+          self.submit_polygon();
+          self.current_vertices.push(new_vertex0);
+          self.current_vertices.push(new_vertex1);
+        }
+        _ => self.submit_polygon()
       }
 
       // todo: handle triangle and quad strip cases here

@@ -128,7 +128,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     if self.bg_mode_enabled(0) {
       if !IS_ENGINE_B && (self.dispcnt.bg_mode == BgMode::Mode6 || self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_3D_SELECTION)) {
-        // TODO: 3d rendering
         self.render_3d_line(y, frame_buffer);
       } else {
         self.render_text_line(0, y, vram);
