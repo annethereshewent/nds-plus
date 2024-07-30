@@ -206,77 +206,74 @@ impl Engine3d {
       );
 
       while x < boundary2 as u32 {
-        if (boundary1..boundary2).contains(&(x as i32)) {
-          let curr_u = u_d.next() as u32 >> 4;
-          let curr_v = v_d.next() as u32 >> 4;
+        let curr_u = u_d.next() as u32 >> 4;
+        let curr_v = v_d.next() as u32 >> 4;
 
-          // render the pixel!
-          // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
+        // render the pixel!
+        // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
-          // pixel.color = Some(vertices[0].color);
+        // pixel.color = Some(vertices[0].color);
 
-          let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
-          let vram_offset = polygon.tex_params.vram_offset();
+        let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
+        let vram_offset = polygon.tex_params.vram_offset();
 
-          let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
-          pixel.color = Some(vertices[0].color);
+        let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
+        pixel.color = Some(vertices[0].color);
 
-          let address = vram_offset + texel;
+        let address = vram_offset + texel;
 
-          match polygon.tex_params.texture_format() {
-            TextureFormat::None => {
+        match polygon.tex_params.texture_format() {
+          TextureFormat::None => {
 
-            },
-            TextureFormat::A315Transluscent => {
+          },
+          TextureFormat::A315Transluscent => {
 
-            }
-            TextureFormat::A513Transluscent => {
-              let byte = vram.read_texture(address);
+          }
+          TextureFormat::A513Transluscent => {
+            let byte = vram.read_texture(address);
 
-              let palette_index = byte & 0x3;
+            let palette_index = byte & 0x3;
 
-              let alpha = (byte >> 3) & 0x1f;
+            let alpha = (byte >> 3) & 0x1f;
 
-              let palette_base = polygon.palette_base;
+            let palette_base = polygon.palette_base;
 
-              let address = palette_base as u32 + 2 * palette_index as u32;
+            let address = palette_base as u32 + 2 * palette_index as u32;
 
-              let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+            let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
 
-              pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
-                None
-              } else {
-                Some(Color::from(color_raw))
-              };
+            pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+              None
+            } else {
+              Some(Color::from(color_raw))
+            };
 
-              pixel.alpha = alpha;
-            }
-            TextureFormat::Color16 => {
+            pixel.alpha = alpha;
+          }
+          TextureFormat::Color16 => {
 
-            }
-            TextureFormat::Color256 => {
-              let palette_index = vram.read_texture(address);
+          }
+          TextureFormat::Color256 => {
+            let palette_index = vram.read_texture(address);
 
-              let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+            let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
 
-              pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
-                None
-              } else {
-                Some(Color::from(color_raw))
-              };
-            }
-            TextureFormat::Color4x4 => {
+            pixel.color = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+              None
+            } else {
+              Some(Color::from(color_raw))
+            };
+          }
+          TextureFormat::Color4x4 => {
 
-            }
-            TextureFormat::Color4 => {
+          }
+          TextureFormat::Color4 => {
 
-            }
-            TextureFormat::Direct => {
+          }
+          TextureFormat::Direct => {
 
-            }
           }
         }
-
         x += 1;
       }
       y += 1;
