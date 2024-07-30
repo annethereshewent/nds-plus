@@ -90,15 +90,15 @@ impl Engine3d {
     }
   }
 
-  fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam) -> Option<Color> {
+  fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam, alpha: Option<u8>) -> (Option<Color>, Option<u8>) {
     let address = palette_base + 2 * palette_index;
 
     let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
 
-    if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
-      None
+    if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) && alpha.is_none() {
+      (Some(Color::from(color_raw)), Some(0))
     } else {
-      Some(Color::from(color_raw))
+      (Some(Color::from(color_raw)), alpha)
     }
   }
 
@@ -185,8 +185,6 @@ impl Engine3d {
 
     let mut y = min_y;
     let mut x = min_x;
-
-    let texcoords: Vec<[i16; 2]> = vertices.iter().map(|vertex| [vertex.texcoord.u, vertex.texcoord.v]).collect();
 
     while y < max_y {
       let left_u = left_vertical_u.next();
@@ -284,7 +282,7 @@ impl Engine3d {
         let palette_index = byte & 0x1f;
         let alpha = (byte >> 5) & 0x3;
 
-        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), Some(alpha))
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha))
       }
       TextureFormat::A513Transluscent => {
         let byte = vram.read_texture(address);
@@ -293,25 +291,25 @@ impl Engine3d {
 
         let alpha = (byte >> 3) & 0x1f;
 
-        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), Some(alpha))
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha))
       }
       TextureFormat::Color16 => {
-        let real_address = address & !0b1;
+        let real_address = vram_offset + texel / 2;
 
         let byte = vram.read_texture(real_address);
 
-        let palette_index = if address & 0b1 == 0 {
+        let palette_index = if texel & 0b1 == 0 {
           byte & 0xf
         } else {
           (byte >> 4) & 0xf
         };
 
-        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), None)
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Color256 => {
         let palette_index = vram.read_texture(address);
 
-        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), None)
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Color4x4 => {
         todo!()
