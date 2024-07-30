@@ -2,7 +2,7 @@ use std::cmp;
 
 use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, vram::VRam, SCREEN_WIDTH};
 
-use super::{polygon::Polygon, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
 #[derive(Debug)]
 pub struct TextureDeltas {
@@ -119,15 +119,12 @@ impl Engine3d {
       return;
     }
 
-    // let texture_d = TextureDeltas::get_texture_deltas(vertices, cross_product);
-
     let p02_is_left = cross_product > 0;
 
     let min_y = cmp::min(vertices[0].screen_y, cmp::min(vertices[1].screen_y, vertices[2].screen_y));
     let max_y = cmp::max(vertices[0].screen_y, cmp::max(vertices[1].screen_y, vertices[2].screen_y));
 
     let min_x = cmp::min(vertices[0].screen_x, cmp::min(vertices[1].screen_x, vertices[2].screen_x));
-    let max_x = cmp::max(vertices[0].screen_x, cmp::max(vertices[1].screen_x, vertices[2].screen_x));
 
     let mut left_start: Option<Vertex> = None;
     let mut left_end: Option<Vertex> = None;
@@ -226,72 +223,108 @@ impl Engine3d {
 
         // pixel.color = Some(vertices[0].color);
 
-        let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
-        let vram_offset = polygon.tex_params.vram_offset();
-
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
-        pixel.color = Some(vertices[0].color);
 
-        let address = vram_offset + texel;
+        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
 
-        let palette_base = polygon.palette_base;
-
-        pixel.color = match polygon.tex_params.texture_format() {
-          TextureFormat::None => {
-            Some(vertices[0].color)
-          },
-          TextureFormat::A315Transluscent => {
-            let byte = vram.read_texture(address);
-
-            let palette_index = byte & 0x1f;
-            let alpha = (byte >> 5) & 0x3;
-
-            pixel.alpha = alpha;
-
-            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
+        if let Some(texel_color) = texel_color {
+          pixel.color = if alpha.is_some() && alpha.unwrap() == 0 {
+            None
+          } else {
+            // check to see if color is blended
+            match polygon.attributes.polygon_mode() {
+              PolygonMode::Decal => {
+                todo!("decal mode not implemented");
+              }
+              PolygonMode::Modulation => {
+                Self::modulation_blend(texel_color, vertices[0].color)
+              }
+              PolygonMode::Shadow => {
+                todo!("shadow mode not implemented");
+              }
+              PolygonMode::Toon => {
+                todo!("toon mode not implemented");
+              }
+            }
           }
-          TextureFormat::A513Transluscent => {
-            let byte = vram.read_texture(address);
-
-            let palette_index = byte & 0x3;
-
-            let alpha = (byte >> 3) & 0x1f;
-
-            pixel.alpha = alpha;
-
-            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
-          }
-          TextureFormat::Color16 => {
-            let real_address = address & !0b1;
-
-            let byte = vram.read_texture(real_address);
-
-            let palette_index = if address & 0b1 == 0 {
-              byte & 0xf
-            } else {
-              (byte >> 4) & 0xf
-            };
-
-            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
-          }
-          TextureFormat::Color256 => {
-            let palette_index = vram.read_texture(address);
-
-            Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram)
-          }
-          TextureFormat::Color4x4 => {
-            todo!()
-          }
-          TextureFormat::Color4 => {
-            todo!()
-          }
-          TextureFormat::Direct => {
-            todo!()
-          }
-        };
+        }
         x += 1;
       }
       y += 1;
+    }
+  }
+
+  fn modulation_blend(texel: Color, pixel: Color) -> Option<Color> {
+    // ((val1 + 1) * (val2 + 1) - 1) / 64;
+    let modulation_fn = |component1, component2| ((component1 + 1) * (component2 + 1) - 1) / 64;
+
+    let r = modulation_fn(texel.r as u16, pixel.r as u16) as u8;
+    let g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
+    let b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
+
+    Some(Color {
+      r,
+      g,
+      b
+    })
+  }
+
+  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam) -> (Option<Color>, Option<u8>) {
+    let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
+    let vram_offset = polygon.tex_params.vram_offset();
+
+    let address = vram_offset + texel;
+
+    let palette_base = polygon.palette_base;
+
+    match polygon.tex_params.texture_format() {
+      TextureFormat::None => {
+        (None, None)
+      },
+      TextureFormat::A315Transluscent => {
+        let byte = vram.read_texture(address);
+
+        let palette_index = byte & 0x1f;
+        let alpha = (byte >> 5) & 0x3;
+
+        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), Some(alpha))
+      }
+      TextureFormat::A513Transluscent => {
+        let byte = vram.read_texture(address);
+
+        let palette_index = byte & 0x3;
+
+        let alpha = (byte >> 3) & 0x1f;
+
+        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), Some(alpha))
+      }
+      TextureFormat::Color16 => {
+        let real_address = address & !0b1;
+
+        let byte = vram.read_texture(real_address);
+
+        let palette_index = if address & 0b1 == 0 {
+          byte & 0xf
+        } else {
+          (byte >> 4) & 0xf
+        };
+
+        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), None)
+      }
+      TextureFormat::Color256 => {
+        let palette_index = vram.read_texture(address);
+
+        (Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram), None)
+      }
+      TextureFormat::Color4x4 => {
+        todo!()
+      }
+      TextureFormat::Color4 => {
+        todo!()
+      }
+      TextureFormat::Direct => {
+        todo!()
+      }
     }
   }
 
