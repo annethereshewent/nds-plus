@@ -217,8 +217,6 @@ impl Engine3d {
         let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size());
         let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size());
 
-        println!("got texture {curr_u},{curr_v} for coordinates {x},{y}");
-
         // render the pixel!
         // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
@@ -228,7 +226,7 @@ impl Engine3d {
 
         let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
 
-        if let Some(mut texel_color) = texel_color {
+        if let Some(texel_color) = texel_color {
           pixel.color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
           } else {
