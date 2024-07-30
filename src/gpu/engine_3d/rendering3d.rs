@@ -6,69 +6,119 @@ use super::{polygon::Polygon, texcoord::Texcoord, texture_params::TextureFormat,
 
 #[derive(Debug)]
 pub struct TextureDeltas {
-  pub dudx: f32,
-  pub dudy: f32,
-  pub dvdx: f32,
-  pub dvdy: f32
+  current: usize,
+  start: f32,
+  num_steps: f32,
+  w_start: f32,
+  w_end: f32,
+  diff: f32
 }
 
 impl TextureDeltas {
-  pub fn new(dudx: f32, dudy: f32, dvdx: f32, dvdy: f32) -> Self {
+  pub fn new(start: f32, w_start: f32, w_end: f32, diff: f32, num_steps: f32) -> Self {
     Self {
-      dudx,
-      dudy,
-      dvdx,
-      dvdy
+      current: 0,
+      start,
+      num_steps,
+      w_start,
+      w_end,
+      diff
     }
   }
 
-  pub fn get_texture_deltas(v: &[Vertex], cross_product: i32) -> Self {
-    let dudx_cp = Engine3d::cross_product(
-      v[0].texcoord.u as i32, v[0].screen_y as i32,
-      v[1].texcoord.u as i32, v[1].screen_y as i32,
-      v[2].texcoord.u as i32, v[2].screen_y as i32
-    );
-
-    let dudy_cp = Engine3d::cross_product(
-      v[0].screen_x as i32, v[0].texcoord.u as i32,
-      v[1].screen_x as i32, v[1].texcoord.u as i32,
-      v[2].screen_x as i32, v[2].texcoord.u as i32
-    );
-
-    let dvdx_cp = Engine3d::cross_product(
-      v[0].texcoord.v as i32, v[0].screen_y as i32,
-      v[1].texcoord.v as i32, v[1].screen_y as i32,
-      v[2].texcoord.v as i32, v[2].screen_y as i32
-    );
-
-    let dvdy_cp = Engine3d::cross_product(
-      v[0].screen_x as i32, v[0].texcoord.v as i32,
-      v[1].screen_x as i32, v[1].texcoord.v as i32,
-      v[2].screen_x as i32, v[2].texcoord.v as i32,
-    );
-
-    let dudx = dudx_cp as f32 / cross_product as f32;
-    let dudy = dudy_cp as f32 / cross_product as f32;
-
-    let dvdx = dvdx_cp as f32 / cross_product as f32;
-    let dvdy = dvdy_cp as f32 / cross_product as f32;
-
-    Self::new(dudx, dudy, dvdx, dvdy)
+  pub fn next(&mut self) -> f32 {
+    let current = self.current as f32;
+    let factor = (current * self.w_start) / (((self.num_steps - current) * self.w_end) + (current * self.w_start));
+    self.current += 1;
+    self.start + factor * self.diff
   }
+
+  pub fn get_texture_deltas(start: Option<Vertex>, end: Option<Vertex>, is_u: bool) -> Self {
+    let start = start.unwrap();
+    let end = end.unwrap();
+
+    let (start_fp, end_fp) = if is_u {
+      (start.texcoord.u as f32, end.texcoord.u as f32)
+    } else {
+      (start.texcoord.v as f32, end.texcoord.v as f32)
+    };
+
+
+    let deltas = TextureDeltas::new(
+      start_fp,
+      0x1000 as f32,
+      0x1000 as f32,
+      end_fp - start_fp,
+      (end.screen_y - start.screen_y) as f32
+    );
+
+    deltas
+  }
+
+  // pub fn get_texture_deltas(v: &[Vertex], cross_product: i32) -> Self {
+  //   let dudx_cp = Engine3d::cross_product(
+  //     (v[0].texcoord.u >> 4) as i32, v[0].screen_y as i32,
+  //     (v[1].texcoord.u >> 4) as i32, v[1].screen_y as i32,
+  //     (v[2].texcoord.u >> 4) as i32, v[2].screen_y as i32
+  //   );
+
+  //   let dudy_cp = Engine3d::cross_product(
+  //     v[0].screen_x as i32, (v[0].texcoord.u >> 4) as i32,
+  //     v[1].screen_x as i32, (v[1].texcoord.u >> 4) as i32,
+  //     v[2].screen_x as i32, (v[2].texcoord.u >> 4) as i32
+  //   );
+
+  //   let dvdx_cp = Engine3d::cross_product(
+  //     (v[0].texcoord.v >> 4) as i32, v[0].screen_y as i32,
+  //     (v[1].texcoord.v >> 4) as i32, v[1].screen_y as i32,
+  //     (v[2].texcoord.v >> 4) as i32, v[2].screen_y as i32
+  //   );
+
+  //   let dvdy_cp = Engine3d::cross_product(
+  //     v[0].screen_x as i32, (v[0].texcoord.v >> 4) as i32,
+  //     v[1].screen_x as i32, (v[1].texcoord.v >> 4) as i32,
+  //     v[2].screen_x as i32, (v[2].texcoord.v >> 4) as i32,
+  //   );
+
+  //   let dudx = dudx_cp as f32 / cross_product as f32;
+  //   let dudy = dudy_cp as f32 / cross_product as f32;
+
+  //   let dvdx = dvdx_cp as f32 / cross_product as f32;
+  //   let dvdy = dvdy_cp as f32 / cross_product as f32;
+
+  //   Self::new(dudx, dudy, dvdx, dvdy)
+  // }
 }
 
 impl Engine3d {
   pub fn cross_product(ax: i32, ay: i32, bx: i32, by: i32, cx: i32, cy: i32) -> i32 {
     (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
   }
+
+  pub fn cross_product_f32(ax: f32, ay: f32, bx: f32, by: f32, cx: f32, cy: f32) -> f32 {
+    (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+  }
+
+  fn to_floating_point(value: i16) -> f32 {
+    let integer_part = (value >> 4) as f32;
+
+    let mut fractional_part = 0.0;
+
+    for i in (0..4).rev() {
+      let bit = (value >> i) & 0b1;
+
+      if bit == 1 {
+        fractional_part += 1.0/(2 << (3 - i)) as f32;
+      }
+    }
+
+    integer_part + fractional_part
+  }
+
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
-
-
       for polygon in self.polygon_buffer.drain(..) {
-        // need to find the boundaries of the polygon and draw triangles
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-
         if vertices.len() == 3 {
           Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer);
         } else {
@@ -110,7 +160,7 @@ impl Engine3d {
       return;
     }
 
-    let texture_d = TextureDeltas::get_texture_deltas(vertices, cross_product);
+    let p02_is_left = cross_product < 0;
 
     let min_y = cmp::min(vertices[0].screen_y, cmp::min(vertices[1].screen_y, vertices[2].screen_y));
     let max_y = cmp::max(vertices[0].screen_y, cmp::max(vertices[1].screen_y, vertices[2].screen_y));
@@ -118,14 +168,21 @@ impl Engine3d {
     let min_x = cmp::min(vertices[0].screen_x, cmp::min(vertices[1].screen_x, vertices[2].screen_x));
     let max_x = cmp::max(vertices[0].screen_x, cmp::max(vertices[1].screen_x, vertices[2].screen_x));
 
-    let mut u_base = vertices[0].texcoord.u as f32;
-    let mut v_base = vertices[0].texcoord.v as f32;
+    let mut left_start: Option<Vertex> = None;
+    let mut left_end: Option<Vertex> = None;
 
-    u_base -= texture_d.dudx * vertices[0].screen_x as f32 + texture_d.dudy * vertices[0].screen_y as f32;
-    v_base -= texture_d.dvdx * vertices[0].screen_x as f32 + texture_d.dvdy * vertices[0].screen_y as f32;
+    let mut right_end: Option<Vertex> = None;
+    let mut right_start: Option<Vertex> = None;
 
     let p01_slope = if vertices[0].screen_y != vertices[1].screen_y {
       let slope = (vertices[1].screen_x as i32 - vertices[0].screen_x as i32) as f32 / (vertices[1].screen_y as i32 - vertices[0].screen_y as i32) as f32;
+      if p02_is_left {
+        right_start = Some(vertices[0]);
+        right_end =  Some(vertices[1]);
+      } else {
+        left_start = Some(vertices[0]);
+        left_end = Some(vertices[1]);
+      }
       Some(slope)
     } else {
       None
@@ -133,6 +190,14 @@ impl Engine3d {
 
     let p12_slope = if vertices[1].screen_y != vertices[2].screen_y {
       let slope = (vertices[2].screen_x as i32 - vertices[1].screen_x as i32) as f32 / (vertices[2].screen_y as i32 - vertices[1].screen_y as i32) as f32;
+
+      if p02_is_left {
+        right_start = Some(vertices[1]);
+        right_end =  Some(vertices[2]);
+      } else {
+        left_start = Some(vertices[1]);
+        left_end = Some(vertices[2]);
+      }
       Some(slope)
     } else {
       None
@@ -140,33 +205,63 @@ impl Engine3d {
 
     let p02_slope = if vertices[0].screen_y != vertices[2].screen_y {
       let slope = (vertices[2].screen_x as i32 - vertices[0].screen_x as i32) as f32 / (vertices[2].screen_y as i32 - vertices[0].screen_y as i32) as f32;
+
+      if p02_is_left {
+        left_start = Some(vertices[0]);
+        left_end =  Some(vertices[2]);
+      } else {
+        right_start = Some(vertices[0]);
+        right_end = Some(vertices[2]);
+      }
+
       Some(slope)
     } else {
       None
     };
 
-    let texcoords: Vec<[i16; 2]> = vertices.iter().map(|vertex| [vertex.texcoord.u, vertex.texcoord.v]).collect();
+    let mut left_vertical_u = TextureDeltas::get_texture_deltas(left_start, left_end, true);
+    let mut right_vertical_u = TextureDeltas::get_texture_deltas(right_start, right_end, true);
+
+    let mut left_vertical_v = TextureDeltas::get_texture_deltas(left_start, left_end, false);
+    let mut right_vertical_v = TextureDeltas::get_texture_deltas(right_start, right_end, false);
 
     let mut y = min_y;
     let mut x = min_x;
 
     while y < max_y {
       x = min_x;
-      while x < max_x {
-        let (boundary1, boundary2) = Self::get_triangle_boundaries(vertices, p01_slope, p02_slope, p12_slope, x as i32, y as i32);
+      let left_u = left_vertical_u.next();
+      let right_u = right_vertical_u.next();
 
+      let left_v = left_vertical_v.next();
+      let right_v = right_vertical_v.next();
+
+      let (boundary1, boundary2) = Self::get_triangle_boundaries(vertices, p01_slope, p02_slope, p12_slope, y as i32);
+
+      let mut u_d = TextureDeltas::new(
+        left_u,
+        0x1000 as f32,
+        0x1000 as f32,
+        right_u - left_u,
+        (boundary2 - boundary1) as f32
+      );
+
+      let mut v_d = TextureDeltas::new(
+        left_v,
+        0x1000 as f32,
+        0x1000 as f32,
+        right_v - left_v,
+        (boundary2 - boundary1) as f32
+      );
+      while x < max_x {
         if (boundary1..boundary2).contains(&(x as i32)) {
+          let curr_u = u_d.next() as u32 >> 4;
+          let curr_v = v_d.next() as u32 >> 4;
+
           // render the pixel!
           // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
           // pixel.color = Some(vertices[0].color);
-
-          let mut curr_u = (texture_d.dudx * x as f32 + texture_d.dudy * y as f32 + u_base) as u32;
-          let mut curr_v = (texture_d.dvdx * x as f32 + texture_d.dudy * y as f32 + v_base) as u32;
-
-          curr_u = curr_u.clamp(0, polygon.tex_params.texture_s_size());
-          curr_v = curr_v.clamp(0, polygon.tex_params.texture_t_size());
-
           let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
           let vram_offset = polygon.tex_params.vram_offset();
 
@@ -227,7 +322,7 @@ impl Engine3d {
     }
   }
 
-  fn get_triangle_boundaries(vertices: &[Vertex], p01_slope: Option<f32>, p02_slope: Option<f32>, p12_slope: Option<f32>, x: i32, y: i32) -> (i32, i32) {
+  fn get_triangle_boundaries(vertices: &[Vertex], p01_slope: Option<f32>, p02_slope: Option<f32>, p12_slope: Option<f32>, y: i32) -> (i32, i32) {
     let mut boundary2 = 0;
 
     // three cases to consider: p02 is always horizontal because vertices are sorted

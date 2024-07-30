@@ -885,6 +885,9 @@ impl Engine3d {
           }
         }
       }
+      Normal => {
+
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
