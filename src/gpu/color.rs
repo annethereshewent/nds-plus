@@ -28,13 +28,21 @@ impl Color {
     self.b = ((value >> 10) & 0x1f) as u8;
   }
 
-  pub fn to_rgb6(&mut self) {
-    self.r = Self::to_rgb6_internal(self.r);
-    self.g = Self::to_rgb6_internal(self.g);
-    self.b = Self::to_rgb6_internal(self.b);
+  pub fn to_rgb5(&mut self) {
+    for _ in 0..3 {
+      self.r = Self::upscale(self.r);
+      self.g = Self::upscale(self.g);
+      self.b = Self::upscale(self.b);
+    }
   }
 
-  fn to_rgb6_internal(value: u8) -> u8 {
+  pub fn to_rgb6(&mut self) {
+    self.r = Self::upscale(self.r);
+    self.g = Self::upscale(self.g);
+    self.b = Self::upscale(self.b);
+  }
+
+  fn upscale(value: u8) -> u8 {
     if value == 0 {
       return 0;
     }

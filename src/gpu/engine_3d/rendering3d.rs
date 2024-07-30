@@ -46,8 +46,8 @@ impl TextureDeltas {
 
     let deltas = TextureDeltas::new(
       start_fp,
-      0x1000 as f32,
-      0x1000 as f32,
+      start.transformed[3] as f32,
+      end.transformed[3] as f32,
       end_fp - start_fp,
       (end.screen_y - start.screen_y) as f32
     );
@@ -83,7 +83,6 @@ impl Engine3d {
           }
         }
       }
-
 
       self.vertices_buffer.clear();
       self.polygons_ready = false;
@@ -200,23 +199,25 @@ impl Engine3d {
 
       let mut u_d = TextureDeltas::new(
         left_u,
-        0x1000 as f32,
-        0x1000 as f32,
+        left_start.unwrap().transformed[3] as f32,
+        right_start.unwrap().transformed[3] as f32,
         right_u - left_u,
         (boundary2 - boundary1) as f32
       );
 
       let mut v_d = TextureDeltas::new(
         left_v,
-        0x1000 as f32,
-        0x1000 as f32,
+        left_start.unwrap().transformed[3] as f32,
+        right_start.unwrap().transformed[3] as f32,
         right_v - left_v,
         (boundary2 - boundary1) as f32
       );
 
       while x < boundary2 as u32 {
-        let curr_u = u_d.next() as u32 >> 4;
-        let curr_v = v_d.next() as u32 >> 4;
+        let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size());
+        let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size());
+
+        println!("got texture {curr_u},{curr_v} for coordinates {x},{y}");
 
         // render the pixel!
         // let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
@@ -227,7 +228,7 @@ impl Engine3d {
 
         let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
 
-        if let Some(texel_color) = texel_color {
+        if let Some(mut texel_color) = texel_color {
           pixel.color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
           } else {
@@ -292,7 +293,7 @@ impl Engine3d {
       TextureFormat::A513Transluscent => {
         let byte = vram.read_texture(address);
 
-        let palette_index = byte & 0x3;
+        let palette_index = byte & 0x7;
 
         let alpha = (byte >> 3) & 0x1f;
 
