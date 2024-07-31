@@ -35,6 +35,7 @@ impl Bus {
       0x400_0210 => self.arm9.interrupt_enable.bits(),
       0x400_0214 => self.arm9.interrupt_request.bits(),
       0x400_0240..=0x400_0246 | 0x400_0248..=0x400_0249 => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
+      0x400_0280 => self.arm9.divcnt.read() as u32,
       0x400_0290 => self.arm9.div_numerator as u32,
       0x400_0294 => (self.arm9.div_numerator >> 32) as u32,
       0x400_0298 => self.arm9.div_denomenator as u32,
@@ -47,6 +48,8 @@ impl Bus {
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_0600 => self.gpu.engine3d.read_geometry_status(),
+      0x400_0640..=0x400_067f => self.gpu.engine3d.read_clip_matrix(address),
+      0x400_0680..=0x400_06a3 => self.gpu.engine3d.read_vector_matrix(address),
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
       0x400_4000..=0x400_4010 => 0, // DSi I/O ports
       0x410_0000 => self.receive_from_fifo(true),
@@ -331,6 +334,10 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_01a4 => self.cartridge.write_control(value, None, &mut self.scheduler, true, self.exmem.nds_access_rights == AccessRights::Arm9),
+      0x400_01a8..=0x400_01ac => {
+        self.arm9_io_write_16(address, value as u16);
+        self.arm9_io_write_16(address + 2, (value >> 16) as u16);
+      }
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),

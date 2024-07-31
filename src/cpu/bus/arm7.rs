@@ -103,6 +103,7 @@ impl Bus {
       0x400_0210 => self.arm7.interrupt_enable.bits(),
       0x400_0214 => self.arm7.interrupt_request.bits(),
       0x400_0400..=0x400_04ff => self.arm7_io_read_16(address) as u32 | (self.arm7_io_read_16(address + 2) as u32) << 16,
+      0x400_4000..=0x400_4d08 => 0,
       0x410_0000 => self.receive_from_fifo(false),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm7, false),
       _ => panic!("unhandled io read to address {:x}", address)
@@ -196,6 +197,7 @@ impl Bus {
       0x400_0500 => self.arm7.apu.soundcnt.read(),
       0x400_0504 => self.arm7.apu.sound_bias,
       0x400_0508 => self.arm7.apu.sndcapcnt[0].read() as u16 | (self.arm7.apu.sndcapcnt[1].read() as u16) << 8,
+      0x400_4000..=0x400_4d08 => 0,
       0x480_4000..=0x480_5fff => 0, // more wifi register stuff
       0x480_8000..=0x480_8fff => 0, // TODO: Wifi registers. might need to implement *something* because iirc some games will get stuck in infinite loop
       _ => {

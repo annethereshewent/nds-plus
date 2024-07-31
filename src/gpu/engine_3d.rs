@@ -425,6 +425,24 @@ impl Engine3d {
     }
   }
 
+  pub fn read_clip_matrix(&mut self, address: u32) -> u32 {
+    let index = (address - 0x400_0640) / 4;
+
+    let row = index / 4;
+    let column = index % 4;
+
+    self.clip_matrix.0[row as usize][column as usize] as u32
+  }
+
+  pub fn read_vector_matrix(&mut self, address: u32) -> u32 {
+    let index = (address - 0x400_0680) / 4;
+
+    let row = index / 4;
+    let column = index % 4;
+
+    self.current_vector_matrix.0[row as usize][column as usize] as u32
+  }
+
   pub fn read_geometry_status(&self) -> u32 {
     self.gxstat.read(0, 0, &self.fifo)
   }
@@ -803,12 +821,7 @@ impl Engine3d {
             self.command_started = false;
 
             match self.matrix_mode {
-              MatrixMode::Position => {
-                self.current_position_matrix.scale(&self.scale_vector);
-
-                self.clip_vtx_recalculate = true;
-              }
-              MatrixMode::PositionAndVector => {
+              MatrixMode::Position | MatrixMode::PositionAndVector => {
                 self.current_position_matrix.scale(&self.scale_vector);
 
                 self.clip_vtx_recalculate = true;
@@ -891,6 +904,15 @@ impl Engine3d {
       Normal => {
 
       }
+      VtxDiff => {
+        let x = (entry.param as i16) << 6 >> 6;
+        let y = (entry.param >> 4) as i16 >> 6;
+        let z = (entry.param >> 14) as i16 >> 6;
+
+        self.current_vertex.x = self.current_vertex.x.wrapping_add(x);
+        self.current_vertex.y = self.current_vertex.y.wrapping_add(y);
+        self.current_vertex.z = self.current_vertex.z.wrapping_add(z);
+      }
       _ => panic!("command not implemented yet: {:?}", entry.command)
     }
   }
@@ -944,7 +966,7 @@ impl Engine3d {
         for matrix in matrices {
           if let Some(matrix) = matrix {
             match (m, n) {
-              (4, 4) => *matrix = *matrix * self.temp_matrix,
+              (4, 4) => *matrix = self.temp_matrix * *matrix,
               (4, 3) => matrix.multiply_4x3(self.temp_matrix),
               (3, 3) => matrix.multiply_3x3(self.temp_matrix),
               _ => panic!("invalid option given for m x n: {m} x {n}")

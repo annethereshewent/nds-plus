@@ -29,9 +29,9 @@ impl Matrix {
     vec.try_into().unwrap_or_else(|vec: Vec<Matrix>| panic!("expected a vector of length 32 but got a vector of length {}", vec.len()))
   }
 
-  pub fn multiply_3x3(&mut self, matrix2: Matrix) {
+  pub fn multiply_3x3(&mut self, lhs: Matrix) {
     let matrix1 = self.0;
-    let matrix2 = matrix2.0;
+    let matrix2 = lhs.0;
 
     let mut result = Matrix::new();
 
@@ -101,9 +101,9 @@ impl Matrix {
     self.0 = *result_mtx;
   }
 
-  pub fn multiply_4x3(&mut self, matrix2: Matrix) {
+  pub fn multiply_4x3(&mut self, lhs: Matrix) {
     let matrix1 = self.0;
-    let matrix2 = matrix2.0;
+    let matrix2 = lhs.0;
 
 
     let mut result = Matrix::new();
