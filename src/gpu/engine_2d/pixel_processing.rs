@@ -228,7 +228,21 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     Color {
       r,
       g,
-      b
+      b,
+      alpha: None
+    }
+  }
+
+  fn blend_colors3d(&self, color: Color, color2: Color, eva: u16, evb: u16) -> Color {
+    let r = cmp::min(31, (color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
+    let g = cmp::min(31, (color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
+    let b = cmp::min(31, (color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
+
+    Color {
+      r,
+      g,
+      b,
+      alpha: None
     }
   }
 
@@ -244,7 +258,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         if let Some(blend_layer) = layer {
           if blend_layer.index != 4 {
             if let Some(color2) = self.bg_lines[blend_layer.index][x] {
-              self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+              if let Some(alpha) = color.alpha {
+                let eva = alpha + 1;
+                let evb = 32 - eva;
+                self.blend_colors3d(color, color2, eva as u16, evb as u16)
+              } else {
+                self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
+              }
             } else {
               color
             }
@@ -264,7 +284,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let white = Color {
             r: 0xff,
             g: 0xff,
-            b: 0xff
+            b: 0xff,
+            alpha: None
           };
           self.blend_colors(color, white, (16 - self.bldy.evy) as u16, self.bldy.evy as u16)
 
@@ -273,7 +294,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         let black = Color {
           r: 0,
           g: 0,
-          b: 0
+          b: 0,
+          alpha: None
         };
 
         self.blend_colors(color, black, (16 - self.bldy.evy) as u16, self.bldy.evy as u16)

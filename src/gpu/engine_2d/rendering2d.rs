@@ -714,7 +714,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         let color = Color {
           r: 0xff,
           g: 0xff,
-          b: 0xff
+          b: 0xff,
+          alpha: None
         };
 
         for x in 0..SCREEN_WIDTH {

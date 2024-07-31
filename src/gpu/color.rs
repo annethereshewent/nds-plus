@@ -2,7 +2,8 @@
 pub struct Color {
   pub r: u8,
   pub g: u8,
-  pub b: u8
+  pub b: u8,
+  pub alpha: Option<u8>
 }
 
 impl Color {
@@ -10,7 +11,8 @@ impl Color {
     Self {
       r: 0,
       g: 0,
-      b: 0
+      b: 0,
+      alpha: None
     }
   }
 
@@ -62,7 +64,8 @@ impl Color {
     Color {
       r,
       g,
-      b
+      b,
+      alpha: None
     }
   }
 
@@ -70,7 +73,8 @@ impl Color {
     Color {
       r: (val & 0x1f) as u8,
       g: ((val >> 5) & 0x1f) as u8,
-      b: ((val >> 10) & 0x1f) as u8
+      b: ((val >> 10) & 0x1f) as u8,
+      alpha: None
     }
   }
 }

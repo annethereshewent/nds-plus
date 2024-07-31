@@ -1244,7 +1244,8 @@ impl Engine3d {
       color: Color {
         r,
         g,
-        b
+        b,
+        alpha: None
       },
       normalized_w: 0
     }

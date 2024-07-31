@@ -12,8 +12,8 @@ impl AlphaBlendRegister {
   }
 
   pub fn write(&mut self, value: u16) {
-    self.eva = (value & 0b11111) as u8;
-    self.evb = ((value >> 8) & 0b11111 ) as u8;
+    self.eva = (value & 0x1f).min(16) as u8;
+    self.evb = ((value >> 8) & 0x1f ).min(16) as u8;
   }
 
   pub fn read(&self) -> u16 {

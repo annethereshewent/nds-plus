@@ -71,7 +71,13 @@ impl Engine3d {
         } else {
           // break up into multiple triangles and then render the triangles
           let mut i = 0;
-          vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
+          vertices.sort_by(|a, b| {
+            if a.screen_y != b.screen_y {
+              a.screen_y.cmp(&b.screen_y)
+            } else {
+              a.screen_x.cmp(&b.screen_x)
+            }
+          });
           while i + 2 < vertices.len() {
             let mut cloned = [Vertex::new(); 3];
 
@@ -232,7 +238,7 @@ impl Engine3d {
                 todo!("decal mode not implemented");
               }
               PolygonMode::Modulation => {
-                Self::modulation_blend(texel_color, vertices[0].color)
+                Self::modulation_blend(texel_color, vertices[0].color, alpha)
               }
               PolygonMode::Shadow => {
                 todo!("shadow mode not implemented");
@@ -242,6 +248,8 @@ impl Engine3d {
               }
             }
           }
+        } else {
+          pixel.color = Some(vertices[0].color);
         }
         x += 1;
       }
@@ -249,7 +257,7 @@ impl Engine3d {
     }
   }
 
-  fn modulation_blend(texel: Color, pixel: Color) -> Option<Color> {
+  fn modulation_blend(texel: Color, pixel: Color, alpha: Option<u8>) -> Option<Color> {
     // ((val1 + 1) * (val2 + 1) - 1) / 64;
     let modulation_fn = |component1, component2| ((component1 + 1) * (component2 + 1) - 1) / 64;
 
@@ -260,7 +268,8 @@ impl Engine3d {
     Some(Color {
       r,
       g,
-      b
+      b,
+      alpha
     })
   }
 
@@ -280,9 +289,9 @@ impl Engine3d {
         let byte = vram.read_texture(address);
 
         let palette_index = byte & 0x1f;
-        let alpha = (byte >> 5) & 0x3;
+        let alpha = (byte >> 5) & 0x7;
 
-        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha))
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha * 4 + alpha / 2))
       }
       TextureFormat::A513Transluscent => {
         let byte = vram.read_texture(address);
@@ -318,7 +327,12 @@ impl Engine3d {
         todo!()
       }
       TextureFormat::Direct => {
-        todo!()
+        let address = vram_offset + 2 * texel;
+        let color_raw = vram.read_texture(address) as u16 | (vram.read_texture(address + 1) as u16) << 8;
+
+        let alpha = if color_raw & 0x8000 == 0 { 0 } else { 0x1f };
+
+        (Some(Color::from(color_raw)), Some(alpha))
       }
     }
   }
