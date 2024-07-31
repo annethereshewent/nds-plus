@@ -563,6 +563,7 @@ impl Bus {
           let sample_address = self.arm7.apu.channels[channel_id].get_sample_address();
 
           let word = self.arm7_mem_read_32(sample_address);
+
           self.arm7.apu.channels[channel_id].sample_fifo = word;
           self.arm7.apu.channels[channel_id].pcm_samples_left = 2;
         }
@@ -578,7 +579,7 @@ impl Bus {
           self.arm7.apu.channels[channel_id].set_adpcm_header(header);
         }
         if self.arm7.apu.channels[channel_id].pcm_samples_left == 0 {
-          let sample_address = self.arm7.apu.channels[channel_id].get_adpcm_sample_address();
+          let sample_address = self.arm7.apu.channels[channel_id].get_sample_address();
 
           let word = self.arm7_mem_read_32(sample_address);
 
@@ -613,19 +614,20 @@ impl Bus {
       };
 
       if self.arm7.apu.sndcapcnt[capture_index].is_running && self.arm7.apu.sndcapcnt[capture_index].bytes_left > 0 {
-        let address = if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
+        let _address = if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
           self.arm7.apu.sndcapcnt[capture_index].get_capture_address(1)
         } else {
           self.arm7.apu.sndcapcnt[capture_index].get_capture_address(2)
         };
 
-        let data = self.arm7.apu.capture_data(capture_index) as u16;
+        let _data = self.arm7.apu.capture_data(capture_index) as u16;
 
-        if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
-          self.arm7_mem_write_8(address, (data >> 8) as u8);
-        } else {
-          self.arm7_mem_write_16(address, data);
-        }
+        // todo, not working quite right
+        // if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
+        //   self.arm7_mem_write_8(address, (data >> 8) as u8);
+        // } else {
+        //   self.arm7_mem_write_16(address, data);
+        // }
       }
     }
   }

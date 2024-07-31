@@ -989,12 +989,7 @@ impl Engine3d {
       self.recalculate_clip_matrix();
     }
 
-    // println!("pre transformed vertex: {:x?}", [vertex.x, vertex.y, vertex.z, 0]);
-
-    // transform texture and polygon vertices if needed
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
-
-    // println!("transformed: {:x?}", self.current_vertex.transformed);
 
     let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
@@ -1006,11 +1001,6 @@ impl Engine3d {
 
     self.current_vertices.push(self.current_vertex);
     if self.current_vertices.len() == self.max_vertices {
-      // submit the polygon
-      // if self.primitive_type == PrimitiveType::QuadStrips {
-      //   self.current_vertices.swap(2, 3);
-      // }
-
       match self.primitive_type {
         PrimitiveType::QuadStrips => {
           let new_vertex0 = self.current_vertices[2];
@@ -1033,13 +1023,10 @@ impl Engine3d {
         }
         _ => self.submit_polygon()
       }
-
-      // todo: handle triangle and quad strip cases here
     }
   }
 
   fn submit_polygon(&mut self) {
-    //  println!("submitting polygon");
     let a = (
       self.current_vertices[0].transformed[0] - self.current_vertices[1].transformed[0],
       self.current_vertices[0].transformed[1] - self.current_vertices[1].transformed[1],
@@ -1096,11 +1083,8 @@ impl Engine3d {
     }
 
     if self.current_vertices.is_empty() {
-      // println!("returning because vertices are empty");
       return;
     }
-
-    // println!("we made it!");
 
     let mut polygon = Polygon {
       palette_base: self.palette_base as usize,

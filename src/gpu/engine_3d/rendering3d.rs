@@ -11,7 +11,8 @@ pub struct TextureDeltas {
   num_steps: f32,
   w_start: f32,
   w_end: f32,
-  diff: f32
+  diff: f32,
+  dw: f32
 }
 
 impl TextureDeltas {
@@ -22,7 +23,8 @@ impl TextureDeltas {
       w_start,
       w_end,
       diff,
-      num_steps
+      num_steps,
+      dw: (w_end - w_start) / num_steps
     }
   }
 
@@ -43,11 +45,13 @@ impl TextureDeltas {
       (start.texcoord.v as f32, end.texcoord.v as f32)
     };
 
+    println!("inside texture deltas, w_start = {} w_end = {}", start.normalized_w, end.normalized_w);
+
 
     let deltas = TextureDeltas::new(
       start_fp,
-      start.transformed[3] as f32,
-      end.transformed[3] as f32,
+      start.normalized_w as f32,
+      end.normalized_w as f32,
       end_fp - start_fp,
       (end.screen_y - start.screen_y) as f32
     );
@@ -192,6 +196,9 @@ impl Engine3d {
     let mut y = min_y;
     let mut x = min_x;
 
+    let mut w_start = left_start.unwrap().normalized_w as f32;
+
+    let mut w_end = right_start.unwrap().normalized_w as f32;
     while y < max_y {
       let left_u = left_vertical_u.next();
       let right_u = right_vertical_u.next();
@@ -203,18 +210,30 @@ impl Engine3d {
 
       x = boundary1 as u32;
 
+      let left_start = left_start.unwrap();
+      let right_start = right_start.unwrap();
+
+      // let rel_y_left = y as i16 - left_start.screen_y as i16;
+      // let rel_y_right = y as i16 - right_start.screen_y as i16;
+
+      // let w_start = ((left_vertical_u.dw * rel_y_left as f32) as i16) + left_start.normalized_w;
+      // let w_end = ((right_vertical_u.dw * rel_y_right as f32) as i16) + right_start.normalized_w;
+
+      w_start += left_vertical_u.dw;
+      w_end += right_vertical_u.dw;
+
       let mut u_d = TextureDeltas::new(
         left_u,
-        left_start.unwrap().transformed[3] as f32,
-        right_start.unwrap().transformed[3] as f32,
+        w_start as f32,
+        w_end as f32,
         right_u - left_u,
         (boundary2 - boundary1) as f32
       );
 
       let mut v_d = TextureDeltas::new(
         left_v,
-        left_start.unwrap().transformed[3] as f32,
-        right_start.unwrap().transformed[3] as f32,
+        w_start as f32,
+        w_end as f32,
         right_v - left_v,
         (boundary2 - boundary1) as f32
       );
@@ -322,6 +341,7 @@ impl Engine3d {
       }
       TextureFormat::Color4x4 => {
         let blocks_per_row = polygon.tex_params.texture_s_size() / 4;
+
         let block_address = curr_u / 4 + blocks_per_row * curr_v / 4;
 
         let base_address = vram_offset + 4 * block_address;
@@ -385,7 +405,7 @@ impl Engine3d {
             let palette1_index = vram.read_texture_palette(palette_offset + 2);
 
             let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+            let (color1,_) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
 
             let blended_color = color0.unwrap().blend_texture(color1.unwrap());
 
@@ -407,7 +427,7 @@ impl Engine3d {
             let palette1_index = vram.read_texture_palette(palette_offset + 2);
 
             let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+            let (color1, _) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
 
             let blended_color = color1.unwrap().blend_texture(color0.unwrap());
 

@@ -80,15 +80,6 @@ impl Channel {
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
   }
 
-  pub fn get_adpcm_sample_address(&mut self) -> u32 {
-    let return_address = self.current_address;
-
-    self.current_address += 4;
-    self.bytes_left -= 4;
-
-    return_address
-  }
-
   pub fn schedule(&self, scheduler: &mut Scheduler, should_reset: bool, cycles_left: usize) {
     if self.timer_value != 0 && self.sound_length + self.loop_start as u32 > 0 {
       let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;

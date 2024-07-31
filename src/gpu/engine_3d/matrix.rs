@@ -29,6 +29,7 @@ impl Matrix {
     vec.try_into().unwrap_or_else(|vec: Vec<Matrix>| panic!("expected a vector of length 32 but got a vector of length {}", vec.len()))
   }
 
+  // sets C = M * C (M being the left side)
   pub fn multiply_3x3(&mut self, lhs: Matrix) {
     let matrix1 = self.0;
     let matrix2 = lhs.0;
@@ -101,6 +102,7 @@ impl Matrix {
     self.0 = *result_mtx;
   }
 
+  // sets C = M * C (hence why lhs instead of rhs)
   pub fn multiply_4x3(&mut self, lhs: Matrix) {
     let matrix1 = self.0;
     let matrix2 = lhs.0;
