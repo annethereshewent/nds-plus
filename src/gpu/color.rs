@@ -44,6 +44,33 @@ impl Color {
     self.b = Self::upscale(self.b);
   }
 
+  pub fn blend_half(&self, color: Color) -> Color {
+    let r = (self.r + color. r) / 2;
+    let g = (self.g + color.g) / 2;
+    let b = (self.b + color.b) / 2;
+
+    Color {
+      r,
+      g,
+      b,
+      alpha: self.alpha
+    }
+  }
+
+  pub fn blend_texture(&self, color: Color) -> Color {
+    // // (color0 * 3 + color1 * 5) / 8
+    let r = (self.r * 3 + color.r * 5) / 8;
+    let g = (self.g * 3 + color.g * 5) / 8;
+    let b = (self.b * 3 + color.b * 5) / 8;
+
+    Color {
+      r,
+      g,
+      b,
+      alpha: self.alpha
+    }
+  }
+
   fn upscale(value: u8) -> u8 {
     if value == 0 {
       return 0;

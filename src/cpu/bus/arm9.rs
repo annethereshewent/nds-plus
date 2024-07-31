@@ -47,6 +47,7 @@ impl Bus {
       0x400_02b4 => self.arm9.sqrt_result,
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
+      0x400_0440..=0x400_05c8 => 0,
       0x400_0600 => self.gpu.engine3d.read_geometry_status(),
       0x400_0640..=0x400_067f => self.gpu.engine3d.read_clip_matrix(address),
       0x400_0680..=0x400_06a3 => self.gpu.engine3d.read_vector_matrix(address),

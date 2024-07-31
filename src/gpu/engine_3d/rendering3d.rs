@@ -321,10 +321,112 @@ impl Engine3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Color4x4 => {
-        todo!()
+        let blocks_per_row = polygon.tex_params.texture_s_size() / 4;
+        let block_address = curr_u / 4 + blocks_per_row * curr_v / 4;
+
+        let base_address = vram_offset + 4 * block_address;
+
+        let mut texel_value = vram.read_texture(address);
+
+        texel_value = match curr_u & 0x3 {
+          0 => texel_value & 0x3,
+          1 => texel_value >> 2 & 0x3,
+          2 => texel_value >> 4 & 0x3,
+          3 => texel_value >> 6 & 0x3,
+          _ => unreachable!()
+        };
+
+        let slot1_address = base_address / 2 + if base_address > 128 * 0x400 {
+          0x1000
+        } else {
+          0
+        };
+
+        let extra_palette_info = vram.read_texture(slot1_address) as u16 | (vram.read_texture(slot1_address + 1) as u16) << 8;
+
+        let palette_offset = palette_base as u32 + ((extra_palette_info & 0x1fff) * 4) as u32;
+
+        let mode = (extra_palette_info >> 14) & 0x3;
+
+        match (texel_value, mode) {
+          (0, _) => {
+            // color 0
+            let palette_index = vram.read_texture_palette(palette_offset);
+
+            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+          }
+          (1, _) => {
+            // color 1
+            let palette_index = vram.read_texture_palette(palette_offset + 2);
+
+            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+          },
+          (2, 0) | (2, 2) => {
+            // color 2
+            let palette_index = vram.read_texture_palette(palette_offset + 2 * 2);
+
+            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+          }
+          (2, 1) => {
+            // (color0 + color1) / 2
+            let palette0_index = vram.read_texture_palette(palette_offset);
+            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+
+            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
+            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+
+            let blended_color = color0.unwrap().blend_half(color1.unwrap());
+
+            (Some(blended_color), alpha1)
+          }
+          (2, 3) => {
+            // (color0 * 5 + color1 * 3) / 8
+            let palette0_index = vram.read_texture_palette(palette_offset);
+            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+
+            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
+            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+
+            let blended_color = color0.unwrap().blend_texture(color1.unwrap());
+
+            (Some(blended_color), alpha1)
+          }
+          (3, 0)| (3, 1) => {
+            // transparent
+            (Some(Color { r: 0, g: 0, b: 0, alpha: Some(0) }), Some(0))
+          }
+          (3, 2) => {
+            // color 3
+            let palette_index = vram.read_texture_palette(palette_offset + 2 * 3);
+
+            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+          }
+          (3, 3) => {
+            // (color0 * 3 + color1 * 5) / 8
+            let palette0_index = vram.read_texture_palette(palette_offset);
+            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+
+            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
+            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+
+            let blended_color = color1.unwrap().blend_texture(color0.unwrap());
+
+            (Some(blended_color), alpha1)
+          }
+          _ => panic!("invalid options given for texel value and mode: {texel_value} {mode}")
+        }
       }
       TextureFormat::Color4 => {
-        todo!()
+        let mut palette_index = vram.read_texture(vram_offset + texel / 4);
+
+        palette_index = match texel & 0x3 {
+          0 => palette_index & 0x3,
+          1 => (palette_index >> 2) & 0x3,
+          2 => (palette_index >> 4) & 0x3,
+          3 => (palette_index >> 6) & 0x3,
+          _ => unreachable!()
+        };
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Direct => {
         let address = vram_offset + 2 * texel;
