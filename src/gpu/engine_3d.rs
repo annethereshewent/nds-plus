@@ -16,9 +16,7 @@ use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
 use super::{
   color::Color,
   registers::{
-    clear_color_register::ClearColorRegister,
-    fog_color_register::FogColorRegister,
-    geometry_status_register::{GeometryIrq, GeometryStatusRegister}
+    clear_color_register::ClearColorRegister, display_3d_control_register::Display3dControlRegister, fog_color_register::FogColorRegister, geometry_status_register::{GeometryIrq, GeometryStatusRegister}
   }, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
@@ -348,7 +346,8 @@ pub struct Engine3d {
   pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
   alpha_ref: u8,
   max_params: usize,
-  swap_vertices: bool
+  swap_vertices: bool,
+  pub disp3dcnt: Display3dControlRegister,
 }
 
 impl Engine3d {
@@ -415,7 +414,8 @@ impl Engine3d {
       frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
       alpha_ref: 0,
       max_params: 0,
-      swap_vertices: false
+      swap_vertices: false,
+      disp3dcnt: Display3dControlRegister::from_bits_retain(0)
     }
   }
 

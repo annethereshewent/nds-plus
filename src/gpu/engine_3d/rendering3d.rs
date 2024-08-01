@@ -1,6 +1,6 @@
 use std::cmp;
 
-use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, vram::VRam, SCREEN_WIDTH};
+use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
@@ -153,7 +153,7 @@ impl Engine3d {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
 
         if vertices.len() == 3 {
-          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer);
+          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, self.disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING));
         } else {
           // break up into multiple triangles and then render the triangles
           let mut i = 0;
@@ -169,7 +169,7 @@ impl Engine3d {
 
             cloned.clone_from_slice(&vertices[i..i + 3]);
 
-            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer);
+            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, self.disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING));
 
             i += 1;
           }
@@ -194,7 +194,7 @@ impl Engine3d {
     }
   }
 
-  fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d]) {
+  fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d], toon_table: &[Color], highlight_shading: bool) {
     vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
 
     let cross_product = Self::cross_product(
@@ -216,6 +216,23 @@ impl Engine3d {
     let max_y = cmp::max(vertices[0].screen_y, cmp::max(vertices[1].screen_y, vertices[2].screen_y));
 
     let min_x = cmp::min(vertices[0].screen_x, cmp::min(vertices[1].screen_x, vertices[2].screen_x));
+    let max_x = cmp::max(vertices[0].screen_x, cmp::max(vertices[1].screen_x, vertices[2].screen_x));
+
+    if max_x >= SCREEN_WIDTH as u32 && min_x >= SCREEN_WIDTH as u32 {
+      return;
+    }
+
+    if max_y >= SCREEN_HEIGHT as u32 && min_y >= SCREEN_HEIGHT as u32 {
+      return;
+    }
+
+    if (max_x - min_x) >= SCREEN_WIDTH as u32 {
+      return;
+    }
+
+    if (max_y - min_y) >= SCREEN_HEIGHT as u32 {
+      return;
+    }
 
     let mut left_start: Option<Vertex> = None;
     let mut left_end: Option<Vertex> = None;
@@ -325,7 +342,6 @@ impl Engine3d {
         (boundary2 - boundary1) as f32
       );
 
-
       while x < boundary2 as u32 {
         let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size() - 1);
         let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size() - 1);
@@ -347,13 +363,19 @@ impl Engine3d {
                 todo!("decal mode not implemented");
               }
               PolygonMode::Modulation => {
-                Self::modulation_blend(texel_color, vertices[0].color, alpha)
+                Self::modulation_blend(texel_color, vertex_color, alpha, false)
               }
               PolygonMode::Shadow => {
                 todo!("shadow mode not implemented");
               }
               PolygonMode::Toon => {
-                todo!("toon mode not implemented");
+                if highlight_shading {
+                  Self::modulation_blend(texel_color, vertex_color, alpha, true)
+                } else {
+                  let toon_color = toon_table[(vertex_color.r & 0x1f) as usize];
+
+                  Self::modulation_blend(texel_color, toon_color, alpha, false)
+                }
               }
             }
           }
@@ -366,13 +388,19 @@ impl Engine3d {
     }
   }
 
-  fn modulation_blend(texel: Color, pixel: Color, alpha: Option<u8>) -> Option<Color> {
+  fn modulation_blend(texel: Color, pixel: Color, alpha: Option<u8>, toon_highlight: bool) -> Option<Color> {
     // ((val1 + 1) * (val2 + 1) - 1) / 64;
     let modulation_fn = |component1, component2| ((component1 + 1) * (component2 + 1) - 1) / 64;
 
-    let r = modulation_fn(texel.r as u16, pixel.r as u16) as u8;
-    let g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
-    let b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
+    let mut r = modulation_fn(texel.r as u16, pixel.r as u16) as u8;
+    let mut g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
+    let mut b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
+
+    if toon_highlight {
+      r = cmp::max(r + pixel.r, 0x3f);
+      g = cmp::max(g + pixel.g, 0x3f);
+      b = cmp::max(b + pixel.b, 0x3f);
+    }
 
     Some(Color {
       r,
@@ -446,7 +474,7 @@ impl Engine3d {
           _ => unreachable!()
         };
 
-        let slot1_address = base_address / 2 + if base_address > 128 * 0x400 {
+        let slot1_address = 128 * 0x400 + base_address / 2 + if base_address > 128 * 0x400 {
           0x1000
         } else {
           0
@@ -454,7 +482,7 @@ impl Engine3d {
 
         let extra_palette_info = vram.read_texture(slot1_address) as u16 | (vram.read_texture(slot1_address + 1) as u16) << 8;
 
-        let palette_offset = palette_base as u32 + ((extra_palette_info & 0x1fff) * 4) as u32;
+        let palette_offset = palette_base as u32 + ((extra_palette_info & 0x3fff) * 4) as u32;
 
         let mode = (extra_palette_info >> 14) & 0x3;
 

@@ -106,7 +106,6 @@ pub struct GPU {
   pub vcount: u16,
   pub dispcapcnt: DisplayCaptureControlRegister,
   pub mosaic: MosaicRegister,
-  pub disp3dcnt: Display3dControlRegister,
   pub is_capturing: bool,
   previous_time: u128
 }
@@ -132,7 +131,6 @@ impl GPU {
       frame_finished: false,
       vram: VRam::new(),
       mosaic: MosaicRegister::new(),
-      disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       is_capturing: false,
       previous_time: 0
     };

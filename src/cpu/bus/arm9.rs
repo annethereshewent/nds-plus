@@ -129,7 +129,7 @@ impl Bus {
       0x400_0004 => self.gpu.dispstat[1].read(),
       0x400_0006 => self.gpu.vcount,
       0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
-      0x400_0060 => self.gpu.disp3dcnt.bits() as u16,
+      0x400_0060 => self.gpu.engine3d.disp3dcnt.bits() as u16,
       0x400_006c => self.gpu.engine_a.master_brightness.read(),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0b11);
@@ -318,7 +318,7 @@ impl Bus {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
-      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value),
+      0x400_0060 => self.gpu.engine3d.disp3dcnt = Display3dControlRegister::from_bits_retain(value),
       0x400_0064 => self.gpu.dispcapcnt.write(value),
       0x400_006c => self.gpu.engine_a.master_brightness.write(value as u16),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, None, &mut self.scheduler),
@@ -425,7 +425,7 @@ impl Bus {
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
       0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
-      0x400_0060 => self.gpu.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
+      0x400_0060 => self.gpu.engine3d.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
       0x400_006c => self.gpu.engine_a.master_brightness.write(value),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0x3);
