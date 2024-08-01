@@ -5,7 +5,7 @@ use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, vram::V
 use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
 #[derive(Debug)]
-pub struct TextureDeltas {
+pub struct Slope {
   current: usize,
   start: f32,
   num_steps: f32,
@@ -15,7 +15,7 @@ pub struct TextureDeltas {
   dw: f32
 }
 
-impl TextureDeltas {
+impl Slope {
   pub fn new(start: f32, w_start: f32, w_end: f32, diff: f32, num_steps: f32) -> Self {
     Self {
       start,
@@ -35,7 +35,7 @@ impl TextureDeltas {
     self.start + factor * self.diff
   }
 
-  pub fn get_texture_deltas(start: Option<Vertex>, end: Option<Vertex>, is_u: bool) -> Self {
+  pub fn get_texture_slope(start: Option<Vertex>, end: Option<Vertex>, is_u: bool) -> Self {
     let start = start.unwrap();
     let end = end.unwrap();
 
@@ -45,17 +45,102 @@ impl TextureDeltas {
       (start.texcoord.v as f32, end.texcoord.v as f32)
     };
 
-    let deltas = TextureDeltas::new(
+    Slope::new(
       start_fp,
       start.normalized_w as f32,
       end.normalized_w as f32,
       end_fp - start_fp,
       (end.screen_y - start.screen_y) as f32
-    );
-
-    deltas
+    )
   }
 }
+
+#[derive(Debug)]
+pub struct RgbSlopes {
+  r_slope: Slope,
+  g_slope: Slope,
+  b_slope: Slope
+}
+
+impl RgbSlopes {
+  pub fn get_slopes(start: Option<Vertex>, end: Option<Vertex>) -> RgbSlopes {
+    let start = start.unwrap();
+    let end = end.unwrap();
+
+
+    let r_slope = Self::new_slope(start, end, start.color.r as f32, end.color.r as f32);
+    let g_slope = Self::new_slope(start, end, start.color.g as f32, end.color.g as f32);
+    let b_slope = Self::new_slope(start, end, start.color.b as f32, end.color.b as f32);
+
+    Self {
+      r_slope,
+      g_slope,
+      b_slope
+    }
+  }
+  /*
+    left_rgb,
+        end_rgb,
+        w_start,
+        w_end,
+        (boundary2 - boundary1) as f32
+   */
+  pub fn new(start: Color, end: Color, w_start: f32, w_end: f32, num_steps: f32) -> Self {
+    let r_slope = Slope::new(
+      start.r as f32,
+      w_start,
+      w_end,
+      (end.r as i32 - start.r as i32) as f32,
+      num_steps
+    );
+
+    let g_slope = Slope::new(
+      start.g as f32,
+      w_start,
+      w_end,
+      (end.g as i32 - start.g as i32) as f32,
+      num_steps
+    );
+
+    let b_slope = Slope::new(
+      start.b as f32,
+      w_start,
+      w_end,
+      (end.b as i32 - start.b as i32) as f32,
+      num_steps
+    );
+
+    Self {
+      r_slope,
+      g_slope,
+      b_slope
+    }
+  }
+
+  pub fn new_slope(start: Vertex, end: Vertex, start_fp: f32, end_fp: f32) -> Slope {
+    Slope::new(
+      start_fp,
+      start.normalized_w as f32,
+      end.normalized_w as f32,
+      end_fp - start_fp,
+      (end.screen_y - start.screen_y) as f32
+    )
+  }
+
+  pub fn next_color(&mut self) -> Color {
+    let r = self.r_slope.next() as u8;
+    let g = self.g_slope.next() as u8;
+    let b = self.b_slope.next() as u8;
+
+    Color {
+      r,
+      g,
+      b,
+      alpha: None
+    }
+  }
+}
+
 
 impl Engine3d {
   pub fn cross_product(ax: i32, ay: i32, bx: i32, by: i32, cx: i32, cy: i32) -> i32 {
@@ -184,18 +269,21 @@ impl Engine3d {
       None
     };
 
-    let mut left_vertical_u = TextureDeltas::get_texture_deltas(left_start, left_end, true);
-    let mut right_vertical_u = TextureDeltas::get_texture_deltas(right_start, right_end, true);
+    let mut left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
+    let mut right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
 
-    let mut left_vertical_v = TextureDeltas::get_texture_deltas(left_start, left_end, false);
-    let mut right_vertical_v = TextureDeltas::get_texture_deltas(right_start, right_end, false);
+    let mut left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
+    let mut right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
+
+    let mut left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
+    let mut right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
 
     let mut y = min_y;
     let mut x = min_x;
 
     let mut w_start = left_start.unwrap().normalized_w as f32;
-
     let mut w_end = right_start.unwrap().normalized_w as f32;
+
     while y < max_y {
       let left_u = left_vertical_u.next();
       let right_u = right_vertical_u.next();
@@ -203,23 +291,17 @@ impl Engine3d {
       let left_v = left_vertical_v.next();
       let right_v = right_vertical_v.next();
 
+      let left_rgb = left_vertical_rgb.next_color();
+      let right_rgb = right_vertical_rgb.next_color();
+
       let (boundary1, boundary2) = Self::get_triangle_boundaries(vertices, p01_slope, p02_slope, p12_slope, y as i32);
 
       x = boundary1 as u32;
 
-      let left_start = left_start.unwrap();
-      let right_start = right_start.unwrap();
-
-      // let rel_y_left = y as i16 - left_start.screen_y as i16;
-      // let rel_y_right = y as i16 - right_start.screen_y as i16;
-
-      // let w_start = ((left_vertical_u.dw * rel_y_left as f32) as i16) + left_start.normalized_w;
-      // let w_end = ((right_vertical_u.dw * rel_y_right as f32) as i16) + right_start.normalized_w;
-
       w_start += left_vertical_u.dw;
       w_end += right_vertical_u.dw;
 
-      let mut u_d = TextureDeltas::new(
+      let mut u_d = Slope::new(
         left_u,
         w_start as f32,
         w_end as f32,
@@ -227,7 +309,7 @@ impl Engine3d {
         (boundary2 - boundary1) as f32
       );
 
-      let mut v_d = TextureDeltas::new(
+      let mut v_d = Slope::new(
         left_v,
         w_start as f32,
         w_end as f32,
@@ -235,9 +317,20 @@ impl Engine3d {
         (boundary2 - boundary1) as f32
       );
 
+      let mut rgb_d = RgbSlopes::new(
+        left_rgb,
+        right_rgb,
+        w_start,
+        w_end,
+        (boundary2 - boundary1) as f32
+      );
+
+
       while x < boundary2 as u32 {
         let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size() - 1);
         let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size() - 1);
+
+        let vertex_color = rgb_d.next_color();
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
@@ -265,7 +358,7 @@ impl Engine3d {
             }
           }
         } else {
-          pixel.color = Some(vertices[0].color);
+          pixel.color = Some(vertex_color);
         }
         x += 1;
       }
