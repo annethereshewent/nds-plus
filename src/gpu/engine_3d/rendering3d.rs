@@ -153,7 +153,7 @@ impl Engine3d {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
 
         if vertices.len() == 3 {
-          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, self.disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING));
+          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt);
         } else {
           // break up into multiple triangles and then render the triangles
           let mut i = 0;
@@ -169,7 +169,7 @@ impl Engine3d {
 
             cloned.clone_from_slice(&vertices[i..i + 3]);
 
-            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, self.disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING));
+            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt);
 
             i += 1;
           }
@@ -194,7 +194,7 @@ impl Engine3d {
     }
   }
 
-  fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d], toon_table: &[Color], highlight_shading: bool) {
+  fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d], toon_table: &[Color], disp3dcnt: &Display3dControlRegister ) {
     vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
 
     let cross_product = Self::cross_product(
@@ -218,11 +218,11 @@ impl Engine3d {
     let min_x = cmp::min(vertices[0].screen_x, cmp::min(vertices[1].screen_x, vertices[2].screen_x));
     let max_x = cmp::max(vertices[0].screen_x, cmp::max(vertices[1].screen_x, vertices[2].screen_x));
 
-    if max_x >= SCREEN_WIDTH as u32 && min_x >= SCREEN_WIDTH as u32 {
+    if max_x >= SCREEN_WIDTH as u32 || min_x >= SCREEN_WIDTH as u32 {
       return;
     }
 
-    if max_y >= SCREEN_HEIGHT as u32 && min_y >= SCREEN_HEIGHT as u32 {
+    if max_y >= SCREEN_HEIGHT as u32 || min_y >= SCREEN_HEIGHT as u32 {
       return;
     }
 
@@ -343,16 +343,17 @@ impl Engine3d {
       );
 
       while x < boundary2 as u32 {
-        let curr_u = (u_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_s_size() - 1);
-        let curr_v = (v_d.next() as u32 >> 4).clamp(0, polygon.tex_params.texture_t_size() - 1);
+        let curr_u = u_d.next() as u32 >> 4;
+        let curr_v = v_d.next() as u32 >> 4;
 
         let vertex_color = rgb_d.next_color();
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
-        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
+        // println!("s,t: {curr_u},{curr_v} x,y: {x},{y}");
 
+        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
         if let Some(texel_color) = texel_color {
           pixel.color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
@@ -369,7 +370,7 @@ impl Engine3d {
                 todo!("shadow mode not implemented");
               }
               PolygonMode::Toon => {
-                if highlight_shading {
+                if disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING) {
                   Self::modulation_blend(texel_color, vertex_color, alpha, true)
                 } else {
                   let toon_color = toon_table[(vertex_color.r & 0x1f) as usize];
@@ -382,6 +383,7 @@ impl Engine3d {
         } else {
           pixel.color = Some(vertex_color);
         }
+
         x += 1;
       }
       y += 1;
@@ -410,13 +412,54 @@ impl Engine3d {
     })
   }
 
+  fn check_if_texture_repeated(val: u32, repeat: bool, flip: bool, mask: u32, shift: u32) -> u32 {
+    let mut return_val = val;
+    if repeat {
+      return_val &= mask;
+      if flip && (val >> shift) % 2 == 1 {
+        return_val ^= mask;
+      }
+    }
+
+    return_val
+  }
+
   fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam) -> (Option<Color>, Option<u8>) {
-    let texel = curr_u + curr_v * polygon.tex_params.texture_s_size();
+    let mut u = curr_u;
+
+    u = Self::check_if_texture_repeated(
+      u,
+      polygon.tex_params.contains(TextureParams::REPEAT_S),
+      polygon.tex_params.contains(TextureParams::FLIP_S),
+      polygon.tex_params.texture_s_size() -1,
+      polygon.tex_params.size_s_shift()
+    );
+
+    u = u.clamp(0, polygon.tex_params.texture_s_size() - 1);
+
+    let mut v = curr_v;
+
+    v = Self::check_if_texture_repeated(
+      v,
+      polygon.tex_params.contains(TextureParams::REPEAT_T),
+      polygon.tex_params.contains(TextureParams::FLIP_T),
+      polygon.tex_params.texture_t_size() -1,
+      polygon.tex_params.size_t_shift()
+    );
+
+    v = v.clamp(0, polygon.tex_params.texture_t_size() - 1);
+
+    println!("got {u},{v}");
+
+
+    let texel = u + v * polygon.tex_params.texture_s_size();
     let vram_offset = polygon.tex_params.vram_offset();
 
     let address = vram_offset + texel;
 
     let palette_base = polygon.palette_base;
+
+    println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
 
     match polygon.tex_params.texture_format() {
       TextureFormat::None => {
@@ -464,17 +507,17 @@ impl Engine3d {
 
         let base_address = vram_offset + 4 * block_address;
 
-        let mut texel_value = vram.read_texture(address);
+        let mut texel_value = vram.read_texture(address + curr_v & 0x3);
 
         texel_value = match curr_u & 0x3 {
           0 => texel_value & 0x3,
-          1 => texel_value >> 2 & 0x3,
-          2 => texel_value >> 4 & 0x3,
-          3 => texel_value >> 6 & 0x3,
+          1 => (texel_value >> 2) & 0x3,
+          2 => (texel_value >> 4) & 0x3,
+          3 => (texel_value >> 6) & 0x3,
           _ => unreachable!()
         };
 
-        let slot1_address = 128 * 0x400 + base_address / 2 + if base_address > 128 * 0x400 {
+        let slot1_address = 128 * 0x400 + (base_address & 0x1_ffff) / 2 + if base_address >= 128 * 0x400 {
           0x1000
         } else {
           0
@@ -491,17 +534,23 @@ impl Engine3d {
             // color 0
             let palette_index = vram.read_texture_palette(palette_offset);
 
+            // println!("(0, _): got palette index {palette_index}");
+
             Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
           }
           (1, _) => {
             // color 1
             let palette_index = vram.read_texture_palette(palette_offset + 2);
 
+            // println!("(1, _): got palette index {palette_index}");
+
             Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
           },
           (2, 0) | (2, 2) => {
             // color 2
             let palette_index = vram.read_texture_palette(palette_offset + 2 * 2);
+
+            // println!("(2, 0) | (2,2): got palette index {palette_index}");
 
             Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
           }
@@ -510,8 +559,10 @@ impl Engine3d {
             let palette0_index = vram.read_texture_palette(palette_offset);
             let palette1_index = vram.read_texture_palette(palette_offset + 2);
 
+            // println!("2, 1) got palette indexes {palette0_index} {palette1_index}");
+
             let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1, alpha2) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+            let (color1, _) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
 
             let blended_color = color0.unwrap().blend_half(color1.unwrap());
 
@@ -522,6 +573,8 @@ impl Engine3d {
             let palette0_index = vram.read_texture_palette(palette_offset);
             let palette1_index = vram.read_texture_palette(palette_offset + 2);
 
+            // println!("2, 3) got palette indexes {palette0_index} {palette1_index}");
+
             let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
             let (color1,_) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
 
@@ -531,11 +584,13 @@ impl Engine3d {
           }
           (3, 0)| (3, 1) => {
             // transparent
+            // println!("got transparent color");
             (Some(Color { r: 0, g: 0, b: 0, alpha: Some(0) }), Some(0))
           }
           (3, 2) => {
             // color 3
             let palette_index = vram.read_texture_palette(palette_offset + 2 * 3);
+            // println!("3, 2) got palette index {palette_index}");
 
             Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
           }
@@ -543,6 +598,8 @@ impl Engine3d {
             // (color0 * 3 + color1 * 5) / 8
             let palette0_index = vram.read_texture_palette(palette_offset);
             let palette1_index = vram.read_texture_palette(palette_offset + 2);
+
+            // println!("3, 3) got palette indexes {palette0_index} {palette1_index}");
 
             let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
             let (color1, _) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);

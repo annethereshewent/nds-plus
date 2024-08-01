@@ -993,10 +993,12 @@ impl Engine3d {
 
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
 
-    let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
+    if self.texture_params.transformation_mode() == TransformationMode::Vertex {
+      let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
-    self.texcoord.u += transformed[0] as i16;
-    self.texcoord.v += transformed[1] as i16;
+      self.texcoord.u += transformed[0] as i16;
+      self.texcoord.v += transformed[1] as i16;
+    }
 
     self.current_vertex.texcoord = self.texcoord;
     self.current_vertex.color = self.vertex_color;

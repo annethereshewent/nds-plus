@@ -44,6 +44,14 @@ impl TextureParams {
     8 << (self.bits() >> 23 & 0x7)
   }
 
+  pub fn size_s_shift(&self) -> u32 {
+    3 + (self.bits() >> 20 & 0x7)
+  }
+
+  pub fn size_t_shift(&self) -> u32 {
+    3 + (self.bits() >> 23 & 0x7)
+  }
+
   pub fn texture_format(&self) -> TextureFormat {
     match self.bits() >> 26 & 0x7 {
       0 => TextureFormat::None,
