@@ -289,8 +289,8 @@ impl GeometryCommandEntry {
 pub struct Engine3d {
   fifo: VecDeque<GeometryCommandEntry>,
   sent_commands: bool,
-  packed_commands: VecDeque<u8>,
-  current_command: Option<Command>,
+  packed_commands: u32,
+  current_command: Command,
   params_processed: usize,
   num_params: usize,
   gxstat: GeometryStatusRegister,
@@ -356,8 +356,8 @@ impl Engine3d {
     Self {
       fifo: VecDeque::with_capacity(256),
       sent_commands: false,
-      packed_commands: VecDeque::with_capacity(4),
-      current_command: None,
+      packed_commands: 0,
+      current_command: Command::Nop,
       params_processed: 0,
       num_params: 0,
       gxstat: GeometryStatusRegister::new(),
@@ -690,24 +690,24 @@ impl Engine3d {
       MtxPush => {
         match self.matrix_mode {
           MatrixMode::PositionAndVector | MatrixMode::Position => {
-            self.position_vector_sp += 1;
-
             if self.position_vector_sp > 30 {
               self.gxstat.matrix_stack_error = true;
             }
 
             self.position_stack[(self.position_vector_sp & 31) as usize] = self.current_position_matrix;
             self.vector_stack[(self.position_vector_sp & 31) as usize] = self.current_vector_matrix;
+
+            self.position_vector_sp += 1;
           }
           MatrixMode::Projection => {
-            self.projection_sp += 1;
-
             self.projection_stack = self.current_projection_matrix;
+
+            self.projection_sp += 1;
           }
           MatrixMode::Texture => {
-            self.texture_sp += 1;
-
             self.texture_stack = self.current_texture_matrix;
+
+            self.texture_sp += 1;
           }
         }
       }
@@ -892,9 +892,11 @@ impl Engine3d {
 
             self.current_position_matrix = self.position_stack[offset as usize];
             self.current_vector_matrix = self.vector_stack[offset as usize];
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Projection => {
             self.current_projection_matrix = self.projection_stack;
+            self.clip_vtx_recalculate = true;
           }
           MatrixMode::Texture => {
             self.current_texture_matrix = self.texture_stack;
@@ -1210,9 +1212,6 @@ impl Engine3d {
     let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
     let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
 
-    // println!("inside w = {:x} index = {index} inside coordinate = {:x}", inside.transformed[3], inside.transformed[index]);
-    // println!("inside = {:x?} outside = {:x?}", inside.transformed, outside.transformed);
-    // println!("numerator = {numerator} denominator = {denominator}");
 
     let new_w = Self::calculate_coordinates(
       index,
@@ -1342,36 +1341,27 @@ impl Engine3d {
   }
 
   fn process_commands(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
-    while let Some(command) = self.packed_commands.pop_front() {
-      self.current_command = Some(Command::from(command));
+    while self.packed_commands != 0 {
+      let current_command = self.current_command;
 
-      let current_command = self.current_command.unwrap();
+      if current_command != Command::Nop {
+        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
+      }
 
-      self.params_processed = 0;
+      if self.params_processed == self.num_params {
+        self.packed_commands >>= 8;
+        if self.packed_commands != 0 {
+          self.current_command = Command::from(self.packed_commands as u8);
+          self.num_params = self.current_command.get_num_params();
+          self.params_processed = 0;
 
-      self.num_params = current_command.get_num_params();
-
-      if self.num_params > 0 {
+          if self.num_params > 0 {
+            break;
+          }
+        }
+      } else {
         break;
       }
-
-      if current_command != Command::Nop {
-        self.params_processed = 1;
-        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
-      }
-    }
-
-    if self.packed_commands.len() > 0 && self.params_processed == 0 && self.num_params > 0 {
-      let current_command = self.current_command.unwrap();
-
-      if current_command != Command::Nop {
-        self.params_processed = 1;
-        self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
-      }
-    }
-
-    if (self.num_params == self.params_processed || self.num_params == 0) && self.packed_commands.is_empty() {
-      self.sent_commands = false;
     }
   }
 
@@ -1382,40 +1372,31 @@ impl Engine3d {
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
-    if !self.sent_commands {
+    if self.packed_commands == 0 {
       if value == 0 {
         // there's nothing to do here, just short circuit early
         return;
       }
 
-      self.packed_commands = VecDeque::with_capacity(4);
-
-      let mut val = value;
-
-      while val != 0 {
-        self.packed_commands.push_back(val as u8);
-        val >>= 8;
-      }
+      self.packed_commands = value;
 
       self.sent_commands = true;
-    }
 
-    // process parameters for the commands
-    if self.current_command.is_none() {
-      self.process_commands(value, interrupt_request);
-    } else if self.params_processed < self.num_params {
-      let current_command = self.current_command.unwrap();
+      let current_command = Command::from(self.packed_commands as u8);
 
-      self.push_command(GeometryCommandEntry::from(current_command, value), interrupt_request);
+      self.num_params = current_command.get_num_params();
+      self.params_processed = 0;
 
-      self.params_processed += 1;
+      self.current_command = current_command;
 
-      if self.params_processed == self.num_params && self.packed_commands.is_empty() {
-        self.sent_commands = false;
+      if self.num_params > 0 {
+        return;
       }
     } else {
-      self.process_commands(value, interrupt_request);
+      self.params_processed += 1;
     }
+
+    self.process_commands(value, interrupt_request);
 
   }
 }

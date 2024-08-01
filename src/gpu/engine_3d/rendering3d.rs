@@ -45,9 +45,6 @@ impl TextureDeltas {
       (start.texcoord.v as f32, end.texcoord.v as f32)
     };
 
-    println!("inside texture deltas, w_start = {} w_end = {}", start.normalized_w, end.normalized_w);
-
-
     let deltas = TextureDeltas::new(
       start_fp,
       start.normalized_w as f32,
