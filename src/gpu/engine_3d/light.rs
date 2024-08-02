@@ -6,7 +6,8 @@ pub struct Light {
   pub color: Color,
   pub x: i16,
   pub y: i16,
-  pub z: i16
+  pub z: i16,
+  pub half_vector: [i32; 3]
 }
 
 impl Light {
@@ -15,7 +16,8 @@ impl Light {
       color: Color::new(),
       x: 0,
       y: 0,
-      z: 0
+      z: 0,
+      half_vector: [0; 3]
     }
   }
 }

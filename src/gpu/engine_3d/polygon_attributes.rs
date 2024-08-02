@@ -24,6 +24,14 @@ impl PolygonAttributes {
     self.bits() >> id & 0b1 == 1
   }
 
+  pub fn alpha(&self) -> u8 {
+    ((self.bits() >> 16) & 0x1f) as u8
+  }
+
+  pub fn polygon_id(&self) -> u32 {
+    (self.bits() >> 24) & 0x3f
+  }
+
   pub fn polygon_mode(&self) -> PolygonMode {
     match (self.bits() >> 4) & 0x3 {
       0 => PolygonMode::Modulation,

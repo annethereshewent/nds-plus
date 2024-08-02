@@ -663,6 +663,12 @@ impl Engine3d {
         self.lights[i].x = transformed[0] as i16;
         self.lights[i].y = transformed[1] as i16;
         self.lights[i].z = transformed[2] as i16;
+
+        self.lights[i].half_vector = [
+          transformed[0] / 2,
+          transformed[1] / 2,
+          (transformed[2] - 0x200) / 2
+        ];
       }
       Color => {
         self.vertex_color.write(entry.param as u16);
@@ -759,14 +765,9 @@ impl Engine3d {
         let mut u = self.texcoord.u;
         let mut v = self.texcoord.v;
 
-        match self.texture_params.transformation_mode() {
-          TransformationMode::None => (),
-          TransformationMode::TexCoord => {
-            u = ((u as i64 * matrix[0][0] as i64 + v as i64 * matrix[1][0] as i64 + matrix[2][0] as i64 + matrix[3][0] as i64) >> 12) as i16;
-            v = ((u as i64 * matrix[0][1] as i64 + v as i64 * matrix[1][1] as i64 + matrix[2][1] as i64 + matrix[3][1] as i64) >> 12) as i16;
-          }
-          TransformationMode::Normal => (),
-          TransformationMode::Vertex => todo!("not implemented yet")
+        if self.texture_params.transformation_mode() == TransformationMode::TexCoord {
+          u = ((u as i64 * matrix[0][0] as i64 + v as i64 * matrix[1][0] as i64 + matrix[2][0] as i64 + matrix[3][0] as i64) >> 12) as i16;
+          v = ((u as i64 * matrix[0][1] as i64 + v as i64 * matrix[1][1] as i64 + matrix[2][1] as i64 + matrix[3][1] as i64) >> 12) as i16;
         }
 
         self.texcoord = self::Texcoord {
@@ -864,6 +865,8 @@ impl Engine3d {
           MatrixMode::Position | MatrixMode::PositionAndVector => {
             self.position_stack[offset as usize] = self.current_position_matrix;
             self.vector_stack[offset as usize] = self.current_vector_matrix;
+
+
           }
           MatrixMode::Projection => {
             self.projection_stack = self.current_projection_matrix;
@@ -892,6 +895,9 @@ impl Engine3d {
 
             self.current_position_matrix = self.position_stack[offset as usize];
             self.current_vector_matrix = self.vector_stack[offset as usize];
+
+
+
             self.clip_vtx_recalculate = true;
           }
           MatrixMode::Projection => {
@@ -904,7 +910,20 @@ impl Engine3d {
         }
       }
       Normal => {
+        let x = (entry.param as i16) << 6 >> 6;
+        let y = (entry.param >> 4) as i16 >> 6;
+        let z = (entry.param >> 14) as i16 >> 6;
 
+        let normal = [x as i32, y as i32, z as i32, 0];
+
+        if self.texture_params.transformation_mode() == TransformationMode::Normal {
+          let transformed = self.current_texture_matrix.multiply_normal(&normal);
+
+          self.texcoord.u += transformed[0];
+          self.texcoord.v += transformed[1];
+        }
+
+        self.apply_lighting(&normal);
       }
       VtxDiff => {
         let x = (entry.param as i16) << 6 >> 6;
@@ -914,11 +933,107 @@ impl Engine3d {
         self.current_vertex.x = self.current_vertex.x.wrapping_add(x);
         self.current_vertex.y = self.current_vertex.y.wrapping_add(y);
         self.current_vertex.z = self.current_vertex.z.wrapping_add(z);
+
+        self.add_vertex();
       }
-      _ => panic!("command not implemented yet: {:?}", entry.command)
+      _ => panic!("command not iplemented yet: {:?}", entry.command)
     }
   }
 
+  fn apply_lighting(&mut self, coordinates: &[i32]) {
+    let normal = self.current_vector_matrix.multiply_row(&coordinates, 12);
+
+    // println!("normal = {:x?}", normal);
+
+    let mut color = [self.emission.r as i32, self.emission.g as i32, self.emission.b as i32];
+
+    for (i, light) in self.lights.iter().enumerate() {
+      if self.internal_polygon_attributes.light_enabled(i) {
+        // apply lighting
+        // println!("light {i} is enabled");
+
+        // let diffuse_level =
+        //   ((-(light.x as i64 * normal[0] as i64 + light.y as i64 * normal[1] as i64 + light.z as i64 * normal[2] as i64) >> 9) as i32).max(0);
+
+        let light_direction = [light.x as i32, light.y as i32, light.z as i32];
+        // let diffuse_level = (-light_direction
+        //   .iter()
+        //   .zip(normal.iter())
+        //   .fold(0i32, |accumulator, (a, b)| accumulator.wrapping_add((*a as i64 * *b as i64) as i32))
+        //   >> 9).max(0);
+        let diffuse_level = ((-light_direction
+          .iter()
+          .zip(normal.iter())
+          .fold(0_i32, |acc, (a, b)| {
+              acc.wrapping_add((*a as i64 * *b as i64) as i32)
+          }))
+          >> 9)
+          .max(0);
+
+        // println!("diffuse level = {:x}", diffuse_level);
+
+        // println!("half vector = {:x?}", light.half_vector);
+
+        // let mut shininess_level =
+        //   (-(light.half_vector[0] as i64 * normal[0] as i64 +
+        //     light.half_vector[1] as i64 * normal[1] as i64 +
+        //     light.half_vector[2] as i64 * normal[2] as i64) >> 9).max(0) as i32;
+
+        let mut shininess_level = (-(light
+          .half_vector
+          .iter()
+          .zip(normal.iter())
+          .fold(0i32, |acc, (a, b)| acc.wrapping_add((*a as i64 * *b as i64) as i32))) >> 9)
+          .max(0);
+
+        if shininess_level >= 0x200 {
+          shininess_level = (0x400i32.wrapping_sub(shininess_level)) & 0x1ff;
+        }
+
+        shininess_level = (((shininess_level * shininess_level) >> 9) - 0x100).max(0);
+
+        if self.specular_reflection.shininess_table_enable {
+          shininess_level = self.shininess_table[(shininess_level / 2) as usize] as i32;
+        }
+
+        // println!("shininess level = {:x}", shininess_level);
+
+        // println!("specular reflection = {:x?}", self.specular_reflection);
+        // println!("diffuse reflection = {:x?}", self.diffuse_reflection);
+        // println!("ambient reflection = {:x?}", self.ambient_reflection);
+
+        // println!("light color is {:x?}", light.color);
+
+
+        color[0] += ((self.specular_reflection.r as i64 * light.color.r as i64 * shininess_level as i64) >> 13) as i32;
+        color[0] += ((self.diffuse_reflection.r as i64 * light.color.r as i64 * diffuse_level as i64) >> 14) as i32;
+        color[0] += ((self.ambient_reflection.r as i64 * light.color.r as i64) >> 5) as i32;
+
+        color[1] += ((self.specular_reflection.g as i64 * light.color.g as i64 * shininess_level as i64) >> 13) as i32;
+        color[1] += ((self.diffuse_reflection.g as i64 * light.color.g as i64 * diffuse_level as i64) >> 14) as i32;
+        color[1] += ((self.ambient_reflection.g as i64 * light.color.g as i64) >> 5) as i32;
+
+        color[2] += ((self.specular_reflection.b as i64 * light.color.b as i64 * shininess_level as i64) >> 13) as i32;
+        color[2] += ((self.diffuse_reflection.b as i64 * light.color.b as i64 * diffuse_level as i64) >> 14) as i32;
+        color[2] += ((self.ambient_reflection.b as i64 * light.color.b as i64) >> 5) as i32;
+      }
+    }
+
+    for i in 0..color.len() {
+      color[i] = color[i].clamp(0, 0x1f);
+    }
+
+    let mut color = Color {
+      r: color[0] as u8,
+      g: color[1] as u8,
+      b: color[2] as u8,
+      alpha: None
+    };
+
+    color.to_rgb6();
+
+    self.vertex_color = color;
+  }
 
   fn multiply_m_by_n(&mut self, m: usize, n: usize, entry: GeometryCommandEntry) {
     use Command::*;
@@ -974,8 +1089,12 @@ impl Engine3d {
               _ => panic!("invalid option given for m x n: {m} x {n}")
             }
           }
+        }
+
+        if self.matrix_mode == MatrixMode::PositionAndVector && (m == 3 || m == 4) && n == 3 {
 
         }
+
         self.command_started = false;
       }
     }
@@ -1044,9 +1163,9 @@ impl Engine3d {
     );
 
     let mut normal = [
-      (a.1 * b.2) as i64 - (a.2 * b.1) as i64,
-      (a.2 * b.0) as i64 - (a.0 * b.2) as i64,
-      (a.0 * b.1) as i64 - (a.1 * b.0) as i64
+      (a.1 as i64 * b.2 as i64) - (a.2 as i64 * b.1 as i64),
+      (a.2 as i64 * b.0 as i64) - (a.0 as i64 * b.2 as i64),
+      (a.0 as i64 * b.1 as i64) - (a.1 as i64 * b.0 as i64)
     ];
 
     while (normal[0] >> 31) ^ (normal[0] >> 63) != 0 ||
@@ -1186,6 +1305,11 @@ impl Engine3d {
 
     self.current_vertices.clear();
 
+    // 3a9bc, 3a9b0, 388d4, 3a9b0
+    // fffc5643, 3a9b0, 388d4, 3a9b0
+
+    // println!("{:x?}", temp);
+
     for i in 0..temp.len() {
       let current = temp[i];
       let previous_i = if i == 0 { temp.len() - 1} else { i - 1 };
@@ -1196,11 +1320,14 @@ impl Engine3d {
       if current.transformed[index] >= -current.transformed[3] {
         if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
+          // println!("{:x?}, {:x?}", current.transformed, previous.transformed);
           let vertex = self.find_plane_intersection(index, current, previous, false);
           self.current_vertices.push(vertex);
         }
         self.current_vertices.push(current.clone());
       } else if previous.transformed[index] >= -previous.transformed[3] {
+
+        // println!("{:x?}, {:x?}", previous.transformed, current.transformed);
         let vertex = self.find_plane_intersection(index, previous, current, false);
         self.current_vertices.push(vertex);
       }
@@ -1213,7 +1340,6 @@ impl Engine3d {
 
     let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
     let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
-
 
     let new_w = Self::calculate_coordinates(
       index,
@@ -1337,6 +1463,7 @@ impl Engine3d {
       MatrixMode::PositionAndVector => {
         self.current_position_matrix = self.temp_matrix;
         self.current_vector_matrix = self.temp_matrix;
+
         self.clip_vtx_recalculate = true;
       }
     }

@@ -1,6 +1,6 @@
 use std::cmp;
 
-use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{color::Color, engine_2d::Engine2d, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
@@ -149,6 +149,23 @@ impl Engine3d {
 
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
+      if self.clear_color.alpha != 0 {
+        for pixel in &mut self.frame_buffer {
+          pixel.color = Some(Color {
+            r: self.clear_color.r,
+            g: self.clear_color.g,
+            b: self.clear_color.b,
+            alpha: Some(self.clear_color.alpha)
+          });
+        }
+      } else {
+        self.clear_frame_buffer();
+      }
+
+      let vertex_colors: Vec<Color> = self.vertices_buffer.iter().map(|vertex| vertex.color).filter(|color| color.r == 0 && color.g == 0 && color.b == 0).collect();
+
+      // println!("total black colors = {}", vertex_colors.len());
+
       for polygon in self.polygon_buffer.drain(..) {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
 
@@ -346,16 +363,20 @@ impl Engine3d {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
 
-        let vertex_color = rgb_d.next_color();
+        let mut vertex_color = rgb_d.next_color();
+
+        vertex_color.alpha = Some(polygon.attributes.alpha());
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
         // println!("s,t: {curr_u},{curr_v} x,y: {x},{y}");
 
+        let mut color: Option<Color> = None;
+
         let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
         if let Some(texel_color) = texel_color {
-          pixel.color = if alpha.is_some() && alpha.unwrap() == 0 {
+          color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
           } else {
             // check to see if color is blended
@@ -381,12 +402,40 @@ impl Engine3d {
             }
           }
         } else {
-          pixel.color = Some(vertex_color);
+          color = Some(vertex_color);
         }
 
+        if let Some(color) = color {
+          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && pixel.color.unwrap().alpha.is_some() && color.alpha.is_some() {
+            let fb_alpha = pixel.color.unwrap().alpha.unwrap();
+            let polygon_alpha = color.alpha.unwrap();
+
+            if fb_alpha != 0 && polygon_alpha != 0x1f {
+              pixel.color = Some(Self::blend_colors3d(pixel.color.unwrap(), color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16));
+            } else {
+              pixel.color = Some(color);
+            }
+
+          } else {
+            pixel.color = Some(color);
+          }
+        }
         x += 1;
       }
       y += 1;
+    }
+  }
+
+  pub fn blend_colors3d(color: Color, color2: Color, eva: u16, evb: u16) -> Color {
+    let r = cmp::min(31, (color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
+    let g = cmp::min(31, (color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
+    let b = cmp::min(31, (color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
+
+    Color {
+      r,
+      g,
+      b,
+      alpha: None
     }
   }
 
@@ -449,7 +498,7 @@ impl Engine3d {
 
     v = v.clamp(0, polygon.tex_params.texture_t_size() - 1);
 
-    println!("got {u},{v}");
+    // println!("got {u},{v}");
 
 
     let texel = u + v * polygon.tex_params.texture_s_size();
@@ -459,7 +508,7 @@ impl Engine3d {
 
     let palette_base = polygon.palette_base;
 
-    println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
+    // println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
 
     match polygon.tex_params.texture_format() {
       TextureFormat::None => {

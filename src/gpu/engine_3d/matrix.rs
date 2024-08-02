@@ -227,6 +227,23 @@ impl Matrix {
     [cell0, cell1, cell2, cell3]
   }
 
+  pub fn multiply_normal(&self, row: &[i32]) -> [i16; 2] {
+    let matrix = self.0;
+
+    let cell0 =
+    ((row[0] as i64 * matrix[0][0] as i64 +
+      row[1] as i64 * matrix[1][0] as i64 +
+      row[2] as i64 * matrix[2][0] as i64) >> 21) as i16;
+
+    let cell1 =
+    ((row[0] as i64 * matrix[0][1] as i64 +
+      row[1] as i64 * matrix[1][1] as i64 +
+      row[2] as i64 * matrix[2][1] as i64) >> 21) as i16;
+
+
+    [cell0, cell1]
+}
+
   pub fn translate(&mut self, row: &[i32]) {
     let matrix = &mut self.0;
 

@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct DiffuseColor {
   pub r: u8,
   pub g: u8,

@@ -1,8 +1,9 @@
+#[derive(Debug)]
 pub struct SpecularColor {
-  r: u8,
-  g: u8,
-  b: u8,
-  shininess_table_enable: bool
+  pub r: u8,
+  pub g: u8,
+  pub b: u8,
+  pub shininess_table_enable: bool
 }
 
 impl SpecularColor {

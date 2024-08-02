@@ -1,13 +1,12 @@
 use std::cmp;
 
 use crate::gpu::{
-  registers::{
+  engine_3d::Engine3d, registers::{
     color_effects_register::ColorEffect,
     display_control_register::DisplayControlRegisterFlags,
     window_in_register::WindowInRegister,
     window_out_register::WindowOutRegister
-  },
-  SCREEN_WIDTH
+  }, SCREEN_WIDTH
 };
 
 use super::{Color, Engine2d};
@@ -233,19 +232,6 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn blend_colors3d(&self, color: Color, color2: Color, eva: u16, evb: u16) -> Color {
-    let r = cmp::min(31, (color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
-    let g = cmp::min(31, (color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
-    let b = cmp::min(31, (color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
-
-    Color {
-      r,
-      g,
-      b,
-      alpha: None
-    }
-  }
-
   fn process_pixel(&mut self, x: usize, color: Color, bottom_layer: Option<Layer>) -> Color {
     match self.bldcnt.color_effect {
       ColorEffect::AlphaBlending => {
@@ -261,7 +247,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
               if let Some(alpha) = color.alpha {
                 let eva = alpha + 1;
                 let evb = 32 - eva;
-                self.blend_colors3d(color, color2, eva as u16, evb as u16)
+                Engine3d::blend_colors3d(color, color2, eva as u16, evb as u16)
               } else {
                 self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
               }
