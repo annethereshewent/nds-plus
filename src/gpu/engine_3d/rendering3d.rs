@@ -420,17 +420,14 @@ impl Engine3d {
             let polygon_alpha = color.alpha.unwrap();
 
             if fb_alpha != 0 && polygon_alpha != 0x1f {
-              let mut color = Self::blend_colors3d(pixel.color.unwrap(), color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
+              let pixel_color = pixel.color.unwrap().to_rgb6();
+              let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
 
               color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
 
               color.to_rgb5();
 
               pixel.color = Some(color);
-
-              if debug_on {
-                println!("got {:x?}", pixel.color.unwrap());
-              }
             } else {
               color.to_rgb5();
               pixel.color = Some(color);
