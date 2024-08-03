@@ -2,7 +2,37 @@ use std::cmp;
 
 use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
-use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+
+
+pub struct Deltas {
+  pub dw: f32,
+  pub dz: f32,
+  num_steps: f32
+}
+
+impl Deltas {
+  pub fn new(dz: f32, dw: f32, num_steps: f32) -> Self {
+    Self {
+      dw,
+      dz,
+      num_steps
+    }
+  }
+
+  pub fn get_deltas(start: Option<Vertex>, end: Option<Vertex>) -> Self {
+    let start = start.unwrap();
+    let end = end.unwrap();
+
+    let num_steps = end.screen_y as f32 - start.screen_y as f32;
+
+    let dw = (end.normalized_w as f32 - start.normalized_w as f32) / num_steps as f32;
+    let dz = (end.z_depth as f32 - start.z_depth as f32) / num_steps as f32;
+
+    Self::new(dz, dw, num_steps)
+  }
+}
+
 
 #[derive(Debug)]
 pub struct Slope {
@@ -11,8 +41,7 @@ pub struct Slope {
   num_steps: f32,
   w_start: f32,
   w_end: f32,
-  diff: f32,
-  dw: f32
+  diff: f32
 }
 
 impl Slope {
@@ -23,8 +52,7 @@ impl Slope {
       w_start,
       w_end,
       diff,
-      num_steps,
-      dw: (w_end - w_start) / num_steps
+      num_steps
     }
   }
 
@@ -157,6 +185,7 @@ impl Engine3d {
             b: self.clear_color.b,
             alpha: Some(self.clear_color.alpha)
           });
+          pixel.depth = self.clear_depth as u32;
         }
       } else {
         self.clear_frame_buffer();
@@ -316,11 +345,17 @@ impl Engine3d {
     let mut left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
     let mut right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
 
+    let left_vertical_delta = Deltas::get_deltas(left_start, left_end);
+    let right_vertical_delta = Deltas::get_deltas(right_start, right_end);
+
     let mut y = min_y;
     let mut x = min_x;
 
     let mut w_start = left_start.unwrap().normalized_w as f32;
     let mut w_end = right_start.unwrap().normalized_w as f32;
+
+    let mut z_start = left_start.unwrap().z_depth as f32;
+    let mut z_end = right_start.unwrap().z_depth as f32;
 
     while y < max_y {
       let left_u = left_vertical_u.next();
@@ -336,8 +371,11 @@ impl Engine3d {
 
       x = boundary1 as u32;
 
-      w_start += left_vertical_u.dw;
-      w_end += right_vertical_u.dw;
+      w_start += left_vertical_delta.dw;
+      w_end += right_vertical_delta.dw;
+
+      z_start += left_vertical_delta.dz;
+      z_end += right_vertical_delta.dz;
 
       let mut u_d = Slope::new(
         left_u,
@@ -363,9 +401,15 @@ impl Engine3d {
         (boundary2 - boundary1) as f32
       );
 
+      let dzdx = (z_end - z_start) / (boundary2 as f32 - boundary1 as f32);
+
+      let mut z = z_start;
+
       while x < boundary2 as u32 {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
+
+        z += dzdx;
 
         let mut vertex_color = rgb_d.next_color();
 
@@ -419,7 +463,7 @@ impl Engine3d {
             let fb_alpha = pixel.color.unwrap().alpha.unwrap();
             let polygon_alpha = color.alpha.unwrap();
 
-            if fb_alpha != 0 && polygon_alpha != 0x1f {
+            if fb_alpha != 0 {
               let pixel_color = pixel.color.unwrap().to_rgb6();
               let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
 
@@ -433,9 +477,14 @@ impl Engine3d {
               pixel.color = Some(color);
             }
 
-          } else {
+            if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
+              pixel.depth = z as u32;
+            }
+
+          } else if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
             color.to_rgb5();
             pixel.color = Some(color);
+            pixel.depth = z as u32;
           }
 
 
@@ -443,6 +492,14 @@ impl Engine3d {
         x += 1;
       }
       y += 1;
+    }
+  }
+
+  fn check_polygon_depth(polygon: &Polygon, current_depth: u32, new_depth: u32) -> bool {
+    if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
+      new_depth >= current_depth - 0x200 && new_depth <= current_depth - 0x200
+    } else {
+      new_depth < current_depth
     }
   }
 
@@ -581,13 +638,15 @@ impl Engine3d {
       TextureFormat::Color4x4 => {
         let blocks_per_row = polygon.tex_params.texture_s_size() / 4;
 
-        let block_address = curr_u / 4 + blocks_per_row * curr_v / 4;
+        let block_address = (u / 4) + blocks_per_row * (v / 4);
+
 
         let base_address = vram_offset + 4 * block_address;
 
-        let mut texel_value = vram.read_texture(address + curr_v & 0x3);
+        let mut texel_value = vram.read_texture(base_address + (v & 0x3));
 
-        texel_value = match curr_u & 0x3 {
+
+        texel_value = match u & 0x3 {
           0 => texel_value & 0x3,
           1 => (texel_value >> 2) & 0x3,
           2 => (texel_value >> 4) & 0x3,
@@ -607,58 +666,52 @@ impl Engine3d {
 
         let mode = (extra_palette_info >> 14) & 0x3;
 
+        let get_color = |num: u32| vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8;
+
         match (texel_value, mode) {
           (0, _) => {
             // color 0
-            let palette_index = vram.read_texture_palette(palette_offset);
+            if debug_on {
+              println!("getting color0");
+            }
 
-            // println!("(0, _): got palette index {palette_index}");
-
-            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+            (Some(Color::from(get_color(0)).to_rgb6()), None)
           }
           (1, _) => {
             // color 1
-            let palette_index = vram.read_texture_palette(palette_offset + 2);
+            if debug_on {
+              println!("getting color1");
+            }
 
-            // println!("(1, _): got palette index {palette_index}");
-
-            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+            (Some(Color::from(get_color(1)).to_rgb6()), None)
           },
           (2, 0) | (2, 2) => {
             // color 2
-            let palette_index = vram.read_texture_palette(palette_offset + 2 * 2);
-
-            // println!("(2, 0) | (2,2): got palette index {palette_index}");
-
-            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+            if debug_on {
+              println!("getting color2");
+            }
+            (Some(Color::from(get_color(2)).to_rgb6()), None)
           }
           (2, 1) => {
             // (color0 + color1) / 2
-            let palette0_index = vram.read_texture_palette(palette_offset);
-            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+            let color0 = Color::from(get_color(0));
+            let color1 = Color::from(get_color(1));
 
-            // println!("2, 1) got palette indexes {palette0_index} {palette1_index}");
+            let mut blended_color = color0.blend_half(color1);
 
-            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1, _) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
-
-            let blended_color = color0.unwrap().blend_half(color1.unwrap());
-
-            (Some(blended_color), alpha1)
+            (Some(blended_color.to_rgb6()), None)
           }
           (2, 3) => {
             // (color0 * 5 + color1 * 3) / 8
-            let palette0_index = vram.read_texture_palette(palette_offset);
-            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+
+            let color0 = Color::from(get_color(0));
+            let color1 = Color::from(get_color(1));
 
             // println!("2, 3) got palette indexes {palette0_index} {palette1_index}");
 
-            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1,_) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
+            let mut blended_color = color0.blend_texture(color1);
 
-            let blended_color = color0.unwrap().blend_texture(color1.unwrap());
-
-            (Some(blended_color), alpha1)
+            (Some(blended_color.to_rgb6()), None)
           }
           (3, 0)| (3, 1) => {
             // transparent
@@ -667,24 +720,16 @@ impl Engine3d {
           }
           (3, 2) => {
             // color 3
-            let palette_index = vram.read_texture_palette(palette_offset + 2 * 3);
-            // println!("3, 2) got palette index {palette_index}");
-
-            Self::get_palette_color(polygon, palette_offset, palette_index as u32, vram, None)
+            (Some(Color::from(get_color(3)).to_rgb6()), None)
           }
           (3, 3) => {
             // (color0 * 3 + color1 * 5) / 8
-            let palette0_index = vram.read_texture_palette(palette_offset);
-            let palette1_index = vram.read_texture_palette(palette_offset + 2);
+            let color0 = Color::from(get_color(0));
+            let color1 = Color::from(get_color(1));
 
-            // println!("3, 3) got palette indexes {palette0_index} {palette1_index}");
+            let mut blended_color = color1.blend_texture(color0);
 
-            let (color0, alpha1) = Self::get_palette_color(polygon, palette_offset, palette0_index as u32, vram, None);
-            let (color1, _) = Self::get_palette_color(polygon, palette_offset, palette1_index as u32, vram, None);
-
-            let blended_color = color1.unwrap().blend_texture(color0.unwrap());
-
-            (Some(blended_color), alpha1)
+            (Some(blended_color.to_rgb6()), None)
           }
           _ => panic!("invalid options given for texel value and mode: {texel_value} {mode}")
         }

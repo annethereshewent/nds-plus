@@ -60,10 +60,10 @@ impl Color {
   }
 
   pub fn blend_texture(&self, color: Color) -> Color {
-    // // (color0 * 3 + color1 * 5) / 8
-    let r = (self.r * 3 + color.r * 5) / 8;
-    let g = (self.g * 3 + color.g * 5) / 8;
-    let b = (self.b * 3 + color.b * 5) / 8;
+    // // (color0 * 5 + color1 * 3) / 8
+    let r = (self.r * 5 + color.r * 3) / 8;
+    let g = (self.g * 5 + color.g * 3) / 8;
+    let b = (self.b * 5 + color.b * 3) / 8;
 
     Color {
       r,

@@ -293,7 +293,7 @@ pub struct Engine3d {
   num_params: usize,
   gxstat: GeometryStatusRegister,
   clear_color: ClearColorRegister,
-  clear_depth: u16,
+  clear_depth: u32,
   clear_offset_x: u16,
   clear_offset_y: u16,
   fog_color: FogColorRegister,
@@ -424,6 +424,7 @@ impl Engine3d {
   pub fn clear_frame_buffer(&mut self) {
     for pixel in &mut self.frame_buffer {
       *pixel = Pixel3d::new();
+      pixel.depth = self.clear_depth as u32;
     }
   }
 
@@ -484,7 +485,7 @@ impl Engine3d {
   }
 
   pub fn write_clear_depth(&mut self, value: u16) {
-    self.clear_depth = value & 0x7fff;
+    self.clear_depth = (value as u32 & 0x7fff) * 0x200 + 0x1ff;
   }
 
   pub fn write_clear_image_offset(&mut self, value: u16) {
