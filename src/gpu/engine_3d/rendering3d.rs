@@ -201,9 +201,9 @@ impl Engine3d {
     let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
 
     if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) && alpha.is_none() {
-      (Some(Color::from(color_raw)), Some(0))
+      (Some(Color::from(color_raw).to_rgb6()), Some(0))
     } else {
-      (Some(Color::from(color_raw)), alpha)
+      (Some(Color::from(color_raw).to_rgb6()), alpha)
     }
   }
 
@@ -379,7 +379,7 @@ impl Engine3d {
         let mut color: Option<Color> = None;
 
         let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on);
-        if let Some(mut texel_color) = texel_color {
+        if let Some(texel_color) = texel_color {
           color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
           } else {
@@ -398,7 +398,12 @@ impl Engine3d {
                 if disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING) {
                   Self::modulation_blend(texel_color, vertex_color, alpha, true)
                 } else {
-                  let toon_color = toon_table[(vertex_color.r & 0x1f) as usize];
+
+                  let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
+
+                  toon_color.alpha = vertex_color.alpha;
+
+                  toon_color.to_rgb6();
 
                   Self::modulation_blend(texel_color, toon_color, alpha, false)
                 }
@@ -409,18 +414,30 @@ impl Engine3d {
           color = Some(vertex_color);
         }
 
-        if let Some(color) = color {
+        if let Some(mut color) = color {
           if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && pixel.color.unwrap().alpha.is_some() && color.alpha.is_some() {
             let fb_alpha = pixel.color.unwrap().alpha.unwrap();
             let polygon_alpha = color.alpha.unwrap();
 
             if fb_alpha != 0 && polygon_alpha != 0x1f {
-              pixel.color = Some(Self::blend_colors3d(pixel.color.unwrap(), color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16));
+              let mut color = Self::blend_colors3d(pixel.color.unwrap(), color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
+
+              color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
+
+              color.to_rgb5();
+
+              pixel.color = Some(color);
+
+              if debug_on {
+                println!("got {:x?}", pixel.color.unwrap());
+              }
             } else {
+              color.to_rgb5();
               pixel.color = Some(color);
             }
 
           } else {
+            color.to_rgb5();
             pixel.color = Some(color);
           }
 
@@ -433,9 +450,9 @@ impl Engine3d {
   }
 
   pub fn blend_colors3d(color: Color, color2: Color, eva: u16, evb: u16) -> Color {
-    let r = cmp::min(31, (color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
-    let g = cmp::min(31, (color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
-    let b = cmp::min(31, (color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
+    let r = ((color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
+    let g = ((color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
+    let b = ((color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
 
     Color {
       r,
@@ -693,7 +710,7 @@ impl Engine3d {
 
         let alpha = if color_raw & 0x8000 == 0 { 0 } else { 0x1f };
 
-        (Some(Color::from(color_raw)), Some(alpha))
+        (Some(Color::from(color_raw).to_rgb6()), Some(alpha))
       }
     }
   }

@@ -1007,9 +1007,9 @@ impl Engine3d {
       }
     }
 
-    // for i in 0..color.len() {
-    //   color[i] = color[i].clamp(0, 0x1f);
-    // }
+    for i in 0..color.len() {
+      color[i] = color[i].clamp(0, 0x1f);
+    }
 
     let mut color = Color {
       r: color[0] as u8,

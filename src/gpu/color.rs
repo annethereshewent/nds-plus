@@ -30,16 +30,20 @@ impl Color {
     self.b = ((value >> 10) & 0x1f) as u8;
   }
 
-  pub fn to_rgb5(&mut self) {
+  pub fn to_rgb5(&mut self) -> Self {
     self.r = self.r >> 1;
     self.g = self.g >> 1;
     self.b = self.b >> 1;
+
+    *self
   }
 
-  pub fn to_rgb6(&mut self) {
+  pub fn to_rgb6(&mut self) -> Self {
     self.r = Self::upscale(self.r);
     self.g = Self::upscale(self.g);
     self.b = Self::upscale(self.b);
+
+    *self
   }
 
   pub fn blend_half(&self, color: Color) -> Color {
