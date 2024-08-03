@@ -222,6 +222,7 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::F {
             bus.gpu.engine_a.debug_on = !bus.gpu.engine_a.debug_on;
             bus.gpu.engine_b.debug_on = !bus.gpu.engine_b.debug_on;
+            bus.gpu.engine3d.debug_on = !bus.gpu.engine3d.debug_on;
           }
         }
         Event::KeyUp { keycode, .. } => {

@@ -348,6 +348,7 @@ pub struct Engine3d {
   max_params: usize,
   swap_vertices: bool,
   pub disp3dcnt: Display3dControlRegister,
+  pub debug_on: bool
 }
 
 impl Engine3d {
@@ -415,7 +416,8 @@ impl Engine3d {
       alpha_ref: 0,
       max_params: 0,
       swap_vertices: false,
-      disp3dcnt: Display3dControlRegister::from_bits_retain(0)
+      disp3dcnt: Display3dControlRegister::from_bits_retain(0),
+      debug_on: false
     }
   }
 
@@ -950,17 +952,12 @@ impl Engine3d {
     for (i, light) in self.lights.iter().enumerate() {
       if self.internal_polygon_attributes.light_enabled(i) {
         // apply lighting
-        // println!("light {i} is enabled");
 
         // let diffuse_level =
         //   ((-(light.x as i64 * normal[0] as i64 + light.y as i64 * normal[1] as i64 + light.z as i64 * normal[2] as i64) >> 9) as i32).max(0);
 
         let light_direction = [light.x as i32, light.y as i32, light.z as i32];
-        // let diffuse_level = (-light_direction
-        //   .iter()
-        //   .zip(normal.iter())
-        //   .fold(0i32, |accumulator, (a, b)| accumulator.wrapping_add((*a as i64 * *b as i64) as i32))
-        //   >> 9).max(0);
+
         let diffuse_level = ((-light_direction
           .iter()
           .zip(normal.iter())
@@ -996,15 +993,6 @@ impl Engine3d {
           shininess_level = self.shininess_table[(shininess_level / 2) as usize] as i32;
         }
 
-        // println!("shininess level = {:x}", shininess_level);
-
-        // println!("specular reflection = {:x?}", self.specular_reflection);
-        // println!("diffuse reflection = {:x?}", self.diffuse_reflection);
-        // println!("ambient reflection = {:x?}", self.ambient_reflection);
-
-        // println!("light color is {:x?}", light.color);
-
-
         color[0] += ((self.specular_reflection.r as i64 * light.color.r as i64 * shininess_level as i64) >> 13) as i32;
         color[0] += ((self.diffuse_reflection.r as i64 * light.color.r as i64 * diffuse_level as i64) >> 14) as i32;
         color[0] += ((self.ambient_reflection.r as i64 * light.color.r as i64) >> 5) as i32;
@@ -1019,9 +1007,9 @@ impl Engine3d {
       }
     }
 
-    for i in 0..color.len() {
-      color[i] = color[i].clamp(0, 0x1f);
-    }
+    // for i in 0..color.len() {
+    //   color[i] = color[i].clamp(0, 0x1f);
+    // }
 
     let mut color = Color {
       r: color[0] as u8,

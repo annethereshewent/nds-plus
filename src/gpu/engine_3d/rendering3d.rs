@@ -1,6 +1,6 @@
 use std::cmp;
 
-use crate::gpu::{color::Color, engine_2d::Engine2d, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 use super::{polygon::Polygon, polygon_attributes::PolygonMode, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
@@ -162,15 +162,11 @@ impl Engine3d {
         self.clear_frame_buffer();
       }
 
-      let vertex_colors: Vec<Color> = self.vertices_buffer.iter().map(|vertex| vertex.color).filter(|color| color.r == 0 && color.g == 0 && color.b == 0).collect();
-
-      // println!("total black colors = {}", vertex_colors.len());
-
       for polygon in self.polygon_buffer.drain(..) {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
 
         if vertices.len() == 3 {
-          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt);
+          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on);
         } else {
           // break up into multiple triangles and then render the triangles
           let mut i = 0;
@@ -186,7 +182,7 @@ impl Engine3d {
 
             cloned.clone_from_slice(&vertices[i..i + 3]);
 
-            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt);
+            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on);
 
             i += 1;
           }
@@ -211,7 +207,15 @@ impl Engine3d {
     }
   }
 
-  fn rasterize_triangle(polygon: &Polygon, vertices: &mut [Vertex], vram: &VRam, frame_buffer: &mut [Pixel3d], toon_table: &[Color], disp3dcnt: &Display3dControlRegister ) {
+  fn rasterize_triangle(
+    polygon: &Polygon,
+    vertices: &mut [Vertex],
+    vram: &VRam,
+    frame_buffer: &mut [Pixel3d],
+    toon_table: &[Color],
+    disp3dcnt: &Display3dControlRegister,
+    debug_on: bool)
+  {
     vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
 
     let cross_product = Self::cross_product(
@@ -374,8 +378,8 @@ impl Engine3d {
 
         let mut color: Option<Color> = None;
 
-        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram);
-        if let Some(texel_color) = texel_color {
+        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on);
+        if let Some(mut texel_color) = texel_color {
           color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
           } else {
@@ -419,6 +423,8 @@ impl Engine3d {
           } else {
             pixel.color = Some(color);
           }
+
+
         }
         x += 1;
       }
@@ -447,6 +453,12 @@ impl Engine3d {
     let mut g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
     let mut b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
 
+    let new_alpha = if pixel.alpha.is_some() && alpha.is_some() {
+      Some(modulation_fn(pixel.alpha.unwrap() as u16, alpha.unwrap() as u16) as u8)
+    } else {
+      alpha
+    };
+
     if toon_highlight {
       r = cmp::max(r + pixel.r, 0x3f);
       g = cmp::max(g + pixel.g, 0x3f);
@@ -457,7 +469,7 @@ impl Engine3d {
       r,
       g,
       b,
-      alpha
+      alpha: new_alpha
     })
   }
 
@@ -473,7 +485,7 @@ impl Engine3d {
     return_val
   }
 
-  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam) -> (Option<Color>, Option<u8>) {
+  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool) -> (Option<Color>, Option<u8>) {
     let mut u = curr_u;
 
     u = Self::check_if_texture_repeated(
@@ -532,6 +544,9 @@ impl Engine3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha))
       }
       TextureFormat::Color16 => {
+        if debug_on {
+          return (None, None);
+        }
         let real_address = vram_offset + texel / 2;
 
         let byte = vram.read_texture(real_address);

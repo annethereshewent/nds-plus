@@ -31,11 +31,9 @@ impl Color {
   }
 
   pub fn to_rgb5(&mut self) {
-    for _ in 0..3 {
-      self.r = Self::upscale(self.r);
-      self.g = Self::upscale(self.g);
-      self.b = Self::upscale(self.b);
-    }
+    self.r = self.r >> 1;
+    self.g = self.g >> 1;
+    self.b = self.b >> 1;
   }
 
   pub fn to_rgb6(&mut self) {
@@ -45,7 +43,7 @@ impl Color {
   }
 
   pub fn blend_half(&self, color: Color) -> Color {
-    let r = (self.r + color. r) / 2;
+    let r = (self.r + color.r) / 2;
     let g = (self.g + color.g) / 2;
     let b = (self.b + color.b) / 2;
 
