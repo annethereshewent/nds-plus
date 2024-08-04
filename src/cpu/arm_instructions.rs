@@ -1325,7 +1325,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let shifted_operand = if rm == PC_REGISTER as u32 {
       self.pc + 4
     } else {
-      // println!("using r{rm} = {:X}", self.r[rm as usize]);
       self.r[rm as usize]
     };
 

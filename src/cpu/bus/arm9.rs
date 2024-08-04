@@ -398,7 +398,13 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value, &mut self.arm9.interrupt_request),
-      0x400_0440..=0x400_05c8 => self.gpu.engine3d.write_geometry_command(address, value, &mut self.arm9.interrupt_request),
+      0x400_0440..=0x400_05c8 => {
+        self.gpu.engine3d.write_geometry_command(address, value, &mut self.arm9.interrupt_request);
+        if self.gpu.engine3d.should_run_dmas() {
+          self.arm9.dma.notify_geometry_fifo_event();
+          self.arm7.dma.notify_geometry_fifo_event();
+        }
+      }
       0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
       0x400_1004 => (),

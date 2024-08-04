@@ -131,20 +131,24 @@ impl DmaChannel {
 
       let timing = dma_control.dma_start_timing(self.is_arm9);
 
-      if timing == DmaTiming::Immediately {
-        if self.is_arm9 {
-          scheduler.schedule(EventType::DMA9(self.id), 3);
+      if timing == DmaTiming::Immediately || timing == DmaTiming::GeometryCommandFifo {
+        if timing == DmaTiming::Immediately {
+          if self.is_arm9 {
+            scheduler.schedule(EventType::DMA9(self.id), 3);
+          } else {
+            scheduler.schedule(EventType::DMA7(self.id), 3);
+          }
         } else {
-          scheduler.schedule(EventType::DMA7(self.id), 3);
+          scheduler.schedule(EventType::CheckGeometryFifo, 1);
         }
       } else {
         self.pending = false;
       }
 
-      self.fifo_mode = timing == DmaTiming::Fifo
-        && dma_control.contains(DmaControlRegister::DMA_REPEAT)
-        && (self.id == 1) || (self.id == 2)
-        && (self.destination_address == FIFO_REGISTER_A || self.destination_address == FIFO_REGISTER_B);
+      // self.fifo_mode = timing == DmaTiming::Fifo
+      //   && dma_control.contains(DmaControlRegister::DMA_REPEAT)
+      //   && (self.id == 1) || (self.id == 2)
+      //   && (self.destination_address == FIFO_REGISTER_A || self.destination_address == FIFO_REGISTER_B);
     }
 
     if !dma_control.contains(DmaControlRegister::DMA_ENABLE) {

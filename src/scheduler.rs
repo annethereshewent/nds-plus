@@ -14,7 +14,8 @@ pub enum EventType {
   WordTransfer(bool),
   StepAudio(usize),
   ResetAudio(usize),
-  GenerateSample
+  GenerateSample,
+  CheckGeometryFifo
 }
 
 pub struct Scheduler {
