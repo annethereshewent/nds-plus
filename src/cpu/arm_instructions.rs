@@ -100,7 +100,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       s = 0;
     }
 
-
     // finally do the operation on the two operands and store in rd
     let (result, should_update) = self.execute_alu_op(op_code, operand1, operand2, &mut carry, &mut overflow);
 
@@ -548,10 +547,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         3 => self.ldr_signed_halfword(address, access) as i32 as u32, // signed halfwords,
         _ => panic!("shouldn't happen")
       };
-
-      // if self.pc.wrapping_sub(8) == 0x2000b48 {
-      // println!("loaded value {:x} from address {:x} into register r{rd}", value, address);
-      // }
 
       if rd == PC_REGISTER as u32 {
         self.pc = value & !(0b11);

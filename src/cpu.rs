@@ -401,7 +401,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.update_cycles(address, access, MemoryWidth::Width8);
     let ref mut bus = *self.bus.borrow_mut();
 
-
     if !IS_ARM9 {
       bus.arm7_mem_write_32(address, value);
     } else {

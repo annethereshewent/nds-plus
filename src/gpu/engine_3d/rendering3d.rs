@@ -7,16 +7,14 @@ use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMod
 
 pub struct Deltas {
   pub dw: f32,
-  pub dz: f32,
-  num_steps: f32
+  pub dz: f32
 }
 
 impl Deltas {
-  pub fn new(dz: f32, dw: f32, num_steps: f32) -> Self {
+  pub fn new(dz: f32, dw: f32) -> Self {
     Self {
       dw,
-      dz,
-      num_steps
+      dz
     }
   }
 
@@ -29,7 +27,7 @@ impl Deltas {
     let dw = (end.normalized_w as f32 - start.normalized_w as f32) / num_steps as f32;
     let dz = (end.z_depth as f32 - start.z_depth as f32) / num_steps as f32;
 
-    Self::new(dz, dw, num_steps)
+    Self::new(dz, dw)
   }
 }
 
@@ -497,7 +495,7 @@ impl Engine3d {
 
   fn check_polygon_depth(polygon: &Polygon, current_depth: u32, new_depth: u32) -> bool {
     if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
-      new_depth >= current_depth - 0x200 && new_depth <= current_depth - 0x200
+      new_depth >= current_depth - 0x200 && new_depth <= current_depth + 0x200
     } else {
       new_depth < current_depth
     }
@@ -671,25 +669,14 @@ impl Engine3d {
         match (texel_value, mode) {
           (0, _) => {
             // color 0
-            if debug_on {
-              println!("getting color0");
-            }
-
             (Some(Color::from(get_color(0)).to_rgb6()), None)
           }
           (1, _) => {
             // color 1
-            if debug_on {
-              println!("getting color1");
-            }
-
             (Some(Color::from(get_color(1)).to_rgb6()), None)
           },
           (2, 0) | (2, 2) => {
             // color 2
-            if debug_on {
-              println!("getting color2");
-            }
             (Some(Color::from(get_color(2)).to_rgb6()), None)
           }
           (2, 1) => {

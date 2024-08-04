@@ -446,8 +446,12 @@ impl Engine3d {
     self.current_vector_matrix.0[row as usize][column as usize] as u32
   }
 
-  pub fn read_geometry_status(&self) -> u32 {
-    self.gxstat.read(0, 0, &self.fifo)
+  pub fn read_geometry_status(&mut self, interrupt_request: &mut InterruptRequestRegister) -> u32 {
+    let value = self.gxstat.read(self.position_vector_sp as u32, self.projection_sp as u32, &self.fifo);
+
+    self.check_interrupts(interrupt_request);
+
+    value
   }
 
   pub fn write_alpha_ref(&mut self, value: u16) {
@@ -493,8 +497,10 @@ impl Engine3d {
     self.clear_offset_y = (value >> 8) & 0xff;
   }
 
-  pub fn write_geometry_status(&mut self, value: u32) {
+  pub fn write_geometry_status(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
     self.gxstat.write(value);
+
+    self.check_interrupts(interrupt_request);
   }
 
   pub fn write_geometry_command(&mut self, address: u32, value: u32, interrupt_request: &mut InterruptRequestRegister) {
@@ -513,6 +519,7 @@ impl Engine3d {
         }
       }
     }
+
     self.check_interrupts(interrupt_request);
   }
 
@@ -520,7 +527,7 @@ impl Engine3d {
     !self.polygons_ready && self.fifo.len() < FIFO_CAPACITY / 2
   }
 
-  fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
+  pub fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
     match self.gxstat.geometry_irq {
       GeometryIrq::Empty => if self.fifo.is_empty() {
         interrupt_request.insert(InterruptRequestRegister::GEOMETRY_COMMAND);
@@ -533,7 +540,9 @@ impl Engine3d {
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
-    self.gxstat.geometry_engine_busy = false;
+    if self.fifo.len() < FIFO_CAPACITY {
+      self.gxstat.geometry_engine_busy = false;
+    }
 
     use Command::*;
     match entry.command {
@@ -946,8 +955,6 @@ impl Engine3d {
   fn apply_lighting(&mut self, coordinates: &[i32]) {
     let normal = self.current_vector_matrix.multiply_row(&coordinates, 12);
 
-    // println!("normal = {:x?}", normal);
-
     let mut color = [self.emission.r as i32, self.emission.g as i32, self.emission.b as i32];
 
     for (i, light) in self.lights.iter().enumerate() {
@@ -967,10 +974,6 @@ impl Engine3d {
           }))
           >> 9)
           .max(0);
-
-        // println!("diffuse level = {:x}", diffuse_level);
-
-        // println!("half vector = {:x?}", light.half_vector);
 
         // let mut shininess_level =
         //   (-(light.half_vector[0] as i64 * normal[0] as i64 +
@@ -1294,11 +1297,6 @@ impl Engine3d {
 
     self.current_vertices.clear();
 
-    // 3a9bc, 3a9b0, 388d4, 3a9b0
-    // fffc5643, 3a9b0, 388d4, 3a9b0
-
-    // println!("{:x?}", temp);
-
     for i in 0..temp.len() {
       let current = temp[i];
       let previous_i = if i == 0 { temp.len() - 1} else { i - 1 };
@@ -1309,14 +1307,12 @@ impl Engine3d {
       if current.transformed[index] >= -current.transformed[3] {
         if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
-          // println!("{:x?}, {:x?}", current.transformed, previous.transformed);
           let vertex = self.find_plane_intersection(index, current, previous, false);
           self.current_vertices.push(vertex);
         }
         self.current_vertices.push(current.clone());
       } else if previous.transformed[index] >= -previous.transformed[3] {
 
-        // println!("{:x?}, {:x?}", previous.transformed, current.transformed);
         let vertex = self.find_plane_intersection(index, previous, current, false);
         self.current_vertices.push(vertex);
       }

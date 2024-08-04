@@ -21,7 +21,6 @@ impl Bus {
   }
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
-    // println!("reading from arm9 io address {:x}", address);
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.read(),
       0x400_0004..=0x400_005f => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
@@ -48,7 +47,7 @@ impl Bus {
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_0440..=0x400_05c8 => 0,
-      0x400_0600 => self.gpu.engine3d.read_geometry_status(),
+      0x400_0600 => self.gpu.engine3d.read_geometry_status(&mut self.arm9.interrupt_request),
       0x400_0640..=0x400_067f => self.gpu.engine3d.read_clip_matrix(address),
       0x400_0680..=0x400_06a3 => self.gpu.engine3d.read_vector_matrix(address),
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
@@ -115,7 +114,6 @@ impl Bus {
   }
 
   fn arm9_io_read_16(&mut self, address: u32) -> u16 {
-    // println!("reading from arm9 io address {:X}", address);
     // not sure if this is needed for the ds....
     // let address = if address & 0xfffe == 0x8000 {
     //   0x400_0800
@@ -342,7 +340,11 @@ impl Bus {
       0x400_0188 => self.send_to_fifo(true, value),
       0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
-      0x400_0214 => self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value),
+      0x400_0214 => {
+        self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
+
+        self.gpu.engine3d.check_interrupts(&mut self.arm9.interrupt_request);
+      }
       0x400_0240 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
@@ -397,7 +399,7 @@ impl Bus {
       }
       0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value, &mut self.arm9.interrupt_request),
       0x400_0440..=0x400_05c8 => self.gpu.engine3d.write_geometry_command(address, value, &mut self.arm9.interrupt_request),
-      0x400_0600 => self.gpu.engine3d.write_geometry_status(value),
+      0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {

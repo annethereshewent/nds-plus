@@ -620,7 +620,7 @@ impl Bus {
           self.arm7.apu.sndcapcnt[capture_index].get_capture_address(2)
         };
 
-        let _data = self.arm7.apu.capture_data(capture_index) as u16;
+        // let _data = self.arm7.apu.capture_data(capture_index) as u16;
 
         // todo, not working quite right
         // if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {

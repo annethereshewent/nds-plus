@@ -237,13 +237,16 @@ impl GPU {
     } else if self.vcount == NUM_LINES - 48 {
       // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
       // self.engine3d.clear_frame_buffer();
-      self.engine3d.start_rendering(&self.vram);
 
-      self.engine3d.execute_commands(&mut interrupt_requests[1]);
+      if self.powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
+        self.engine3d.start_rendering(&self.vram);
 
-      if self.engine3d.should_run_dmas() {
-        for dma in dma_channels {
-          dma.notify_geometry_fifo_event();
+        self.engine3d.execute_commands(&mut interrupt_requests[1]);
+
+        if self.engine3d.should_run_dmas() {
+          for dma in dma_channels {
+            dma.notify_geometry_fifo_event();
+          }
         }
       }
     }
