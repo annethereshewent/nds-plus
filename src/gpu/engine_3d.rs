@@ -1216,7 +1216,9 @@ impl Engine3d {
     let mut size = 0;
     for vertex in self.current_vertices.iter() {
       let w = vertex.transformed[3] as u32;
-      while w >> size != 0 {
+      // need to specify size < 32 for release builds since the number
+      // *will* wrap around on a release build
+      while w >> size != 0 && size < 32 {
         size += 4;
       }
     }
