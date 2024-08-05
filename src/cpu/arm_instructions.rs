@@ -753,7 +753,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let should_writeback = if register_list >> rn & 0b1 == 1 {
       if !IS_ARM9 {
         // l == 0 && !base_is_first
-        // we already take care of base_is_first in the register_list below
+        // we already take care of base_is_first in the for loop below
         l == 0
       } else {
         // the documentation says write back old base on stores, but the armwrestler tests fail if it's done that way.
