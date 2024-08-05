@@ -31,12 +31,10 @@ impl Matrix {
 
   // sets C = M * C (M being the left side)
   pub fn multiply_3x3(&mut self, lhs: Matrix) {
-    let matrix1 = self.0;
+    let matrix1 = self.0.clone();
     let matrix2 = lhs.0;
 
-    let mut result = Matrix::new();
-
-    let result_mtx = &mut result.0;
+    let result_mtx = &mut self.0;
 
     result_mtx[0][0] =
     ((matrix2[0][0] as i64 * matrix1[0][0] as i64 +
@@ -99,18 +97,14 @@ impl Matrix {
       matrix2[2][2] as i64 * matrix1[2][3] as i64) >> 12) as i32;
 
 
-    self.0 = *result_mtx;
   }
 
   // sets C = M * C (hence why lhs instead of rhs)
   pub fn multiply_4x3(&mut self, lhs: Matrix) {
-    let matrix1 = self.0;
+    let matrix1 = self.clone().0;
     let matrix2 = lhs.0;
 
-
-    let mut result = Matrix::new();
-
-    let result_mtx = &mut result.0;
+    let result_mtx = &mut self.0;
 
     result_mtx[0][0] =
     ((matrix2[0][0] as i64 * matrix1[0][0] as i64 +
@@ -195,8 +189,6 @@ impl Matrix {
       matrix2[3][1] as i64 * matrix1[1][3] as i64 +
       matrix2[3][2] as i64 * matrix1[2][3] as i64 +
       0x1000 * matrix1[3][3] as i64) >> 12) as i32;
-
-    self.0 = *result_mtx;
   }
 
   pub fn multiply_row(&self, row: &[i32], shift: i32) -> [i32; 4] {

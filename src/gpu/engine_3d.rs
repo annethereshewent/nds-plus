@@ -1030,6 +1030,8 @@ impl Engine3d {
   fn multiply_m_by_n(&mut self, m: usize, n: usize, entry: GeometryCommandEntry) {
     use Command::*;
     if !self.command_started {
+      self.temp_matrix = Matrix::new();
+
       self.command_started = true;
       self.command_params = match (m, n) {
         (4, 4) => MtxMult4x4.get_num_params(),
@@ -1081,10 +1083,6 @@ impl Engine3d {
               _ => panic!("invalid option given for m x n: {m} x {n}")
             }
           }
-        }
-
-        if self.matrix_mode == MatrixMode::PositionAndVector && (m == 3 || m == 4) && n == 3 {
-
         }
 
         self.command_started = false;
@@ -1248,7 +1246,13 @@ impl Engine3d {
         (y_offset * self.viewport.height() / denominator + self.viewport.y1 as i32) as u32
       };
 
-      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / transformed[3] as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
+      let w = if transformed[3] > 0 {
+        transformed[3]
+      } else {
+        1
+      };
+
+      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
       temp.normalized_w = if size < 16 {
         transformed[3] << (16 - size)
       } else {
@@ -1418,14 +1422,6 @@ impl Engine3d {
       self.command_params -= 1;
 
       if self.command_params == 0 {
-        if n == 3 {
-          // for 4x3 matrices, fill the fourth column of each row with 0, or the last slot with a fixed point 1 (identity matrix)
-          for row in 0..3 {
-            self.temp_matrix.0[row][3] = 0;
-          }
-          self.temp_matrix.0[3][3] = 0x1000;
-        }
-
         self.load_matrix();
 
         self.command_started = false;
