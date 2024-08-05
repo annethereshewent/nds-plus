@@ -730,8 +730,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let num_registers = register_list.count_ones();
 
-    let old_base = address;
-
     // for stores:
     // armv7, if base is in register list, only store new base if rn is not the first register in the list
     // armv9 never stores the new base
@@ -769,6 +767,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let mut wrote_back = false;
 
+    if user_banks_transferred {
+      self.set_mode(OperatingMode::User);
+    }
+
+    let old_base = self.r[rn as usize];
+
     if register_list != 0 && u == 0 {
       address = address.wrapping_sub(num_registers * 4);
 
@@ -782,10 +786,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       } else {
         p = 0;
       }
-    }
-
-    if user_banks_transferred {
-      self.set_mode(OperatingMode::User);
     }
 
     let mut access = MemoryAccess::Sequential;
@@ -805,7 +805,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
                 self.r[i as usize]
               }
             } else if is_first_register {
-              // println!("using old base");
               old_base
             } else {
               // println!("using old base +- offset");

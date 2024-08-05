@@ -5,7 +5,7 @@
 // R15 are zero and bits [31:2] contain the PC. In THUMB state,
 // bit [0] is zero and bits [31:1] contain the PC.
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bus::{Bus, HaltMode};
 
@@ -57,11 +57,12 @@ pub struct CPU<const IS_ARM9: bool> {
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
   cycles: usize,
-  pub bus: Rc<RefCell<Bus>>
+  pub bus: Rc<RefCell<Bus>>,
+  pub found: HashMap<u32, bool>
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OperatingMode {
   User = 0b10000,
   FIQ = 0b10001,
@@ -138,7 +139,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       pipeline: [0; 2],
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
-      bus
+      bus,
+      found: HashMap::new()
     };
 
     cpu.pc = if IS_ARM9 {
@@ -166,13 +168,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if new_index == old_index {
       return;
     }
-
     // save contents of cpsr and banked registers
     self.spsr_banks[old_index] = self.spsr;
     self.r13_banks[old_index] = self.r[13];
     self.r14_banks[old_index] = self.r[14];
 
-    let new_cpsr = (self.cpsr.bits() & !(0b11111)) | (new_mode as u32);
+    let new_cpsr = (self.cpsr.bits() & !(0x1f)) | (new_mode as u32);
 
     self.spsr = self.spsr_banks[new_index];
     self.r[13] = self.r13_banks[new_index];
@@ -255,7 +256,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     {
       if self.bus.borrow().debug_on {
-        println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+        if !self.found.contains_key(&self.pc.wrapping_sub(8)) {
+          println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+          self.found.insert(self.pc.wrapping_sub(8), true);
+        }
       }
     }
 
