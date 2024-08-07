@@ -429,6 +429,10 @@ impl Engine3d {
   }
 
   pub fn read_clip_matrix(&mut self, address: u32) -> u32 {
+    if self.clip_vtx_recalculate {
+      self.recalculate_clip_matrix();
+    }
+
     let index = (address - 0x400_0640) / 4;
 
     let row = index / 4;
@@ -819,7 +823,7 @@ impl Engine3d {
       MtxScale => {
         if !self.command_started {
           self.command_started = true;
-
+          self.scale_vector = [0; 3];
           self.command_params = MtxScale.get_num_params();
         }
 
@@ -878,7 +882,6 @@ impl Engine3d {
             self.position_stack[offset as usize] = self.current_position_matrix;
             self.vector_stack[offset as usize] = self.current_vector_matrix;
 
-
           }
           MatrixMode::Projection => {
             self.projection_stack = self.current_projection_matrix;
@@ -907,7 +910,6 @@ impl Engine3d {
 
             self.current_position_matrix = self.position_stack[offset as usize];
             self.current_vector_matrix = self.vector_stack[offset as usize];
-
 
 
             self.clip_vtx_recalculate = true;
@@ -1491,8 +1493,6 @@ impl Engine3d {
       }
 
       self.packed_commands = value;
-
-      self.sent_commands = true;
 
       let current_command = Command::from(self.packed_commands as u8);
 
