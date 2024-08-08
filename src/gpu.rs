@@ -261,14 +261,18 @@ impl GPU {
     }
   }
 
+  fn get_pixel(&self, address: usize) -> u16 {
+    let r = self.engine_a.pixels[3 * address] >> 3;
+    let g = self.engine_a.pixels[3 * address + 1] >> 3;
+    let b = self.engine_a.pixels[3 * address + 2] >> 3;
+
+    (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
+  }
+
   fn start_capture_image(&mut self) {
     let width = self.dispcapcnt.get_capture_width() as usize;
     let start_address = self.vcount as usize * SCREEN_WIDTH as usize;
     let block = self.engine_a.dispcnt.vram_block;
-
-    if self.dispcapcnt.source_a == ScreenSourceA::Screen3d || self.engine_a.dispcnt.bg_mode != BgMode::Mode0 {
-      todo!("3d not implemented yet");
-    }
 
     if self.dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
       todo!("main memory display fifo not implemented");
@@ -300,11 +304,7 @@ impl GPU {
       CaptureSource::SourceA => {
         let mut index = 0;
         for address in start_address..start_address+width {
-          let r = self.engine_a.pixels[3 * address] >> 3;
-          let g = self.engine_a.pixels[3 * address + 1] >> 3;
-          let b = self.engine_a.pixels[3 * address + 2] >> 3;
-
-          let pixel = (r as u16) & 0x1f | (g as u16) & 0x1f << 5 | (b as u16) & 0x1f << 10;
+          let pixel = self.get_pixel(address);
 
           self.vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
           self.vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use box_test::BoxTest;
 use diffuse_color::DiffuseColor;
 use light::Light;
 use matrix::Matrix;
@@ -31,6 +32,7 @@ pub mod light;
 pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
+pub mod box_test;
 
 pub const FIFO_CAPACITY: usize = 256;
 
@@ -286,7 +288,6 @@ impl GeometryCommandEntry {
 
 pub struct Engine3d {
   fifo: VecDeque<GeometryCommandEntry>,
-  sent_commands: bool,
   packed_commands: u32,
   current_command: Command,
   params_processed: usize,
@@ -348,14 +349,14 @@ pub struct Engine3d {
   max_params: usize,
   swap_vertices: bool,
   pub disp3dcnt: Display3dControlRegister,
-  pub debug_on: bool
+  pub debug_on: bool,
+  box_test: BoxTest
 }
 
 impl Engine3d {
   pub fn new() -> Self {
     Self {
       fifo: VecDeque::with_capacity(256),
-      sent_commands: false,
       packed_commands: 0,
       current_command: Command::Nop,
       params_processed: 0,
@@ -417,7 +418,8 @@ impl Engine3d {
       max_params: 0,
       swap_vertices: false,
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
-      debug_on: false
+      debug_on: false,
+      box_test: BoxTest::new()
     }
   }
 
@@ -949,6 +951,37 @@ impl Engine3d {
         self.current_vertex.z = self.current_vertex.z.wrapping_add(z);
 
         self.add_vertex();
+      }
+      BoxTest => {
+        if !self.command_started {
+          self.command_started = true;
+
+          self.num_params = BoxTest.get_num_params();
+          self.max_params = self.num_params;
+
+          self.box_test = box_test::BoxTest::new();
+        }
+
+        let index = self.max_params - self.num_params;
+
+        if index == 0 {
+          self.box_test.x = entry.param as i16;
+          self.box_test.y = (entry.param >> 16) as i16;
+        } else if index == 1 {
+          self.box_test.z = entry.param as i16;
+          self.box_test.width = (entry.param >> 16) as i16;
+        } else {
+          self.box_test.height = entry.param as i16;
+          self.box_test.depth = (entry.param >> 16) as i16;
+        }
+
+        self.num_params -= 1;
+
+        if self.num_params == 0 {
+          self.gxstat.box_test_result = self.box_test.do_test(self.clip_matrix);
+
+          self.command_started = false;
+        }
       }
       _ => panic!("command not iplemented yet: {:?}", entry.command)
     }
