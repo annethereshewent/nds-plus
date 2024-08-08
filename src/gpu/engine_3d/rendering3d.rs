@@ -694,15 +694,12 @@ impl Engine3d {
             let color0 = Color::from(get_color(0));
             let color1 = Color::from(get_color(1));
 
-            // println!("2, 3) got palette indexes {palette0_index} {palette1_index}");
-
             let mut blended_color = color0.blend_texture(color1);
 
             (Some(blended_color.to_rgb6()), None)
           }
           (3, 0)| (3, 1) => {
             // transparent
-            // println!("got transparent color");
             (Some(Color { r: 0, g: 0, b: 0, alpha: Some(0) }), Some(0))
           }
           (3, 2) => {
