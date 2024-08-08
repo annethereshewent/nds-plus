@@ -728,7 +728,18 @@ impl Engine3d {
           3 => (palette_index >> 6) & 0x3,
           _ => unreachable!()
         };
-        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
+        // Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
+
+        let address = palette_base as u32 / 2 + palette_index as u32 * 2;
+        let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+
+        let alpha = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+          Some(0)
+        } else {
+          None
+        };
+
+        (Some(Color::from(color_raw).to_rgb6()), alpha)
       }
       TextureFormat::Direct => {
         let address = vram_offset + 2 * texel;
