@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 use box_test::BoxTest;
 use diffuse_color::DiffuseColor;
@@ -350,7 +350,8 @@ pub struct Engine3d {
   swap_vertices: bool,
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
-  box_test: BoxTest
+  box_test: BoxTest,
+  pub found: HashSet<String>
 }
 
 impl Engine3d {
@@ -419,7 +420,8 @@ impl Engine3d {
       swap_vertices: false,
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
-      box_test: BoxTest::new()
+      box_test: BoxTest::new(),
+      found: HashSet::new()
     }
   }
 

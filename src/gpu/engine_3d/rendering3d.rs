@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, collections::HashSet};
 
 use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -193,7 +193,7 @@ impl Engine3d {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
 
         if vertices.len() == 3 {
-          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on);
+          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
         } else {
           // break up into multiple triangles and then render the triangles
           let mut i = 0;
@@ -209,7 +209,7 @@ impl Engine3d {
 
             cloned.clone_from_slice(&vertices[i..i + 3]);
 
-            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on);
+            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
 
             i += 1;
           }
@@ -241,7 +241,8 @@ impl Engine3d {
     frame_buffer: &mut [Pixel3d],
     toon_table: &[Color],
     disp3dcnt: &Display3dControlRegister,
-    debug_on: bool)
+    debug_on: bool,
+    found: &mut HashSet<String>)
   {
     vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
 
@@ -420,7 +421,7 @@ impl Engine3d {
 
         let mut color: Option<Color> = None;
 
-        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on);
+        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on, found);
         if let Some(texel_color) = texel_color {
           color = if alpha.is_some() && alpha.unwrap() == 0 {
             None
@@ -440,7 +441,6 @@ impl Engine3d {
                 if disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING) {
                   Self::modulation_blend(texel_color, vertex_color, alpha, true)
                 } else {
-
                   let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
 
                   toon_color.alpha = vertex_color.alpha;
@@ -484,8 +484,6 @@ impl Engine3d {
             pixel.color = Some(color);
             pixel.depth = z as u32;
           }
-
-
         }
         x += 1;
       }
@@ -554,7 +552,7 @@ impl Engine3d {
     return_val
   }
 
-  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool) -> (Option<Color>, Option<u8>) {
+  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> (Option<Color>, Option<u8>) {
     let mut u = curr_u;
 
     u = Self::check_if_texture_repeated(
@@ -638,11 +636,9 @@ impl Engine3d {
 
         let block_address = (u / 4) + blocks_per_row * (v / 4);
 
-
         let base_address = vram_offset + 4 * block_address;
 
         let mut texel_value = vram.read_texture(base_address + (v & 0x3));
-
 
         texel_value = match u & 0x3 {
           0 => texel_value & 0x3,
@@ -664,7 +660,8 @@ impl Engine3d {
 
         let mode = (extra_palette_info >> 14) & 0x3;
 
-        let get_color = |num: u32| vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8;
+        let get_color = |num: u32|
+          vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8;
 
         match (texel_value, mode) {
           (0, _) => {
@@ -728,7 +725,6 @@ impl Engine3d {
           3 => (palette_index >> 6) & 0x3,
           _ => unreachable!()
         };
-        // Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
 
         let address = palette_base as u32 / 2 + palette_index as u32 * 2;
         let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;

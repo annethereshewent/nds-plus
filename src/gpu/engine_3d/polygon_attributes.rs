@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum PolygonMode {
   Modulation = 0,
   Decal = 1,
