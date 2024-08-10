@@ -248,19 +248,19 @@ impl Engine3d {
       }
     }
 
-    if max_x >= SCREEN_WIDTH as u32 || min_x >= SCREEN_WIDTH as u32 {
+    if max_x > SCREEN_WIDTH as u32 || min_x > SCREEN_WIDTH as u32 {
       return;
     }
 
-    if max_y >= SCREEN_HEIGHT as u32 || min_y >= SCREEN_HEIGHT as u32 {
+    if max_y > SCREEN_HEIGHT as u32 || min_y > SCREEN_HEIGHT as u32 {
       return;
     }
 
-    if (max_x - min_x) >= SCREEN_WIDTH as u32 {
+    if (max_x - min_x) > SCREEN_WIDTH as u32 {
       return;
     }
 
-    if (max_y - min_y) >= SCREEN_HEIGHT as u32 {
+    if (max_y - min_y) > SCREEN_HEIGHT as u32 {
       return;
     }
 

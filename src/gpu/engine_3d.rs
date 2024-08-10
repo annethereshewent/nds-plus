@@ -337,6 +337,7 @@ pub struct Engine3d {
   current_vertices: Vec<Vertex>,
   translation_vector: [i32; 3],
   texcoord: Texcoord,
+  original_texcoord: Texcoord,
   current_vertex: Vertex,
   max_vertices: usize,
   clip_vtx_recalculate: bool,
@@ -408,6 +409,7 @@ impl Engine3d {
       translation_vector: [0; 3],
       scale_vector: [0; 3],
       texcoord: Texcoord::new(),
+      original_texcoord: Texcoord::new(),
       current_vertex: Vertex::new(),
       max_vertices: 0,
       clip_vtx_recalculate: false,
@@ -785,14 +787,19 @@ impl Engine3d {
         let mut u = self.texcoord.u;
         let mut v = self.texcoord.v;
 
-        if self.texture_params.transformation_mode() == TransformationMode::TexCoord {
-          u = ((u as i64 * matrix[0][0] as i64 + v as i64 * matrix[1][0] as i64 + matrix[2][0] as i64 + matrix[3][0] as i64) >> 12) as i16;
-          v = ((u as i64 * matrix[0][1] as i64 + v as i64 * matrix[1][1] as i64 + matrix[2][1] as i64 + matrix[3][1] as i64) >> 12) as i16;
-        }
-
         self.texcoord = self::Texcoord {
           u,
           v
+        };
+
+        self.original_texcoord = self.texcoord;
+
+        if self.texture_params.transformation_mode() == TransformationMode::TexCoord {
+          let u = self.original_texcoord.u;
+          let v = self.original_texcoord.v;
+
+          self.texcoord.u = ((u as i64 * matrix[0][0] as i64 + v as i64 * matrix[1][0] as i64 + matrix[2][0] as i64 + matrix[3][0] as i64) >> 12) as i16;
+          self.texcoord.v = ((u as i64 * matrix[0][1] as i64 + v as i64 * matrix[1][1] as i64 + matrix[2][1] as i64 + matrix[3][1] as i64) >> 12) as i16;
         }
       }
       Vtx16 => {
@@ -937,8 +944,9 @@ impl Engine3d {
         if self.texture_params.transformation_mode() == TransformationMode::Normal {
           let transformed = self.current_texture_matrix.multiply_normal(&normal);
 
-          self.texcoord.u += transformed[0];
-          self.texcoord.v += transformed[1];
+
+          self.texcoord.u = transformed[0] + self.original_texcoord.u;
+          self.texcoord.v = transformed[1] + self.original_texcoord.v;
         }
 
         self.apply_lighting(&normal);
@@ -1142,8 +1150,8 @@ impl Engine3d {
     if self.texture_params.transformation_mode() == TransformationMode::Vertex {
       let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
-      self.texcoord.u += transformed[0] as i16;
-      self.texcoord.v += transformed[1] as i16;
+      self.texcoord.u = transformed[0] as i16 + self.original_texcoord.u;
+      self.texcoord.v = transformed[1] as i16 + self.original_texcoord.v;
     }
 
     self.current_vertex.texcoord = self.texcoord;
