@@ -104,13 +104,6 @@ impl RgbSlopes {
       b_slope
     }
   }
-  /*
-    left_rgb,
-        end_rgb,
-        w_start,
-        w_end,
-        (boundary2 - boundary1) as f32
-   */
   pub fn new(start: Color, end: Color, w_start: f32, w_end: f32, num_steps: f32) -> Self {
     let r_slope = Slope::new(
       start.r as f32,
@@ -386,8 +379,8 @@ impl Engine3d {
 
       let mut v_d = Slope::new(
         left_v,
-        w_start as f32,
-        w_end as f32,
+        w_start,
+        w_end,
         right_v - left_v,
         (boundary2 - boundary1) as f32
       );
@@ -416,8 +409,6 @@ impl Engine3d {
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
-
-        // println!("s,t: {curr_u},{curr_v} x,y: {x},{y}");
 
         let mut color: Option<Color> = None;
 
@@ -578,7 +569,6 @@ impl Engine3d {
     v = v.clamp(0, polygon.tex_params.texture_t_size() - 1);
 
     // println!("got {u},{v}");
-
 
     let texel = u + v * polygon.tex_params.texture_s_size();
     let vram_offset = polygon.tex_params.vram_offset();

@@ -1001,7 +1001,7 @@ impl Engine3d {
         // let diffuse_level =
         //   ((-(light.x as i64 * normal[0] as i64 + light.y as i64 * normal[1] as i64 + light.z as i64 * normal[2] as i64) >> 9) as i32).max(0);
 
-        let light_direction = [light.x as i32, light.y as i32, light.z as i32];
+        let light_direction = [light.x as i32, light.y as i32, light.z as i32, 0];
 
         let diffuse_level = ((-light_direction
           .iter()
