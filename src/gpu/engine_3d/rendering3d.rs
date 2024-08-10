@@ -611,9 +611,6 @@ impl Engine3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha))
       }
       TextureFormat::Color16 => {
-        if debug_on {
-          return (None, None);
-        }
         let real_address = vram_offset + texel / 2;
 
         let byte = vram.read_texture(real_address);
