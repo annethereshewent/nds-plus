@@ -18,10 +18,7 @@ impl Deltas {
     }
   }
 
-  pub fn get_deltas(start: Option<Vertex>, end: Option<Vertex>) -> Self {
-    let start = start.unwrap();
-    let end = end.unwrap();
-
+  pub fn get_deltas(start: Vertex, end: Vertex) -> Self {
     let num_steps = end.screen_y as f32 - start.screen_y as f32;
 
     let dw = (end.normalized_w as f32 - start.normalized_w as f32) / num_steps as f32;
@@ -61,10 +58,7 @@ impl Slope {
     self.start + factor * self.diff
   }
 
-  pub fn get_texture_slope(start: Option<Vertex>, end: Option<Vertex>, is_u: bool) -> Self {
-    let start = start.unwrap();
-    let end = end.unwrap();
-
+  pub fn get_texture_slope(start: Vertex, end: Vertex, is_u: bool) -> Self {
     let (start_fp, end_fp) = if is_u {
       (start.texcoord.u as f32, end.texcoord.u as f32)
     } else {
@@ -89,11 +83,7 @@ pub struct RgbSlopes {
 }
 
 impl RgbSlopes {
-  pub fn get_slopes(start: Option<Vertex>, end: Option<Vertex>) -> RgbSlopes {
-    let start = start.unwrap();
-    let end = end.unwrap();
-
-
+  pub fn get_slopes(start: Vertex, end: Vertex) -> RgbSlopes {
     let r_slope = Self::new_slope(start, end, start.color.r as f32, end.color.r as f32);
     let g_slope = Self::new_slope(start, end, start.color.g as f32, end.color.g as f32);
     let b_slope = Self::new_slope(start, end, start.color.b as f32, end.color.b as f32);
@@ -184,29 +174,7 @@ impl Engine3d {
 
       for polygon in self.polygon_buffer.drain(..) {
         let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-
-        if vertices.len() == 3 {
-          Self::rasterize_triangle(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
-        } else {
-          // break up into multiple triangles and then render the triangles
-          let mut i = 0;
-          vertices.sort_by(|a, b| {
-            if a.screen_y != b.screen_y {
-              a.screen_y.cmp(&b.screen_y)
-            } else {
-              a.screen_x.cmp(&b.screen_x)
-            }
-          });
-          while i + 2 < vertices.len() {
-            let mut cloned = [Vertex::new(); 3];
-
-            cloned.clone_from_slice(&vertices[i..i + 3]);
-
-            Self::rasterize_triangle(&polygon, &mut cloned, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
-
-            i += 1;
-          }
-        }
+        Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
       }
 
       self.vertices_buffer.clear();
@@ -227,7 +195,17 @@ impl Engine3d {
     }
   }
 
-  fn rasterize_triangle(
+  fn calculate_slope(start: Vertex, end: Vertex) -> f32 {
+    if start.screen_y != end.screen_y {
+      let slope = (end.screen_x as f32 - start.screen_x as f32) / (end.screen_y as f32 - start.screen_y as f32);
+
+      slope
+    } else {
+      0.0
+    }
+  }
+
+  fn render_polygon(
     polygon: &Polygon,
     vertices: &mut [Vertex],
     vram: &VRam,
@@ -237,28 +215,38 @@ impl Engine3d {
     debug_on: bool,
     found: &mut HashSet<String>)
   {
-    vertices.sort_by(|a, b| a.screen_y.cmp(&b.screen_y));
+    let mut min_y = vertices[0].screen_y;
+    let mut max_y = vertices[0].screen_y;
+    let mut min_x = vertices[0].screen_x;
+    let mut max_x = vertices[0].screen_x;
 
-    let cross_product = Self::cross_product(
-    vertices[0].screen_x as i32,
-    vertices[0].screen_y as i32,
-    vertices[1].screen_x as i32,
-    vertices[1].screen_y as i32,
-    vertices[2].screen_x as i32,
-    vertices[2].screen_y as i32
-    );
+    let mut start_index = 0;
+    let mut end_index = 0;
 
-    if cross_product == 0 {
-      return;
+    for i in 1..vertices.len() {
+      let current = &vertices[i];
+
+      if current.screen_y < vertices[start_index].screen_y {
+        start_index = i;
+        min_y = current.screen_y;
+      } else if current.screen_y == vertices[start_index].screen_y && current.screen_x < vertices[start_index].screen_x {
+        start_index = i;
+      }
+
+      if current.screen_y > vertices[end_index].screen_y {
+        end_index = i;
+        max_y = current.screen_y;
+      } else if current.screen_y == vertices[start_index].screen_y && current.screen_x >= vertices[start_index].screen_x {
+        end_index = i;
+      }
+
+      if current.screen_x < min_x {
+        min_x = current.screen_x;
+      }
+      if current.screen_x > max_x {
+        max_x = current.screen_x;
+      }
     }
-
-    let p02_is_left = cross_product > 0;
-
-    let min_y = cmp::min(vertices[0].screen_y, cmp::min(vertices[1].screen_y, vertices[2].screen_y));
-    let max_y = cmp::max(vertices[0].screen_y, cmp::max(vertices[1].screen_y, vertices[2].screen_y));
-
-    let min_x = cmp::min(vertices[0].screen_x, cmp::min(vertices[1].screen_x, vertices[2].screen_x));
-    let max_x = cmp::max(vertices[0].screen_x, cmp::max(vertices[1].screen_x, vertices[2].screen_x));
 
     if max_x >= SCREEN_WIDTH as u32 || min_x >= SCREEN_WIDTH as u32 {
       return;
@@ -276,57 +264,47 @@ impl Engine3d {
       return;
     }
 
-    let mut left_start: Option<Vertex> = None;
-    let mut left_end: Option<Vertex> = None;
+    let mut left_start_index = start_index;
+    let mut right_start_index = start_index;
 
-    let mut right_end: Option<Vertex> = None;
-    let mut right_start: Option<Vertex> = None;
-
-
-    let p01_slope = if vertices[0].screen_y != vertices[1].screen_y {
-      let slope = (vertices[1].screen_x as i32 - vertices[0].screen_x as i32) as f32 / (vertices[1].screen_y as i32 - vertices[0].screen_y as i32) as f32;
-      if p02_is_left {
-        right_start = Some(vertices[0]);
-        right_end =  Some(vertices[1]);
+    let next_left = |index| {
+      if polygon.is_front {
+        (index + 1) % vertices.len()
       } else {
-        left_start = Some(vertices[0]);
-        left_end = Some(vertices[1]);
+        if index == 0 {
+          vertices.len() - 1
+        } else {
+          index - 1
+        }
       }
-      Some(slope)
-    } else {
-      None
     };
 
-    let p12_slope = if vertices[1].screen_y != vertices[2].screen_y {
-      let slope = (vertices[2].screen_x as i32 - vertices[1].screen_x as i32) as f32 / (vertices[2].screen_y as i32 - vertices[1].screen_y as i32) as f32;
-
-      if p02_is_left {
-        right_start = Some(vertices[1]);
-        right_end =  Some(vertices[2]);
+    let next_right = |index| {
+      if !polygon.is_front {
+        (index + 1) % vertices.len()
       } else {
-        left_start = Some(vertices[1]);
-        left_end = Some(vertices[2]);
+        if index == 0 {
+          vertices.len() - 1
+        } else {
+          index - 1
+        }
       }
-      Some(slope)
-    } else {
-      None
     };
 
-    let p02_slope = if vertices[0].screen_y != vertices[2].screen_y {
-      let slope = (vertices[2].screen_x as i32 - vertices[0].screen_x as i32) as f32 / (vertices[2].screen_y as i32 - vertices[0].screen_y as i32) as f32;
+    let left_end_index = next_left(left_start_index);
+    let right_end_index = next_right(right_start_index);
 
-      if p02_is_left {
-        left_start = Some(vertices[0]);
-        left_end =  Some(vertices[2]);
-      } else {
-        right_start = Some(vertices[0]);
-        right_end = Some(vertices[2]);
-      }
+    let mut left_start = vertices[left_start_index];
+    let mut left_end = vertices[left_end_index];
 
-      Some(slope)
-    } else {
-      None
-    };
+    let mut right_start = vertices[right_start_index];
+    let mut right_end = vertices[right_end_index];
+
+    left_start_index = left_end_index;
+    right_start_index = right_end_index;
+
+    let mut left_slope = Self::calculate_slope(left_start, left_end);
+    let mut right_slope = Self::calculate_slope(right_start, right_end);
 
     let mut left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
     let mut right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
@@ -337,19 +315,61 @@ impl Engine3d {
     let mut left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
     let mut right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
 
-    let left_vertical_delta = Deltas::get_deltas(left_start, left_end);
-    let right_vertical_delta = Deltas::get_deltas(right_start, right_end);
+    let mut left_vertical_delta = Deltas::get_deltas(left_start, left_end);
+    let mut right_vertical_delta = Deltas::get_deltas(right_start, right_end);
 
     let mut y = min_y;
     let mut x = min_x;
 
-    let mut w_start = left_start.unwrap().normalized_w as f32;
-    let mut w_end = right_start.unwrap().normalized_w as f32;
+    let mut w_start = left_start.normalized_w as f32;
+    let mut w_end = right_start.normalized_w as f32;
 
-    let mut z_start = left_start.unwrap().z_depth as f32;
-    let mut z_end = right_start.unwrap().z_depth as f32;
+    let mut z_start = left_start.z_depth as f32;
+    let mut z_end = right_start.z_depth as f32;
+
+    let mut boundary1 = left_start.screen_x as f32;
+    let mut boundary2 = right_start.screen_x as f32;
 
     while y < max_y {
+      while y >= left_end.screen_y {
+        // need to calculate a new left slope
+        let left_end_index = next_left(left_start_index);
+
+        left_start = left_end;
+        left_end = vertices[left_end_index];
+
+        left_start_index = left_end_index;
+
+        left_slope = Self::calculate_slope(left_start, left_end);
+
+        left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
+        left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
+
+        left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
+        left_vertical_delta = Deltas::get_deltas(left_start, left_end);
+
+        boundary1 = left_start.screen_x as f32;
+      }
+      while y >= right_end.screen_y {
+        // need to calculate a new right slope
+        let right_end_index = next_right(right_start_index);
+
+        right_start = right_end;
+        right_end = vertices[right_end_index];
+
+        right_start_index = right_end_index;
+
+        right_slope = Self::calculate_slope(right_start, right_end);
+
+        right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
+        right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
+
+        right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
+        right_vertical_delta = Deltas::get_deltas(right_start, right_end);
+
+        boundary2 = right_start.screen_x as f32;
+      }
+
       let left_u = left_vertical_u.next();
       let right_u = right_vertical_u.next();
 
@@ -358,8 +378,6 @@ impl Engine3d {
 
       let left_rgb = left_vertical_rgb.next_color();
       let right_rgb = right_vertical_rgb.next_color();
-
-      let (boundary1, boundary2) = Self::get_triangle_boundaries(vertices, p01_slope, p02_slope, p12_slope, y as i32);
 
       x = boundary1 as u32;
 
@@ -374,7 +392,7 @@ impl Engine3d {
         w_start as f32,
         w_end as f32,
         right_u - left_u,
-        (boundary2 - boundary1) as f32
+        boundary2 - boundary1
       );
 
       let mut v_d = Slope::new(
@@ -382,7 +400,7 @@ impl Engine3d {
         w_start,
         w_end,
         right_v - left_v,
-        (boundary2 - boundary1) as f32
+        boundary2 - boundary1
       );
 
       let mut rgb_d = RgbSlopes::new(
@@ -390,14 +408,16 @@ impl Engine3d {
         right_rgb,
         w_start,
         w_end,
-        (boundary2 - boundary1) as f32
+        boundary2 - boundary1
       );
 
-      let dzdx = (z_end - z_start) / (boundary2 as f32 - boundary1 as f32);
+      let dzdx = (z_end - z_start) / (boundary2 - boundary1);
 
       let mut z = z_start;
 
-      while x < boundary2 as u32 {
+      let boundary2_u32 = boundary2 as u32;
+
+      while x < boundary2_u32 as u32 {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
 
@@ -478,6 +498,8 @@ impl Engine3d {
         }
         x += 1;
       }
+      boundary1 += left_slope;
+      boundary2 += right_slope;
       y += 1;
     }
   }
@@ -732,56 +754,6 @@ impl Engine3d {
 
         (Some(Color::from(color_raw).to_rgb6()), Some(alpha))
       }
-    }
-  }
-
-  fn get_triangle_boundaries(vertices: &[Vertex], p01_slope: Option<f32>, p02_slope: Option<f32>, p12_slope: Option<f32>, y: i32) -> (i32, i32) {
-    let mut boundary2 = 0;
-
-    // three cases to consider: p02 is always horizontal because vertices are sorted
-    // by y coordinate, so either p01 slope is horizontal, p12 is, or neither are.
-    if p01_slope.is_none() {
-      let p12_slope = p12_slope.unwrap();
-
-      let rel_y = y - vertices[1].screen_y as i32;
-
-      boundary2 = ((p12_slope * rel_y as f32) + vertices[1].screen_x as f32) as i32;
-
-    } else if p12_slope.is_none() {
-      let p01_slope = p01_slope.unwrap();
-
-      let rel_y = y as i32 - vertices[0].screen_y as i32;
-
-      boundary2 = ((p01_slope * rel_y as f32) + vertices[0].screen_x as f32) as i32;
-    } else {
-      // neither slope is horizontal, determine which slope to use based on y coordinate.
-      // if y coordinate is less than vertex 1's y coordinate, then use p01 slope
-      // otherwise, boundary must be in p12 slope
-      if y < vertices[1].screen_y as i32 {
-        let p01_slope = p01_slope.unwrap();
-
-        let rel_y = y - vertices[0].screen_y as i32;
-
-        boundary2 = ((p01_slope * rel_y as f32) + vertices[0].screen_x as f32) as i32;
-      } else {
-        let p12_slope = p12_slope.unwrap();
-
-        let rel_y = y - vertices[1].screen_y as i32;
-
-        boundary2 = ((p12_slope * rel_y as f32) + vertices[1].screen_x as f32) as i32;
-      }
-    }
-
-    let p02_slope = p02_slope.unwrap();
-
-    let rel_y = y - vertices[0].screen_y as i32;
-
-    let boundary1 = ((p02_slope * rel_y as f32) + vertices[0].screen_x as f32) as i32;
-
-    if boundary2 > boundary1 {
-      (boundary1, boundary2)
-    } else {
-      (boundary2, boundary1)
     }
   }
 }

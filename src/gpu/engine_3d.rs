@@ -1270,16 +1270,30 @@ impl Engine3d {
       temp.screen_x = if transformed[3] == 0 {
         0
       } else {
-        let x_offset = transformed[0] + transformed[3];
-        let denominator = 2 * transformed[3];
+        let mut w = transformed[3];
+        let mut x_offset = transformed[0] + w;
+
+        if w > 0xffff {
+          x_offset >>= 1;
+          w >>= 1;
+        }
+
+        let denominator = 2 * w;
         (x_offset * self.viewport.width() / denominator + self.viewport.x1 as i32) as u32
       };
 
       temp.screen_y = if transformed[3] == 0 {
         0
       } else {
-        let y_offset = -transformed[1] + transformed[3];
-        let denominator = 2 * transformed[3];
+        let mut w = transformed[3];
+        let mut y_offset = -transformed[1] + w;
+
+        if w > 0xffff {
+          w >>= 1;
+          y_offset >>= 1;
+        }
+
+        let denominator = 2 * w;
         (y_offset * self.viewport.height() / denominator + self.viewport.y1 as i32) as u32
       };
 
