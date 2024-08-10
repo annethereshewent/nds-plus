@@ -3,16 +3,12 @@ use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
 use registers::{
-  display_3d_control_register::Display3dControlRegister,
   display_capture_control_register::{
     CaptureSource,
     DisplayCaptureControlRegister,
-    ScreenSourceA, ScreenSourceB
+    ScreenSourceB
   },
-  display_control_register::{
-    BgMode,
-    DisplayMode
-  },
+  display_control_register::DisplayMode,
   display_status_register::{
     DispStatFlags,
     DisplayStatusRegister
