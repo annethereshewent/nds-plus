@@ -606,7 +606,7 @@ impl Engine3d {
 
     match polygon.tex_params.texture_format() {
       TextureFormat::None => None,
-      TextureFormat::A315Transluscent => {
+      TextureFormat::A3I5Transluscent => {
         let byte = vram.read_texture(address);
 
         let palette_index = byte & 0x1f;
@@ -614,7 +614,7 @@ impl Engine3d {
 
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha * 4 + alpha / 2))
       }
-      TextureFormat::A513Transluscent => {
+      TextureFormat::A5I3Transluscent => {
         let byte = vram.read_texture(address);
 
         let palette_index = byte & 0x7;

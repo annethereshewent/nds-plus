@@ -2,12 +2,12 @@
 #[derive(Debug)]
 pub enum TextureFormat {
   None,
-  A315Transluscent,
+  A3I5Transluscent,
   Color4,
   Color16,
   Color256,
   Color4x4,
-  A513Transluscent,
+  A5I3Transluscent,
   Direct
 }
 
@@ -55,12 +55,12 @@ impl TextureParams {
   pub fn texture_format(&self) -> TextureFormat {
     match self.bits() >> 26 & 0x7 {
       0 => TextureFormat::None,
-      1 => TextureFormat::A315Transluscent,
+      1 => TextureFormat::A3I5Transluscent,
       2 => TextureFormat::Color4,
       3 => TextureFormat::Color16,
       4 => TextureFormat::Color256,
       5 => TextureFormat::Color4x4,
-      6 => TextureFormat::A513Transluscent,
+      6 => TextureFormat::A5I3Transluscent,
       7 => TextureFormat::Direct,
       _ => unreachable!()
     }
