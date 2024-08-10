@@ -183,16 +183,20 @@ impl Engine3d {
     }
   }
 
-  fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam, alpha: Option<u8>) -> (Option<Color>, Option<u8>) {
+  fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam, alpha: Option<u8>) -> Option<Color> {
     let address = palette_base + 2 * palette_index;
 
     let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
 
+    let mut color = Color::from(color_raw).to_rgb6();
+
     if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) && alpha.is_none() {
-      (Some(Color::from(color_raw).to_rgb6()), Some(0))
+      color.alpha = Some(0);
     } else {
-      (Some(Color::from(color_raw).to_rgb6()), alpha)
+      color.alpha = alpha;
     }
+
+    Some(color)
   }
 
   fn calculate_slope(start: Vertex, end: Vertex) -> f32 {
@@ -432,9 +436,8 @@ impl Engine3d {
 
         let mut color: Option<Color> = None;
 
-        let (texel_color, alpha) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on, found);
-        if let Some(texel_color) = texel_color {
-          color = if alpha.is_some() && alpha.unwrap() == 0 {
+        if let Some(texel_color) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on, found) {
+          color = if texel_color.alpha.is_some() && texel_color.alpha.unwrap() == 0 {
             None
           } else {
             // check to see if color is blended
@@ -443,14 +446,14 @@ impl Engine3d {
                 todo!("decal mode not implemented");
               }
               PolygonMode::Modulation => {
-                Self::modulation_blend(texel_color, vertex_color, alpha, false)
+                Self::modulation_blend(texel_color, vertex_color, false)
               }
               PolygonMode::Shadow => {
                 todo!("shadow mode not implemented");
               }
               PolygonMode::Toon => {
                 if disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING) {
-                  Self::modulation_blend(texel_color, vertex_color, alpha, true)
+                  Self::modulation_blend(texel_color, vertex_color, true)
                 } else {
                   let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
 
@@ -458,7 +461,7 @@ impl Engine3d {
 
                   toon_color.to_rgb6();
 
-                  Self::modulation_blend(texel_color, toon_color, alpha, false)
+                  Self::modulation_blend(texel_color, toon_color, false)
                 }
               }
             }
@@ -525,7 +528,7 @@ impl Engine3d {
     }
   }
 
-  fn modulation_blend(texel: Color, pixel: Color, alpha: Option<u8>, toon_highlight: bool) -> Option<Color> {
+  fn modulation_blend(texel: Color, pixel: Color, toon_highlight: bool) -> Option<Color> {
     // ((val1 + 1) * (val2 + 1) - 1) / 64;
     let modulation_fn = |component1, component2| ((component1 + 1) * (component2 + 1) - 1) / 64;
 
@@ -533,10 +536,10 @@ impl Engine3d {
     let mut g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
     let mut b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
 
-    let new_alpha = if pixel.alpha.is_some() && alpha.is_some() {
-      Some(modulation_fn(pixel.alpha.unwrap() as u16, alpha.unwrap() as u16) as u8)
+    let new_alpha = if pixel.alpha.is_some() && texel.alpha.is_some() {
+      Some(modulation_fn(pixel.alpha.unwrap() as u16, texel.alpha.unwrap() as u16) as u8)
     } else {
-      alpha
+      texel.alpha
     };
 
     if toon_highlight {
@@ -565,7 +568,7 @@ impl Engine3d {
     return_val
   }
 
-  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> (Option<Color>, Option<u8>) {
+  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> Option<Color> {
     let mut u = curr_u;
 
     u = Self::check_if_texture_repeated(
@@ -602,9 +605,7 @@ impl Engine3d {
     // println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
 
     match polygon.tex_params.texture_format() {
-      TextureFormat::None => {
-        (None, None)
-      },
+      TextureFormat::None => None,
       TextureFormat::A315Transluscent => {
         let byte = vram.read_texture(address);
 
@@ -670,56 +671,43 @@ impl Engine3d {
         let mode = (extra_palette_info >> 14) & 0x3;
 
         let get_color = |num: u32|
-          vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8;
+          Color::from(
+            vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8
+          );
 
         match (texel_value, mode) {
-          (0, _) => {
-            // color 0
-            (Some(Color::from(get_color(0)).to_rgb6()), None)
-          }
-          (1, _) => {
-            // color 1
-            (Some(Color::from(get_color(1)).to_rgb6()), None)
-          },
-          (2, 0) | (2, 2) => {
-            // color 2
-            (Some(Color::from(get_color(2)).to_rgb6()), None)
-          }
+          (0, _) => Some(get_color(0).to_rgb6()),
+          (1, _) => Some(get_color(1).to_rgb6()),
+          (2, 0) | (2, 2) => Some(get_color(2).to_rgb6()),
           (2, 1) => {
             // (color0 + color1) / 2
-            let color0 = Color::from(get_color(0));
-            let color1 = Color::from(get_color(1));
+            let color0 = get_color(0);
+            let color1 = get_color(1);
 
             let mut blended_color = color0.blend_half(color1);
 
-            (Some(blended_color.to_rgb6()), None)
+            Some(blended_color.to_rgb6())
           }
           (2, 3) => {
             // (color0 * 5 + color1 * 3) / 8
 
-            let color0 = Color::from(get_color(0));
-            let color1 = Color::from(get_color(1));
+            let color0 = get_color(0);
+            let color1 = get_color(1);
 
             let mut blended_color = color0.blend_texture(color1);
 
-            (Some(blended_color.to_rgb6()), None)
+            Some(blended_color.to_rgb6())
           }
-          (3, 0)| (3, 1) => {
-            // transparent
-            (Some(Color { r: 0, g: 0, b: 0, alpha: Some(0) }), Some(0))
-          }
-          (3, 2) => {
-            // color 3
-            (Some(Color::from(get_color(3)).to_rgb6()), None)
-          }
+          (3, 0)| (3, 1) => Some(Color { r: 0, g: 0, b: 0, alpha: Some(0) }), // transparent
+          (3, 2) => Some(get_color(3).to_rgb6()),
           (3, 3) => {
             // (color0 * 3 + color1 * 5) / 8
-            let color0 = Color::from(get_color(0));
-            let color1 = Color::from(get_color(1));
+            let color0 = get_color(0);
+            let color1 = get_color(1);
 
             let mut blended_color = color1.blend_texture(color0);
 
-            (Some(blended_color.to_rgb6()), None)
+            Some(blended_color.to_rgb6())
           }
           _ => panic!("invalid options given for texel value and mode: {texel_value} {mode}")
         }
@@ -744,15 +732,22 @@ impl Engine3d {
           None
         };
 
-        (Some(Color::from(color_raw).to_rgb6()), alpha)
+        let mut color = Color::from(color_raw);
+        color.alpha = alpha;
+
+        Some(color)
       }
       TextureFormat::Direct => {
         let address = vram_offset + 2 * texel;
         let color_raw = vram.read_texture(address) as u16 | (vram.read_texture(address + 1) as u16) << 8;
 
-        let alpha = if color_raw & 0x8000 == 0 { 0 } else { 0x1f };
+        let alpha = if color_raw & 0x8000 == 0 { Some(0) } else { None };
 
-        (Some(Color::from(color_raw).to_rgb6()), Some(alpha))
+        let mut color = Color::from(color_raw);
+
+        color.alpha = alpha;
+
+        Some(color)
       }
     }
   }
