@@ -782,19 +782,11 @@ impl Engine3d {
         self.texcoord.u = entry.param as i16;
         self.texcoord.v = (entry.param >> 16) as i16;
 
-        let matrix = self.current_texture_matrix.0;
-
-        let mut u = self.texcoord.u;
-        let mut v = self.texcoord.v;
-
-        self.texcoord = self::Texcoord {
-          u,
-          v
-        };
-
         self.original_texcoord = self.texcoord;
 
         if self.texture_params.transformation_mode() == TransformationMode::TexCoord {
+          let matrix = self.current_texture_matrix.0;
+
           let u = self.original_texcoord.u;
           let v = self.original_texcoord.v;
 
@@ -944,7 +936,6 @@ impl Engine3d {
         if self.texture_params.transformation_mode() == TransformationMode::Normal {
           let transformed = self.current_texture_matrix.multiply_normal(&normal);
 
-
           self.texcoord.u = transformed[0] + self.original_texcoord.u;
           self.texcoord.v = transformed[1] + self.original_texcoord.v;
         }
@@ -1004,11 +995,6 @@ impl Engine3d {
 
     for (i, light) in self.lights.iter().enumerate() {
       if self.internal_polygon_attributes.light_enabled(i) {
-        // apply lighting
-
-        // let diffuse_level =
-        //   ((-(light.x as i64 * normal[0] as i64 + light.y as i64 * normal[1] as i64 + light.z as i64 * normal[2] as i64) >> 9) as i32).max(0);
-
         let light_direction = [light.x as i32, light.y as i32, light.z as i32, 0];
 
         let diffuse_level = ((-light_direction
@@ -1019,11 +1005,6 @@ impl Engine3d {
           }))
           >> 9)
           .max(0);
-
-        // let mut shininess_level =
-        //   (-(light.half_vector[0] as i64 * normal[0] as i64 +
-        //     light.half_vector[1] as i64 * normal[1] as i64 +
-        //     light.half_vector[2] as i64 * normal[2] as i64) >> 9).max(0) as i32;
 
         let mut shininess_level = (-(light
           .half_vector
