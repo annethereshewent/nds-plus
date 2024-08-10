@@ -236,7 +236,7 @@ impl Engine3d {
       if current.screen_y > vertices[end_index].screen_y {
         end_index = i;
         max_y = current.screen_y;
-      } else if current.screen_y == vertices[start_index].screen_y && current.screen_x >= vertices[start_index].screen_x {
+      } else if current.screen_y == vertices[end_index].screen_y && current.screen_x >= vertices[end_index].screen_x {
         end_index = i;
       }
 
