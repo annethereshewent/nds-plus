@@ -211,6 +211,24 @@ impl VRam {
     value
   }
 
+  fn read_mapping_16(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u16 {
+    let index = address as usize / BLOCK_SIZE;
+
+    let mut value = 0;
+
+    let bank_enums = &region[index & mask];
+
+    for bank_enum in bank_enums.iter() {
+      let bank = &banks[*bank_enum as usize];
+
+      let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
+
+      value |= bank[address as usize] as u16 | (bank[(address + 1) as usize] as u16) << 8;
+    }
+
+    value
+  }
+
   pub fn read_engine_a_obj(&self, address: u32) -> u8 {
     Self::read_mapping(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
   }
@@ -251,8 +269,12 @@ impl VRam {
     Self::read_mapping(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
   }
 
-  pub fn read_texture_palette(&self, index: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
+  pub fn read_texture_16(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
+  }
+
+  pub fn read_texture_palette(&self, index: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
   }
 
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {

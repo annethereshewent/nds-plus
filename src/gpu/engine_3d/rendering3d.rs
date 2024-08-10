@@ -152,10 +152,6 @@ impl RgbSlopes {
 
 
 impl Engine3d {
-  pub fn cross_product(ax: i32, ay: i32, bx: i32, by: i32, cx: i32, cy: i32) -> i32 {
-    (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-  }
-
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
       if self.clear_color.alpha != 0 {
@@ -186,11 +182,11 @@ impl Engine3d {
   fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam, alpha: Option<u8>) -> Option<Color> {
     let address = palette_base + 2 * palette_index;
 
-    let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+    let color_raw = vram.read_texture_palette(address);
 
     let mut color = Color::from(color_raw).to_rgb6();
 
-    if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) && alpha.is_none() {
+    if palette_index == 0 && polygon.tex_params.color0_transparent && alpha.is_none() {
       color.alpha = Some(0);
     } else {
       color.alpha = alpha;
@@ -573,30 +569,30 @@ impl Engine3d {
 
     u = Self::check_if_texture_repeated(
       u,
-      polygon.tex_params.contains(TextureParams::REPEAT_S),
-      polygon.tex_params.contains(TextureParams::FLIP_S),
-      polygon.tex_params.texture_s_size() -1,
-      polygon.tex_params.size_s_shift()
+      polygon.tex_params.repeat_s,
+      polygon.tex_params.flip_s,
+      polygon.tex_params.texture_s_size -1,
+      polygon.tex_params.size_s_shift
     );
 
-    u = u.clamp(0, polygon.tex_params.texture_s_size() - 1);
+    u = u.clamp(0, polygon.tex_params.texture_s_size - 1);
 
     let mut v = curr_v;
 
     v = Self::check_if_texture_repeated(
       v,
-      polygon.tex_params.contains(TextureParams::REPEAT_T),
-      polygon.tex_params.contains(TextureParams::FLIP_T),
-      polygon.tex_params.texture_t_size() -1,
-      polygon.tex_params.size_t_shift()
+      polygon.tex_params.repeat_t,
+      polygon.tex_params.flip_t,
+      polygon.tex_params.texture_t_size -1,
+      polygon.tex_params.size_t_shift
     );
 
-    v = v.clamp(0, polygon.tex_params.texture_t_size() - 1);
+    v = v.clamp(0, polygon.tex_params.texture_t_size - 1);
 
     // println!("got {u},{v}");
 
-    let texel = u + v * polygon.tex_params.texture_s_size();
-    let vram_offset = polygon.tex_params.vram_offset();
+    let texel = u + v * polygon.tex_params.texture_s_size;
+    let vram_offset = polygon.tex_params.vram_offset;
 
     let address = vram_offset + texel;
 
@@ -604,7 +600,7 @@ impl Engine3d {
 
     // println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
 
-    match polygon.tex_params.texture_format() {
+    match polygon.tex_params.texture_format {
       TextureFormat::None => None,
       TextureFormat::A3I5Transluscent => {
         let byte = vram.read_texture(address);
@@ -642,7 +638,7 @@ impl Engine3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Color4x4 => {
-        let blocks_per_row = polygon.tex_params.texture_s_size() / 4;
+        let blocks_per_row = polygon.tex_params.texture_s_size / 4;
 
         let block_address = (u / 4) + blocks_per_row * (v / 4);
 
@@ -664,7 +660,7 @@ impl Engine3d {
           0
         };
 
-        let extra_palette_info = vram.read_texture(slot1_address) as u16 | (vram.read_texture(slot1_address + 1) as u16) << 8;
+        let extra_palette_info = vram.read_texture_16(slot1_address);
 
         let palette_offset = palette_base as u32 + ((extra_palette_info & 0x3fff) * 4) as u32;
 
@@ -672,7 +668,7 @@ impl Engine3d {
 
         let get_color = |num: u32|
           Color::from(
-            vram.read_texture_palette(palette_offset + 2 * num) as u16 | (vram.read_texture_palette(palette_offset + 2 * num + 1) as u16) << 8
+            vram.read_texture_palette(palette_offset + 2 * num)
           );
 
         match (texel_value, mode) {
@@ -724,9 +720,9 @@ impl Engine3d {
         };
 
         let address = palette_base as u32 / 2 + palette_index as u32 * 2;
-        let color_raw = vram.read_texture_palette(address) as u16 | (vram.read_texture_palette(address + 1) as u16) << 8;
+        let color_raw = vram.read_texture_palette(address);
 
-        let alpha = if palette_index == 0 && polygon.tex_params.contains(TextureParams::COLOR0_TRANSPARENT) {
+        let alpha = if palette_index == 0 && polygon.tex_params.color0_transparent {
           Some(0)
         } else {
           None
@@ -739,7 +735,7 @@ impl Engine3d {
       }
       TextureFormat::Direct => {
         let address = vram_offset + 2 * texel;
-        let color_raw = vram.read_texture(address) as u16 | (vram.read_texture(address + 1) as u16) << 8;
+        let color_raw = vram.read_texture_16(address);
 
         let alpha = if color_raw & 0x8000 == 0 { Some(0) } else { None };
 

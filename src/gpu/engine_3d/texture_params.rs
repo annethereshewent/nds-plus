@@ -1,5 +1,5 @@
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum TextureFormat {
   None,
   A3I5Transluscent,
@@ -12,7 +12,7 @@ pub enum TextureFormat {
 }
 
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TransformationMode {
   None = 0,
   TexCoord = 1,
@@ -20,40 +20,49 @@ pub enum TransformationMode {
   Vertex = 3
 }
 
-bitflags! {
-  #[derive(Copy, Clone, Debug)]
-  pub struct TextureParams: u32 {
-    const REPEAT_S = 1 << 16;
-    const REPEAT_T = 1 << 17;
-    const FLIP_S = 1 << 18;
-    const FLIP_T = 1 << 19;
-    const COLOR0_TRANSPARENT = 1 << 29;
-  }
+
+#[derive(Copy, Clone, Debug)]
+pub struct TextureParams {
+  pub vram_offset: u32,
+  pub texture_s_size: u32,
+  pub texture_t_size: u32,
+  pub size_s_shift: u32,
+  pub size_t_shift: u32,
+  pub texture_format: TextureFormat,
+  pub transformation_mode: TransformationMode,
+  pub repeat_s: bool,
+  pub repeat_t: bool,
+  pub flip_s: bool,
+  pub flip_t: bool,
+  pub color0_transparent: bool
 }
 
 impl TextureParams {
-  pub fn vram_offset(&self) -> u32 {
-    (self.bits() & 0xffff) << 3
+  pub fn new() -> Self {
+    Self {
+      vram_offset: 0,
+      texture_format: TextureFormat::None,
+      texture_s_size: 0,
+      texture_t_size: 0,
+      size_s_shift: 0,
+      size_t_shift: 0,
+      transformation_mode: TransformationMode::None,
+      repeat_s: false,
+      repeat_t: false,
+      flip_s: false,
+      flip_t: false,
+      color0_transparent: false
+    }
   }
 
-  pub fn texture_s_size(&self) -> u32 {
-    8 << (self.bits() >> 20 & 0x7)
-  }
+  pub fn write(&mut self, value: u32) {
+    self.vram_offset = (value & 0xffff) << 3;
+    self.texture_s_size = 8 << (value >> 20 & 0x7);
+    self.texture_t_size = 8 << (value >> 23 & 0x7);
+    self.size_s_shift = 3 + (value >> 20 & 0x7);
+    self.size_t_shift = 3 + (value >> 23 & 0x7);
 
-  pub fn texture_t_size(&self) -> u32 {
-    8 << (self.bits() >> 23 & 0x7)
-  }
-
-  pub fn size_s_shift(&self) -> u32 {
-    3 + (self.bits() >> 20 & 0x7)
-  }
-
-  pub fn size_t_shift(&self) -> u32 {
-    3 + (self.bits() >> 23 & 0x7)
-  }
-
-  pub fn texture_format(&self) -> TextureFormat {
-    match self.bits() >> 26 & 0x7 {
+    self.texture_format = match value >> 26 & 0x7 {
       0 => TextureFormat::None,
       1 => TextureFormat::A3I5Transluscent,
       2 => TextureFormat::Color4,
@@ -63,16 +72,21 @@ impl TextureParams {
       6 => TextureFormat::A5I3Transluscent,
       7 => TextureFormat::Direct,
       _ => unreachable!()
-    }
-  }
+    };
 
-  pub fn transformation_mode(&self) -> TransformationMode {
-    match self.bits() >> 30 & 0x3 {
+    self.transformation_mode = match value >> 30 & 0x3 {
       0 => TransformationMode::None,
       1 => TransformationMode::TexCoord,
       2 => TransformationMode::Normal,
       3 => TransformationMode::Vertex,
       _ => unreachable!()
-    }
+    };
+
+    self.repeat_s = (value >> 16) & 0b1 == 1;
+    self.repeat_t = (value >> 17) & 0b1 == 1;
+    self.flip_s = (value >> 18) & 0b1 == 1;
+    self.flip_t = (value >> 19) & 0b1 == 1;
+    self.color0_transparent = (value >> 29) & 0b1 == 1;
+
   }
 }

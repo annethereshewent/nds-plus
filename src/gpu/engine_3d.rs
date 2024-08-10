@@ -390,7 +390,7 @@ impl Engine3d {
       command_params: 0,
       polygon_attributes: PolygonAttributes::from_bits_retain(0),
       internal_polygon_attributes: PolygonAttributes::from_bits_retain(0),
-      texture_params: TextureParams::from_bits_retain(0),
+      texture_params: TextureParams::new(),
       palette_base: 0,
       transluscent_polygon_sort: false,
       depth_buffering_with_w: false,
@@ -642,7 +642,7 @@ impl Engine3d {
         }
       }
       PolygonAttr => self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param),
-      TexImageParam => self.texture_params = TextureParams::from_bits_retain(entry.param),
+      TexImageParam => self.texture_params.write(entry.param),
       PlttBase => self.palette_base = (entry.param & 0xfff) << 4,
       SwapBuffers => {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
@@ -784,7 +784,7 @@ impl Engine3d {
 
         self.original_texcoord = self.texcoord;
 
-        if self.texture_params.transformation_mode() == TransformationMode::TexCoord {
+        if self.texture_params.transformation_mode == TransformationMode::TexCoord {
           let matrix = self.current_texture_matrix.0;
 
           let u = self.original_texcoord.u;
@@ -933,7 +933,7 @@ impl Engine3d {
 
         let normal = [x as i32, y as i32, z as i32, 0];
 
-        if self.texture_params.transformation_mode() == TransformationMode::Normal {
+        if self.texture_params.transformation_mode == TransformationMode::Normal {
           let transformed = self.current_texture_matrix.multiply_normal(&normal);
 
           self.texcoord.u = transformed[0] + self.original_texcoord.u;
@@ -1128,7 +1128,7 @@ impl Engine3d {
 
     self.current_vertex.transformed = self.clip_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0x1000], 12);
 
-    if self.texture_params.transformation_mode() == TransformationMode::Vertex {
+    if self.texture_params.transformation_mode == TransformationMode::Vertex {
       let transformed = self.current_texture_matrix.multiply_row(&[vertex.x as i32, vertex.y as i32, vertex.z as i32, 0], 24);
 
       self.texcoord.u = transformed[0] as i16 + self.original_texcoord.u;
