@@ -367,9 +367,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let mut tilemap_address = tilemap_base + 0x800 * screen_index as u32 + 2 * tilemap_number as u32;
       'outer: for _ in x_tile_number..32 {
         let attributes = if !IS_ENGINE_B {
-          vram.read_engine_a_bg(tilemap_address) as u16 | (vram.read_engine_a_bg(tilemap_address + 1) as u16) << 8
+          vram.read_engine_a_bg_16(tilemap_address)
         } else {
-          vram.read_engine_b_bg(tilemap_address) as u16 | (vram.read_engine_b_bg(tilemap_address + 1) as u16) << 8
+          vram.read_engine_b_bg_16(tilemap_address)
         };
 
         let x_flip = (attributes >> 10) & 0x1 == 1;
@@ -457,9 +457,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let address = slot as u32 * 8 * 0x400 + (palette_index + palette_bank * 256) as u32 * 2;
 
     let color_raw = if !IS_ENGINE_B {
-      vram.read_engine_a_extended_bg_palette(address) as u16 | (vram.read_engine_a_extended_bg_palette(address + 1) as u16) << 8
+      vram.read_engine_a_extended_bg_palette(address)
     } else {
-      vram.read_engine_b_extended_bg_palette(address) as u16 | (vram.read_engine_b_extended_bg_palette(address + 1) as u16) << 8
+      vram.read_engine_b_extended_bg_palette(address)
     };
 
     if color_raw != COLOR_TRANSPARENT && palette_index != 0 {
@@ -481,9 +481,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let address = (palette_bank * 256 + index) * 2;
 
     let color = if !IS_ENGINE_B {
-      (vram.read_engine_a_extended_obj_palette(address) as u16) | (vram.read_engine_a_extended_obj_palette(address + 1) as u16) << 8
+      vram.read_engine_a_extended_obj_palette(address)
     } else {
-      (vram.read_engine_b_extended_obj_palette(address) as u16) | (vram.read_engine_b_extended_obj_palette(address + 1) as u16) << 8
+      vram.read_engine_b_extended_obj_palette(address)
     };
 
     if color != COLOR_TRANSPARENT && index != 0 {
@@ -599,9 +599,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let tile_address = tile_base as u32 + 2 * (x_pos_in_sprite + y_pos_in_sprite * width);
 
     let color_raw = if !IS_ENGINE_B {
-      (vram.read_engine_a_obj(tile_address) as u16) | (vram.read_engine_a_obj(tile_address) as u16) << 8
+      vram.read_engine_a_obj_16(tile_address)
     } else {
-      (vram.read_engine_b_obj(tile_address) as u16) | (vram.read_engine_b_obj(tile_address) as u16) << 8
+      vram.read_engine_b_obj_16(tile_address)
     };
 
     let color = if color_raw == 0 {
@@ -824,9 +824,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
           let tilemap_address = Self::get_extended_tilemap_address(tilemap_base, transformed_x, transformed_y, texture_size);
 
           let attributes = if !IS_ENGINE_B {
-            vram.read_engine_a_bg(tilemap_address) as u16 | (vram.read_engine_a_bg(tilemap_address + 1) as u16) << 8
+            vram.read_engine_a_bg_16(tilemap_address)
           } else {
-            vram.read_engine_b_bg(tilemap_address) as u16 | (vram.read_engine_b_bg(tilemap_address + 1) as u16) << 8
+            vram.read_engine_b_bg_16(tilemap_address)
           };
 
           let x_flip = (attributes >> 10) & 0x1 == 1;
@@ -864,9 +864,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         AffineType::Extended8bppDirect => {
           let address = 2 * (transformed_y as u32 * texture_size as u32 + x as u32);
           let color_raw = if !IS_ENGINE_B {
-            vram.read_engine_a_bg(address) as u16 | (vram.read_engine_a_bg(address  + 1) as u16) << 8
+            vram.read_engine_a_bg_16(address)
           } else {
-            vram.read_engine_b_bg(address) as u16 | (vram.read_engine_b_bg(address + 1) as u16) << 8
+            vram.read_engine_b_bg_16(address)
           };
 
           if color_raw == 0 {

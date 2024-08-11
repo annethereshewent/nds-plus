@@ -237,6 +237,14 @@ impl VRam {
     Self::read_mapping(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
   }
 
+  pub fn read_engine_a_obj_16(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
+  }
+
+  pub fn read_engine_b_obj_16(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
+  }
+
   pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
   }
@@ -245,24 +253,32 @@ impl VRam {
     Self::read_mapping(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
   }
 
+  pub fn read_engine_a_bg_16(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
+  }
+
   pub fn read_engine_b_bg(&self, address: u32) -> u8 {
     Self::read_mapping(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_obj_palette(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_bg_16(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_extended_obj_palette(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_obj_palette(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_bg_palette(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_extended_obj_palette(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_extended_bg_palette(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_bg_palette(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
+  }
+
+  pub fn read_engine_b_extended_bg_palette(&self, address: u32) -> u16 {
+    Self::read_mapping_16(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
   pub fn read_texture(&self, address: u32) -> u8 {
