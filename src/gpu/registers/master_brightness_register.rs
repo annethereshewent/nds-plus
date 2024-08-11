@@ -5,7 +5,7 @@ enum BrightnessMode {
   Brighten = 1,
   Darken = 2
 }
-
+#[derive(Copy, Clone)]
 pub struct MasterBrightnessRegister {
   val: u16
 }

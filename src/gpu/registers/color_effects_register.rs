@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct ColorEffectsRegister {
   pub bg_first_pixels: [bool; 4],
   pub bg_second_pixels: [bool; 4],
@@ -50,6 +51,7 @@ impl ColorEffectsRegister {
   }
 }
 
+#[derive(Copy, Clone)]
 pub enum ColorEffect {
   None = 0,
   AlphaBlending = 1,

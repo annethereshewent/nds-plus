@@ -9,7 +9,7 @@ pub enum BgMode {
   Mode6 = 6
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DisplayMode {
   Mode0 = 0,
   Mode1 = 1,
@@ -17,7 +17,7 @@ pub enum DisplayMode {
   Mode3 = 3
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DisplayControlRegister {
   pub flags: DisplayControlRegisterFlags,
   pub bg_mode: BgMode,
@@ -99,7 +99,7 @@ impl DisplayControlRegister {
 }
 
 bitflags! {
-  #[derive(Debug)]
+  #[derive(Debug, Copy, Clone)]
   pub struct DisplayControlRegisterFlags: u32 {
     const BG_3D_SELECTION = 1 << 3;
     const TILE_OBJ_MAPPINGS = 1 << 4;

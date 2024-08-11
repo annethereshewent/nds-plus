@@ -1,5 +1,6 @@
 use std::cmp;
 
+#[derive(Copy, Clone)]
 pub struct BrightnessRegister {
   pub evy: u8
 }

@@ -299,6 +299,39 @@ impl GPU {
     }
   }
 
+  fn flush_rendering_data(&mut self) {
+    let mut rendering_data_a = self.thread_data.rendering_data[0].lock().unwrap();
+    let mut rendering_data_b = self.thread_data.rendering_data[1].lock().unwrap();
+
+    macro_rules! set_rendering_data {
+      ($engine:ident) => {{
+        RenderingData {
+          dispcnt: self.$engine.dispcnt,
+          bgcnt: self.$engine.bgcnt,
+          oam: self.$engine.oam,
+          pixels: self.$engine.pixels,
+          bgxofs: self.$engine.bgxofs,
+          bgyofs: self.$engine.bgyofs,
+          bg_props: self.$engine.bg_props,
+          winh: self.$engine.winh,
+          winv: self.$engine.winv,
+          winin: self.$engine.winin,
+          winout: self.$engine.winout,
+          bldcnt: self.$engine.bldcnt,
+          bldalpha: self.$engine.bldalpha,
+          bldy: self.$engine.bldy,
+          bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
+          master_brightness: self.$engine.master_brightness,
+          palette_ram: self.$engine.palette_ram,
+          obj_lines: [ObjectPixel::new(); SCREEN_WIDTH as usize],
+        }
+      }};
+    }
+
+    *rendering_data_a = set_rendering_data!(engine_a);
+    *rendering_data_b = set_rendering_data!(engine_b);
+  }
+
   pub fn start_next_line(
     &mut self, scheduler: &mut Scheduler,
     interrupt_requests: &mut [&mut InterruptRequestRegister],
@@ -369,6 +402,7 @@ impl GPU {
     }
 
     if vcount > 0 && vcount <= SCREEN_HEIGHT {
+      self.flush_rendering_data();
       while self.thread_data.finished_line.load(Ordering::Acquire) {
         hint::spin_loop();
       }
@@ -549,7 +583,7 @@ impl GPU {
   }
 
   pub fn read_arm7_wram(&self, address: u32) -> u8 {
-    self.thread_data.vram.lock().unwrap().read_arm7_wram(address)
+    self.vram.read_arm7_wram(address)
   }
 
   pub fn write_vramcnt(&mut self, offset: u32, val: u8) {

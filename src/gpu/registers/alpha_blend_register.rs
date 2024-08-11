@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct AlphaBlendRegister {
   pub eva: u8,
   pub evb: u8
