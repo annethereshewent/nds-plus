@@ -157,6 +157,10 @@ impl GPU {
       finished_line: finished_line.clone()
     };
 
+    let engine3d_clone = engine3d.clone();
+    let vram_3d = vram.clone();
+    let vcount_3d = vcount.clone();
+
     gpu.rendering2d_thread = Some(
       thread::spawn(move || {
         loop {
@@ -213,6 +217,26 @@ impl GPU {
 
           finished_line.store(false, Ordering::Release);
         }
+      })
+    );
+
+    gpu.rendering3d_thread = Some(
+      thread::spawn(move || {
+        loop {
+          let mut engine3d = engine3d_clone.lock().unwrap();
+          let vram = vram_3d.lock().unwrap();
+
+          if vcount_3d.load(Ordering::Acquire) != NUM_LINES - 48 {
+            hint::spin_loop();
+            drop(engine3d);
+            drop(vram);
+            thread::park();
+            continue;
+          }
+
+          engine3d.start_rendering(&vram);
+        }
+
       })
     );
 
@@ -333,9 +357,9 @@ impl GPU {
       let powcnt1 = self.powcnt1.lock().unwrap();
 
       if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
-        let mut engine3d = self.engine3d.lock().unwrap();
+        self.rendering3d_thread.as_ref().unwrap().thread().unpark();
 
-        engine3d.start_rendering(&self.vram.lock().unwrap());
+        let mut engine3d = self.engine3d.lock().unwrap();
 
         engine3d.execute_commands(&mut interrupt_requests[1]);
 
