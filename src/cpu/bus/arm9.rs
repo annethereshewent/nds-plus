@@ -101,10 +101,10 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
       0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
-      0x600_0000..=0x61f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_a_bg(address),
-      0x620_0000..=0x63f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_b_bg(address),
-      0x640_0000..=0x65f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_a_obj(address),
-      0x660_0000..=0x67f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_b_obj(address),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize],
       0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize],
@@ -293,10 +293,10 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x500_03ff => self.gpu.write_palette_a(address, val),
       0x500_0400..=0x500_07ff => self.gpu.write_palette_b(address, val),
-      0x600_0000..=0x61f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_a_bg(address, val),
-      0x620_0000..=0x63f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_b_bg(address, val),
-      0x640_0000..=0x65f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_a_obj(address, val),
-      0x660_0000..=0x67f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_b_obj(address, val),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.write_engine_a_bg(address, val),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.write_engine_b_bg(address, val),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.write_engine_b_obj(address, val),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
       0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
@@ -309,7 +309,7 @@ impl Bus {
 
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.write(value, None),
+      0x400_0000 => self.gpu.engine_a.dispcnt.write(value, None, false),
       0x400_0004 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
@@ -408,7 +408,7 @@ impl Bus {
         }
       }
       0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request),
-      0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
+      0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None, true),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
         self.arm9_io_write_16(address, value as u16);
@@ -430,8 +430,8 @@ impl Bus {
     // };
 
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000)),
-      0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff)),
+      0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000), false),
+      0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff), false),
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
       0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
@@ -513,8 +513,8 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
-      0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000)),
-      0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff)),
+      0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000), true),
+      0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff), true),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {

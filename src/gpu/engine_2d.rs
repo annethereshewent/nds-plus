@@ -82,7 +82,7 @@ impl ObjectPixel {
 }
 
 pub struct Engine2d<const IS_ENGINE_B: bool> {
-  pub dispcnt: DisplayControlRegister<IS_ENGINE_B>,
+  pub dispcnt: DisplayControlRegister,
   pub oam: [u8; 0x400],
   pub pixels: [u8; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
   pub winin: WindowInRegister,
@@ -188,6 +188,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       0x54 => self.bldy.read(),
       0x56..=0x5f => 0,
       _ => panic!("invalid address given to engine read register method")
+    }
+  }
+
+  pub fn on_end_vblank(&mut self) {
+    for bg_prop in &mut self.bg_props {
+      bg_prop.internal_x = bg_prop.x;
+      bg_prop.internal_y = bg_prop.y;
     }
   }
 

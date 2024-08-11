@@ -1,5 +1,7 @@
 use crate::gpu::
-{engine_3d::Pixel3d, registers::
+{
+  engine_3d::Pixel3d,
+  registers::
   {
     bg_control_register::BgControlRegister,
     display_control_register::
@@ -8,7 +10,11 @@ use crate::gpu::
       DisplayControlRegisterFlags,
       DisplayMode
     }
-  }, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH
+  },
+  rendering_data::RenderingData,
+  vram::VRam,
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -20,13 +26,13 @@ enum AffineType {
   Large
 }
 
-use super::{Color, Engine2d, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT, OBJ_PALETTE_OFFSET};
+use super::{renderer2d::Renderer2d, Color, OamAttributes, ObjectPixel, AFFINE_SIZE, ATTRIBUTE_SIZE, COLOR_TRANSPARENT, OBJ_PALETTE_OFFSET};
 
-impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
-  fn render_affine_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
+impl Renderer2d {
+  fn render_affine_object(obj_attributes: OamAttributes, y: u16, vram: &VRam, is_engine_b: bool, data: &mut RenderingData) {
     let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
 
-    let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
+    let (x_coordinate, y_coordinate) = Self::get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
 
     let (bbox_width, bbox_height) = if obj_attributes.double_sized_flag {
       (2 * obj_width, 2 * obj_height)
@@ -49,7 +55,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     };
 
     // get affine matrix
-    let (dx, dmx, dy, dmy) = self.get_obj_affine_params(obj_attributes.rotation_param_selection);
+    let (dx, dmx, dy, dmy) = Self::get_obj_affine_params(obj_attributes.rotation_param_selection, data);
 
     let y_offset = bbox_height / 2;
     let x_offset: i16 = bbox_width as i16 / 2;
@@ -67,7 +73,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         break;
       }
 
-      if self.obj_lines[x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
+      if data.obj_lines[x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
         continue;
       }
 
@@ -81,7 +87,16 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         // finally queue the pixel!
 
         if obj_attributes.obj_mode == 3 {
-          self.render_bitmap_object(x as usize, texture_x as u32, texture_y as u32, obj_width, &obj_attributes, vram);
+          Self::render_bitmap_object(
+            x as usize,
+            texture_x as u32,
+            texture_y as u32,
+            obj_width,
+            &obj_attributes,
+            vram,
+            is_engine_b,
+            data
+          );
         } else {
           let tile_x = texture_x % 8;
           let tile_y = texture_y % 8;
@@ -92,24 +107,44 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             4
           };
 
-          let (boundary, offset) = self.get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width);
+          let (boundary, offset) = Self::get_boundary_and_offset(texture_x as u32, texture_y as u32, bit_depth, obj_width, data);
 
           let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
           let palette_index = if obj_attributes.palette_flag {
-            self.get_obj_pixel_index_bpp8(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+            Self::get_obj_pixel_index_bpp8(
+              tile_address,
+              tile_x as u16,
+              tile_y as u16,
+              false,
+              false,
+              vram,
+              is_engine_b
+            )
           } else {
-            self.get_obj_pixel_index_bpp4(tile_address, tile_x as u16, tile_y as u16, false, false, vram)
+            Self::get_obj_pixel_index_bpp4(
+              tile_address, tile_x as u16,
+              tile_y as u16,
+              false,
+              false,
+              vram,
+              is_engine_b
+            )
           };
 
           if palette_index != 0 {
-            let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-              self.get_obj_extended_palette(palette_index as u32, obj_attributes.palette_number as u32, vram)
+            let color = if bit_depth == 8 && data.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+              Self::get_obj_extended_palette(
+                palette_index as u32,
+                obj_attributes.palette_number as u32,
+                vram,
+                is_engine_b
+              )
             } else {
-              self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+              Self::get_obj_palette_color(palette_index as usize, palette_bank as usize, data)
             };
 
-            self.obj_lines[x as usize] = ObjectPixel {
+            data.obj_lines[x as usize] = ObjectPixel {
               priority: obj_attributes.priority,
               color,
               is_window: obj_attributes.obj_mode == 2,
@@ -121,156 +156,156 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  pub fn render_normal_line(&mut self, y: u16, vram: &VRam, frame_buffer: &[Pixel3d]) {
-    if self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
-      self.render_objects(y, vram);
+  pub fn render_normal_line(y: u16, vram: &VRam, frame_buffer: &[Pixel3d], is_engine_b: bool, data: &mut RenderingData) {
+    if data.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_OBJ) {
+      Self::render_objects(y, vram, is_engine_b, data);
     }
 
-    if self.bg_mode_enabled(0) {
-      if !IS_ENGINE_B && (self.dispcnt.bg_mode == BgMode::Mode6 || self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_3D_SELECTION)) {
-        self.render_3d_line(y, frame_buffer);
+    if Self::bg_mode_enabled(0, data) {
+      if !is_engine_b && (data.dispcnt.bg_mode == BgMode::Mode6 || data.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_3D_SELECTION)) {
+        Self::render_3d_line(y, frame_buffer, data);
       } else {
-        self.render_text_line(0, y, vram);
+        Self::render_text_line(0, y, vram, is_engine_b, data);
       }
     }
 
-    match self.dispcnt.bg_mode {
+    match data.dispcnt.bg_mode {
       BgMode::Mode0 => {
         for i in 1..4 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
+          if Self::bg_mode_enabled(i, data) {
+            Self::render_text_line(i, y, vram, is_engine_b, data);
           }
         }
       }
       BgMode::Mode1 => {
         for i in 1..3 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
+          if Self::bg_mode_enabled(i, data) {
+            Self::render_text_line(i, y, vram, is_engine_b, data);
           }
         }
 
-        if self.bg_mode_enabled(3) {
-          self.render_affine_line(3, y, vram, AffineType::Normal);
+        if Self::bg_mode_enabled(3, data) {
+          Self::render_affine_line(3, y, vram, AffineType::Normal, is_engine_b, data);
         }
       }
       BgMode::Mode2 => {
         for i in 1..2 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
+          if Self::bg_mode_enabled(i, data) {
+            Self::render_text_line(i, y, vram, is_engine_b, data);
           }
         }
 
         for i in 2..4 {
-          if self.bg_mode_enabled(i) {
-            self.render_affine_line(i, y, vram, AffineType::Normal);
+          if Self::bg_mode_enabled(i, data) {
+            Self::render_affine_line(i, y, vram, AffineType::Normal, is_engine_b, data);
           }
         }
       }
       BgMode::Mode3 => {
         for i in 1..3 {
-          if self.bg_mode_enabled(i) {
-            self.render_text_line(i, y, vram);
+          if Self::bg_mode_enabled(i, data) {
+            Self::render_text_line(i, y, vram, is_engine_b, data);
           }
         }
 
-        if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+        if Self::bg_mode_enabled(3, data) {
+          Self::render_extended_line(3, y, vram, is_engine_b, data);
         }
       }
       BgMode::Mode4 => {
-        if self.bg_mode_enabled(1) {
-          self.render_text_line(1, y, vram);
+        if Self::bg_mode_enabled(1, data) {
+          Self::render_text_line(1, y, vram, is_engine_b, data);
         }
 
 
-        if self.bg_mode_enabled(2) {
-          self.render_affine_line(2, y, vram, AffineType::Normal);
+        if Self::bg_mode_enabled(2, data) {
+          Self::render_affine_line(2, y, vram, AffineType::Normal, is_engine_b, data);
         }
 
-        if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+        if Self::bg_mode_enabled(3, data) {
+          Self::render_extended_line(3, y, vram, is_engine_b, data);
         }
       }
       BgMode::Mode5 => {
-        if self.bg_mode_enabled(1) {
-          self.render_text_line(1, y, vram);
+        if Self::bg_mode_enabled(1, data) {
+          Self::render_text_line(1, y, vram, is_engine_b, data);
         }
 
-        if self.bg_mode_enabled(2) {
-          self.render_extended_line(2, y, vram);
+        if Self::bg_mode_enabled(2, data) {
+          Self::render_extended_line(2, y, vram, is_engine_b, data);
         }
 
-        if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+        if Self::bg_mode_enabled(3, data) {
+          Self::render_extended_line(3, y, vram, is_engine_b, data);
         }
       }
       BgMode::Mode6 => {
-        self.render_affine_line(2, y, vram, AffineType::Large)
+        Self::render_affine_line(2, y, vram, AffineType::Large, is_engine_b, data)
       }
     }
 
-    self.finalize_scanline(y);
+    Self::finalize_scanline(y, data);
   }
 
-  fn render_extended_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
-    if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
-      if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
+  fn render_extended_line(bg_index: usize, y: u16, vram: &VRam, is_engine_b: bool, data: &mut RenderingData) {
+    if data.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
+      if data.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
-        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect);
+        Self::render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect, is_engine_b, data);
       } else {
         // Extended8bpp
-        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bpp);
+        Self::render_affine_line(bg_index, y, vram, AffineType::Extended8bpp, is_engine_b, data);
       }
     } else {
       // Extended
-      self.render_affine_line(bg_index, y, vram, AffineType::Extended);
+      Self::render_affine_line(bg_index, y, vram, AffineType::Extended, is_engine_b, data);
     }
   }
 
-  fn render_3d_line(&mut self, y: u16, frame_buffer: &[Pixel3d]) {
+  fn render_3d_line(y: u16, frame_buffer: &[Pixel3d], data: &mut RenderingData) {
 
     for x in 0..SCREEN_WIDTH {
       let pixel = frame_buffer[(x + y * SCREEN_WIDTH) as usize];
 
-      self.bg_lines[0][x as usize] = pixel.color;
+      data.bg_lines[0][x as usize] = pixel.color;
     }
   }
 
-  fn render_objects(&mut self, y: u16, vram: &VRam) {
+  fn render_objects(y: u16, vram: &VRam, is_engine_b: bool, data: &mut RenderingData) {
     for i in 0..128 {
-      let obj_attributes = self.get_attributes(i);
+      let obj_attributes = Self::get_attributes(i, data);
 
       if obj_attributes.obj_disable {
         continue;
       }
       if obj_attributes.rotation_flag {
-        self.render_affine_object(obj_attributes, y, vram);
+        Self::render_affine_object(obj_attributes, y, vram, is_engine_b, data);
       } else {
-        self.render_normal_object(obj_attributes, y, vram);
+        Self::render_normal_object(obj_attributes, y, vram, is_engine_b, data);
       }
     }
   }
 
-  fn get_obj_affine_params(&self, affine_index: u16) -> (i16, i16, i16, i16) {
+  fn get_obj_affine_params(affine_index: u16, data: &RenderingData) -> (i16, i16, i16, i16) {
     let mut offset = affine_index * 32 + AFFINE_SIZE;
 
-    let dx = self.oam_read_16(offset as usize) as i16;
+    let dx = Self::oam_read_16(offset as usize, data) as i16;
     offset += 2 + AFFINE_SIZE;
-    let dmx = self.oam_read_16(offset as usize) as i16;
+    let dmx = Self::oam_read_16(offset as usize, data) as i16;
     offset += 2 + AFFINE_SIZE;
-    let dy = self.oam_read_16(offset as usize) as i16;
+    let dy = Self::oam_read_16(offset as usize, data) as i16;
     offset += 2 + AFFINE_SIZE;
-    let dmy = self.oam_read_16(offset as usize) as i16;
+    let dmy = Self::oam_read_16(offset as usize, data) as i16;
 
     (dx, dmx, dy, dmy)
   }
 
-  fn get_attributes(&self, i: usize) -> OamAttributes {
+  fn get_attributes(i: usize, data: &RenderingData) -> OamAttributes {
     let oam_address = i * ATTRIBUTE_SIZE;
 
-    let attribute1 = self.oam_read_16(oam_address);
-    let attribute2 = self.oam_read_16(oam_address + 2);
-    let attribute3 = self.oam_read_16(oam_address + 4);
+    let attribute1 = Self::oam_read_16(oam_address, data);
+    let attribute2 = Self::oam_read_16(oam_address + 2, data);
+    let attribute3 = Self::oam_read_16(oam_address + 4, data);
 
     let y_coordinate = attribute1 & 0xff;
     let rotation_flag = (attribute1 >> 8) & 0b1 == 1;
@@ -316,29 +351,29 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
   }
 
-  pub fn bg_mode_enabled(&self, bg_index: usize) -> bool {
+  pub fn bg_mode_enabled(bg_index: usize, data: &RenderingData) -> bool {
     match bg_index {
-      0 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG0),
-      1 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG1),
-      2 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG2),
-      3 => self.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG3),
+      0 => data.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG0),
+      1 => data.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG1),
+      2 => data.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG2),
+      3 => data.dispcnt.flags.contains(DisplayControlRegisterFlags::DISPLAY_BG3),
       _ => unreachable!("can't happen")
     }
   }
 
-  fn render_text_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
-    let (x_offset, y_offset) = (self.bgxofs[bg_index], self.bgyofs[bg_index]);
+  fn render_text_line(bg_index: usize, y: u16, vram: &VRam, is_engine_b: bool, data: &mut RenderingData) {
+    let (x_offset, y_offset) = (data.bgxofs[bg_index], data.bgyofs[bg_index]);
     /*
       engine A screen base: BGxCNT.bits*2K + DISPCNT.bits*64K
       engine B screen base: BGxCNT.bits*2K + 0
       engine A char base: BGxCNT.bits*16K + DISPCNT.bits*64K
       engine B char base: BGxCNT.bits*16K + 0
      */
-    let (tilemap_base, tile_base) = self.get_tile_base_addresses(bg_index);
+    let (tilemap_base, tile_base) = Self::get_tile_base_addresses(bg_index, is_engine_b, data);
 
     let mut x = 0;
 
-    let (background_width, background_height) = self.bgcnt[bg_index].get_screen_dimensions();
+    let (background_width, background_height) = data.bgcnt[bg_index].get_screen_dimensions();
 
     let x_in_bg = (x + x_offset) % background_width;
     let y_in_bg = (y + y_offset) % background_height;
@@ -350,7 +385,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let mut x_pos_in_tile = x_in_bg % 8;
     let y_pos_in_tile = y_in_bg % 8;
 
-    let mut screen_index = match self.bgcnt[bg_index].screen_size() {
+    let mut screen_index = match data.bgcnt[bg_index].screen_size() {
       0 => 0,
       1 => x_in_bg / 256, // 512 x 256
       2 => y_in_bg / 256, // 256 x 512
@@ -358,7 +393,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       _ => unreachable!("not possible")
     };
 
-    let is_bpp8 = self.bgcnt[bg_index].contains(BgControlRegister::PALETTES);
+    let is_bpp8 = data.bgcnt[bg_index].contains(BgControlRegister::PALETTES);
 
     let bit_depth = if is_bpp8 { 8 } else { 4 };
 
@@ -366,7 +401,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let tilemap_number = x_tile_number + y_tile_number * 32;
       let mut tilemap_address = tilemap_base + 0x800 * screen_index as u32 + 2 * tilemap_number as u32;
       'outer: for _ in x_tile_number..32 {
-        let attributes = if !IS_ENGINE_B {
+        let attributes = if !is_engine_b {
           vram.read_engine_a_bg_16(tilemap_address)
         } else {
           vram.read_engine_b_bg_16(tilemap_address)
@@ -381,9 +416,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         for tile_x in x_pos_in_tile..8 {
           let palette_index = if bit_depth == 8 {
-            self.get_bg_pixel_index_bpp8(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+            Self::get_bg_pixel_index_bpp8(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram, is_engine_b)
           } else {
-            self.get_bg_pixel_index_bpp4(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram)
+            Self::get_bg_pixel_index_bpp4(tile_address, tile_x, y_pos_in_tile, x_flip, y_flip, vram, is_engine_b)
           };
 
           let palette_bank = if is_bpp8 {
@@ -392,10 +427,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
             palette_number
           };
 
-          self.bg_lines[bg_index][x as usize] = if is_bpp8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
+          data.bg_lines[bg_index][x as usize] = if is_bpp8 && data.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
+            Self::get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram,  is_engine_b, data)
           } else {
-            self.get_bg_palette_color(palette_index as usize, palette_bank as usize)
+            Self::get_bg_palette_color(palette_index as usize, palette_bank as usize, data)
           };
 
           x += 1;
@@ -414,28 +449,28 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_boundary_and_offset(&self, x_pos_in_sprite: u32, y_pos_in_sprite: u32, bit_depth: u32, obj_width: u32) -> (u32, u32) {
-    if !self.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
+  fn get_boundary_and_offset(x_pos_in_sprite: u32, y_pos_in_sprite: u32, bit_depth: u32, obj_width: u32, data: &RenderingData) -> (u32, u32) {
+    if !data.dispcnt.flags.contains(DisplayControlRegisterFlags::TILE_OBJ_MAPPINGS) {
       (
         32 as u32,
         y_pos_in_sprite as u32 / 8 * 0x80 / (bit_depth as u32) + (x_pos_in_sprite  as u32) / 8,
       )
     } else {
       (
-        32 << self.dispcnt.tile_obj_boundary as u32,
+        32 << data.dispcnt.tile_obj_boundary as u32,
         (y_pos_in_sprite as u32 / 8 * obj_width + x_pos_in_sprite) / 8,
       )
     }
   }
 
-  fn get_palette_color(&self, index: usize, palette_bank: usize, offset: usize) -> Option<Color> {
+  fn get_palette_color(index: usize, palette_bank: usize, offset: usize, data: &RenderingData) -> Option<Color> {
     let value = if index == 0 || (palette_bank != 0 && index % 16 == 0) {
       COLOR_TRANSPARENT
     } else {
       let index = 2 * index + 32 * palette_bank + offset;
 
-      let lower = self.palette_ram[index];
-      let upper = self.palette_ram[index + 1];
+      let lower = data.palette_ram[index];
+      let upper = data.palette_ram[index + 1];
 
       (lower as u16) | (upper as u16) << 8
     };
@@ -447,8 +482,8 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_bg_extended_palette_color(&self, bg_index: usize, palette_index: usize, palette_bank: usize, vram: &VRam) -> Option<Color> {
-    let slot = if bg_index < 2 && self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
+  fn get_bg_extended_palette_color(bg_index: usize, palette_index: usize, palette_bank: usize, vram: &VRam, is_engine_b: bool, data: &RenderingData) -> Option<Color> {
+    let slot = if bg_index < 2 && data.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
       bg_index + 2
     } else {
       bg_index
@@ -456,7 +491,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let address = slot as u32 * 8 * 0x400 + (palette_index + palette_bank * 256) as u32 * 2;
 
-    let color_raw = if !IS_ENGINE_B {
+    let color_raw = if !is_engine_b {
       vram.read_engine_a_extended_bg_palette(address)
     } else {
       vram.read_engine_b_extended_bg_palette(address)
@@ -469,18 +504,18 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_bg_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    self.get_palette_color(index, palette_bank, 0)
+  fn get_bg_palette_color(index: usize, palette_bank: usize, data: &RenderingData) -> Option<Color> {
+    Self::get_palette_color(index, palette_bank, 0, data)
   }
 
-  fn get_obj_palette_color(&self, index: usize, palette_bank: usize) -> Option<Color> {
-    self.get_palette_color(index, palette_bank, OBJ_PALETTE_OFFSET)
+  fn get_obj_palette_color(index: usize, palette_bank: usize, data: &RenderingData) -> Option<Color> {
+    Self::get_palette_color(index, palette_bank, OBJ_PALETTE_OFFSET, data)
   }
 
-  fn get_obj_extended_palette(&self, index: u32, palette_bank: u32, vram: &VRam) -> Option<Color> {
+  fn get_obj_extended_palette(index: u32, palette_bank: u32, vram: &VRam, is_engine_b: bool) -> Option<Color> {
     let address = (palette_bank * 256 + index) * 2;
 
-    let color = if !IS_ENGINE_B {
+    let color = if !is_engine_b {
       vram.read_engine_a_extended_obj_palette(address)
     } else {
       vram.read_engine_b_extended_obj_palette(address)
@@ -493,24 +528,40 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_obj_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_obj_pixel_index_bpp8(
+    address: u32,
+    tile_x: u16,
+    tile_y: u16,
+    x_flip: bool,
+    y_flip: bool,
+    vram: &VRam,
+    is_engine_b: bool) -> u8
+  {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
-    if !IS_ENGINE_B {
+    if !is_engine_b {
       vram.read_engine_a_obj(address + tile_x as u32 + (tile_y as u32) * 8)
     } else {
       vram.read_engine_b_obj(address + tile_x as u32 + (tile_y as u32) * 8)
     }
   }
 
-  fn get_obj_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_obj_pixel_index_bpp4(
+    address: u32,
+    tile_x: u16,
+    tile_y: u16,
+    x_flip: bool,
+    y_flip: bool,
+    vram: &VRam,
+    is_engine_b: bool) -> u8
+  {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
     let address = address + (tile_x / 2) as u32 + (tile_y as u32) * 4;
 
-    let byte = if !IS_ENGINE_B {
+    let byte = if !is_engine_b {
       vram.read_engine_a_obj(address)
     } else {
       vram.read_engine_b_obj(address)
@@ -523,24 +574,24 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_bg_pixel_index_bpp8(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_bg_pixel_index_bpp8(address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam, is_engine_b: bool) -> u8 {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
-    if !IS_ENGINE_B {
+    if !is_engine_b {
       vram.read_engine_a_bg(address + tile_x as u32 + (tile_y as u32) * 8)
     } else {
       vram.read_engine_b_bg(address + tile_x as u32 + (tile_y as u32) * 8)
     }
   }
 
-  fn get_bg_pixel_index_bpp4(&self, address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam) -> u8 {
+  fn get_bg_pixel_index_bpp4(address: u32, tile_x: u16, tile_y: u16, x_flip: bool, y_flip: bool, vram: &VRam, is_engine_b: bool) -> u8 {
     let tile_x = if x_flip { 7 - tile_x } else { tile_x };
     let tile_y = if y_flip { 7 - tile_y } else { tile_y };
 
     let address = address + (tile_x / 2) as u32 + (tile_y as u32) * 4;
 
-    let byte = if !IS_ENGINE_B {
+    let byte = if !is_engine_b {
       vram.read_engine_a_bg(address)
     } else {
       vram.read_engine_b_bg(address)
@@ -553,7 +604,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn get_obj_coordinates(&mut self, x: u16, y: u16) -> (i16, i16) {
+  fn get_obj_coordinates(x: u16, y: u16) -> (i16, i16) {
     let return_x: i16 = if x >= SCREEN_WIDTH {
       x as i16 - 512
     } else {
@@ -569,14 +620,23 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     (return_x, return_y)
   }
 
-  fn render_bitmap_object(&mut self, x: usize, x_pos_in_sprite: u32, y_pos_in_sprite: u32, obj_width: u32, obj_attributes: &OamAttributes, vram: &VRam) {
+  fn render_bitmap_object(
+    x: usize,
+    x_pos_in_sprite: u32,
+    y_pos_in_sprite: u32,
+    obj_width: u32,
+    obj_attributes: &OamAttributes,
+    vram: &VRam,
+    is_engine_b: bool,
+    data: &mut RenderingData)
+  {
     // 1d object
-    let (tile_base, width) = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
+    let (tile_base, width) = if data.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_MAPPING) {
       // means the object is a square which isnt allowed in 1d mode
-      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
+      if data.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
         return;
       }
-      let boundary = if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_1D_BOUNDARY) {
+      let boundary = if data.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_1D_BOUNDARY) {
         256
       } else {
         128
@@ -587,7 +647,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       let mut mask_x = 0xf;
       let mut width = 128;
 
-      if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
+      if data.dispcnt.flags.contains(DisplayControlRegisterFlags::BITMAP_OBJ_2D_DIMENSION) {
         mask_x = 0x1f;
         width = 256;
       }
@@ -598,7 +658,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
     let tile_address = tile_base as u32 + 2 * (x_pos_in_sprite + y_pos_in_sprite * width);
 
-    let color_raw = if !IS_ENGINE_B {
+    let color_raw = if !is_engine_b {
       vram.read_engine_a_obj_16(tile_address)
     } else {
       vram.read_engine_b_obj_16(tile_address)
@@ -610,7 +670,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       Some(Color::from(color_raw))
     };
 
-    self.obj_lines[x] = ObjectPixel {
+    data.obj_lines[x] = ObjectPixel {
       priority: obj_attributes.priority,
       color,
       is_window: obj_attributes.obj_mode == 2,
@@ -618,10 +678,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     };
   }
 
-  fn render_normal_object(&mut self, obj_attributes: OamAttributes, y: u16, vram: &VRam) {
+  fn render_normal_object(obj_attributes: OamAttributes, y: u16, vram: &VRam, is_engine_b: bool, data: &mut RenderingData) {
     let (obj_width, obj_height) = obj_attributes.get_object_dimensions();
 
-    let (x_coordinate, y_coordinate) = self.get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
+    let (x_coordinate, y_coordinate) = Self::get_obj_coordinates(obj_attributes.x_coordinate, obj_attributes.y_coordinate);
 
     let y_pos_in_sprite = y as i16 - y_coordinate;
 
@@ -654,7 +714,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         break;
       }
 
-      if self.obj_lines[screen_x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
+      if data.obj_lines[screen_x as usize].priority <= obj_attributes.priority && obj_attributes.obj_mode != 2 {
         continue;
       }
 
@@ -671,33 +731,58 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       };
 
       if obj_attributes.obj_mode == 3 {
-        self.render_bitmap_object(screen_x as usize, x_pos_in_sprite, y_pos_in_sprite as u32, obj_width, &obj_attributes, vram);
+        Self::render_bitmap_object(
+          screen_x as usize,
+          x_pos_in_sprite,
+          y_pos_in_sprite as u32,
+          obj_width,
+          &obj_attributes,
+          vram,
+          is_engine_b,
+          data
+        );
       } else {
         let x_pos_in_tile = x_pos_in_sprite % 8;
         let y_pos_in_tile = y_pos_in_sprite % 8;
 
-        let (boundary, offset) = self.get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width);
+        let (boundary, offset) = Self::get_boundary_and_offset(x_pos_in_sprite as u32, y_pos_in_sprite as u32, bit_depth, obj_width, data);
 
         let tile_address = tile_number as u32 * boundary + offset * bit_depth * 8;
 
         let palette_index = if bit_depth == 8 {
-          self.get_obj_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
+          Self::get_obj_pixel_index_bpp8(
+            tile_address,
+            x_pos_in_tile as u16,
+            y_pos_in_tile,
+            false,
+            false,
+            &vram,
+            is_engine_b
+          )
         } else {
-          self.get_obj_pixel_index_bpp4(tile_address, x_pos_in_tile as u16, y_pos_in_tile, false, false, &vram)
+          Self::get_obj_pixel_index_bpp4(
+            tile_address,
+            x_pos_in_tile as u16,
+            y_pos_in_tile,
+            false,
+            false,
+            &vram,
+            is_engine_b
+          )
         };
 
 
         if palette_index != 0 {
           // need to determine whether to look at extended palette or regular obj palette
-          let color = if bit_depth == 8 && self.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
-            self.get_obj_extended_palette(palette_index as u32, obj_attributes.palette_number as u32, vram)
+          let color = if bit_depth == 8 && data.dispcnt.flags.contains(DisplayControlRegisterFlags::OBJ_EXTENDED_PALETTES) {
+            Self::get_obj_extended_palette(palette_index as u32, obj_attributes.palette_number as u32, vram, is_engine_b)
           } else {
             if bit_depth == 8 {
               palette_bank = 0;
             }
-            self.get_obj_palette_color(palette_index as usize, palette_bank as usize)
+            Self::get_obj_palette_color(palette_index as usize, palette_bank as usize, data)
           };
-          self.obj_lines[screen_x as usize] = ObjectPixel {
+          data.obj_lines[screen_x as usize] = ObjectPixel {
             priority: obj_attributes.priority,
             color,
             is_window: obj_attributes.obj_mode == 2,
@@ -708,8 +793,9 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  pub fn render_line(&mut self, y: u16, vram: &mut VRam, frame_buffer: &[Pixel3d]) {
-    match self.dispcnt.display_mode {
+  pub fn render_line(&mut self, y: u16, vram: &mut VRam, frame_buffer: &[Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize], is_engine_b: bool) {
+    let data = &mut self.thread_data.rendering_data[!is_engine_b as usize].lock().unwrap();
+    match data.dispcnt.display_mode {
       DisplayMode::Mode0 => {
         let color = Color {
           r: 0xff,
@@ -719,36 +805,37 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         };
 
         for x in 0..SCREEN_WIDTH {
-          self.set_pixel(x as usize, y as usize, color);
+          Self::set_pixel(x as usize, y as usize, color, data);
         }
       },
-      DisplayMode::Mode1 => self.render_normal_line(y, vram, frame_buffer),
+      DisplayMode::Mode1 => Self::render_normal_line(y, vram, frame_buffer, is_engine_b, data),
       DisplayMode::Mode2 => {
         for x in 0..SCREEN_WIDTH {
           let index = 2 * (y as usize * SCREEN_WIDTH as usize + x as usize);
-          let bank = vram.get_lcdc_bank(self.dispcnt.vram_block);
+          let bank = vram.get_lcdc_bank(data.dispcnt.vram_block);
 
           let color = bank[index] as u16 | (bank[(index + 1) as usize] as u16) << 8;
 
           let color = Color::to_rgb24(color);
 
-          self.set_pixel(x as usize, y as usize, color);
+          Self::set_pixel(x as usize, y as usize, color, data);
         }
       }
       DisplayMode::Mode3 => todo!()
     }
+    drop(data);
   }
 
-  fn oam_read_16(&self, address: usize) -> u16 {
-    (self.oam[address] as u16) | (self.oam[address + 1] as u16) << 8
+  fn oam_read_16(address: usize, data: &RenderingData) -> u16 {
+    (data.oam[address] as u16) | (data.oam[address + 1] as u16) << 8
   }
 
-  pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+  pub fn set_pixel(x: usize, y: usize, color: Color, data: &mut RenderingData) {
     let i: usize = 3 * (x + y * SCREEN_WIDTH as usize);
 
-    self.pixels[i] = color.r;
-    self.pixels[i + 1] = color.g;
-    self.pixels[i + 2] = color.b;
+    data.pixels[i] = color.r;
+    data.pixels[i + 1] = color.g;
+    data.pixels[i + 2] = color.b;
   }
 
   fn get_extended_tilemap_address(tilemap_base: u32, transformed_x: i32, transformed_y: i32, texture_size: i32) -> u32 {
@@ -769,29 +856,29 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     tilemap_base + tilemap_number as u32
   }
 
-  fn get_tile_base_addresses(&self, bg_index: usize) -> (u32, u32) {
-    if !IS_ENGINE_B {
-      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800 + self.dispcnt.screen_base * 0x1_0000, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000 + self.dispcnt.character_base * 0x1_0000)
+  fn get_tile_base_addresses(bg_index: usize, is_engine_b: bool, data: &RenderingData) -> (u32, u32) {
+    if !is_engine_b {
+      (data.bgcnt[bg_index].screen_base_block() as u32 * 0x800 + data.dispcnt.screen_base * 0x1_0000, data.bgcnt[bg_index].character_base_block() as u32 * 0x4000 + data.dispcnt.character_base * 0x1_0000)
     } else {
-      (self.bgcnt[bg_index].screen_base_block() as u32 * 0x800, self.bgcnt[bg_index].character_base_block() as u32 * 0x4000)
+      (data.bgcnt[bg_index].screen_base_block() as u32 * 0x800, data.bgcnt[bg_index].character_base_block() as u32 * 0x4000)
     }
   }
 
-  fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam, affine_type: AffineType) {
-    let (dx, dy) = (self.bg_props[bg_index - 2].dx, self.bg_props[bg_index - 2].dy);
+  fn render_affine_line(bg_index: usize, y: u16, vram: &VRam, affine_type: AffineType, is_engine_b: bool, data: &mut RenderingData) {
+    let (dx, dy) = (data.bg_props[bg_index - 2].dx, data.bg_props[bg_index - 2].dy);
 
-    let (tilemap_base, tile_base) = self.get_tile_base_addresses(bg_index);
+    let (tilemap_base, tile_base) = Self::get_tile_base_addresses(bg_index, is_engine_b, data);
 
     let texture_size = if affine_type != AffineType::Large {
-      128 << self.bgcnt[bg_index].screen_size()
+      128 << data.bgcnt[bg_index].screen_size()
     } else {
-      512 << (self.bgcnt[bg_index].screen_size() & 0b1)
+      512 << (data.bgcnt[bg_index].screen_size() & 0b1)
     };
 
-    let (mut ref_x, mut ref_y) = (self.bg_props[bg_index - 2].internal_x, self.bg_props[bg_index - 2].internal_y);
+    let (mut ref_x, mut ref_y) = (data.bg_props[bg_index - 2].internal_x, data.bg_props[bg_index - 2].internal_y);
 
-    self.bg_props[bg_index - 2].internal_x += self.bg_props[bg_index - 2].dmx as i32;
-    self.bg_props[bg_index - 2].internal_y += self.bg_props[bg_index - 2].dmy as i32;
+    data.bg_props[bg_index - 2].internal_x += data.bg_props[bg_index - 2].dmx as i32;
+    data.bg_props[bg_index - 2].internal_y += data.bg_props[bg_index - 2].dmy as i32;
 
     for x in 0..SCREEN_WIDTH {
       let mut transformed_x = ref_x >> 8;
@@ -801,11 +888,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       ref_y += dy as i32;
 
       if transformed_x < 0 || transformed_x >= texture_size || transformed_y < 0 || transformed_y >= texture_size {
-        if self.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
+        if data.bgcnt[bg_index].contains(BgControlRegister::DISPLAY_AREA_OVERFLOW) {
           transformed_x = transformed_x % texture_size;
           transformed_y = transformed_y % texture_size;
         } else {
-          self.bg_lines[bg_index][x as usize] = None;
+          data.bg_lines[bg_index][x as usize] = None;
           continue;
         }
       }
@@ -817,13 +904,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // for extended 8bpp direct color = 2*(transformed_y * texture_size + x);
       // for extended 8bpp, palette_index = transformed_y * WIDTH + x,
       // for extended, get the attributes from vram and render accordingly
-      self.bg_lines[bg_index][x as usize] = match affine_type {
+      data.bg_lines[bg_index][x as usize] = match affine_type {
         AffineType::Extended => {
           let bit_depth = 8;
 
           let tilemap_address = Self::get_extended_tilemap_address(tilemap_base, transformed_x, transformed_y, texture_size);
 
-          let attributes = if !IS_ENGINE_B {
+          let attributes = if !is_engine_b {
             vram.read_engine_a_bg_16(tilemap_address)
           } else {
             vram.read_engine_b_bg_16(tilemap_address)
@@ -836,12 +923,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           let tile_address = tile_base + tile_number as u32 * bit_depth * 8;
 
-          let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram);
+          let palette_index = Self::get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, x_flip, y_flip, vram, is_engine_b);
 
-          if self.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
-            self.get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram)
+          if data.dispcnt.flags.contains(DisplayControlRegisterFlags::BG_EXTENDED_PALETTES) {
+            Self::get_bg_extended_palette_color(bg_index, palette_index as usize, palette_number as usize, vram, is_engine_b, data)
           } else {
-            self.get_bg_palette_color(palette_index as usize, 0)
+            Self::get_bg_palette_color(palette_index as usize, 0, data)
           }
         }
         AffineType::Normal => {
@@ -849,7 +936,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           let tilemap_address = Self::get_affine_tilemap_address(tilemap_base, transformed_x, transformed_y, texture_size);
 
-          let tile_number = if !IS_ENGINE_B {
+          let tile_number = if !is_engine_b {
             vram.read_engine_a_bg(tilemap_address)
           } else {
             vram.read_engine_b_bg(tilemap_address)
@@ -857,13 +944,21 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
           let tile_address = tile_base + tile_number as u32 * bit_depth as u32 * 8;
 
-          let palette_index = self.get_bg_pixel_index_bpp8(tile_address, x_pos_in_tile as u16, y_pos_in_tile as u16, false, false, vram);
+          let palette_index = Self::get_bg_pixel_index_bpp8(
+            tile_address,
+            x_pos_in_tile as u16,
+            y_pos_in_tile as u16,
+            false,
+            false,
+            vram,
+            is_engine_b
+          );
 
-          self.get_bg_palette_color(palette_index as usize, 0)
+          Self::get_bg_palette_color(palette_index as usize, 0, data)
         }
         AffineType::Extended8bppDirect => {
           let address = 2 * (transformed_y as u32 * texture_size as u32 + x as u32);
-          let color_raw = if !IS_ENGINE_B {
+          let color_raw = if !is_engine_b {
             vram.read_engine_a_bg_16(address)
           } else {
             vram.read_engine_b_bg_16(address)
@@ -878,33 +973,26 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         AffineType::Extended8bpp => {
           let palette_address = transformed_y as u32 * SCREEN_WIDTH as u32 + x as u32;
 
-          let palette_index = if !IS_ENGINE_B {
+          let palette_index = if !is_engine_b {
             vram.read_engine_a_bg(palette_address)
           } else {
             vram.read_engine_b_bg(palette_address)
           };
 
-          self.get_bg_palette_color(palette_index as usize, 0)
+          Self::get_bg_palette_color(palette_index as usize, 0, data)
         }
         AffineType::Large => {
           let palette_address = transformed_y as u32 * texture_size as u32 + transformed_x as u32;
 
-          let palette_index = if !IS_ENGINE_B {
+          let palette_index = if !is_engine_b {
             vram.read_engine_a_bg(palette_address)
           } else {
             vram.read_engine_b_bg(palette_address)
           };
 
-          self.get_bg_palette_color(palette_index as usize, 0)
+          Self::get_bg_palette_color(palette_index as usize, 0, data)
         }
       };
-    }
-  }
-
-  pub fn on_end_vblank(&mut self) {
-    for bg_prop in &mut self.bg_props {
-      bg_prop.internal_x = bg_prop.x;
-      bg_prop.internal_y = bg_prop.y;
     }
   }
 }

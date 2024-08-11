@@ -18,7 +18,7 @@ pub enum DisplayMode {
 }
 
 #[derive(Debug)]
-pub struct DisplayControlRegister<const IS_ENGINE_B: bool> {
+pub struct DisplayControlRegister {
   pub flags: DisplayControlRegisterFlags,
   pub bg_mode: BgMode,
   pub display_mode: DisplayMode,
@@ -29,7 +29,7 @@ pub struct DisplayControlRegister<const IS_ENGINE_B: bool> {
   value: u32
 }
 
-impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
+impl DisplayControlRegister {
   pub fn new() -> Self {
     Self {
       flags: DisplayControlRegisterFlags::from_bits_retain(0),
@@ -43,7 +43,7 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
     }
   }
 
-  pub fn write(&mut self, val: u32, mask: Option<u32>) {
+  pub fn write(&mut self, val: u32, mask: Option<u32>, is_engine_b: bool) {
     let mut value = 0;
 
     if let Some(mask) = mask {
@@ -77,7 +77,7 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
 
     self.tile_obj_boundary = (value >> 20) & 0x3;
 
-    if !IS_ENGINE_B {
+    if !is_engine_b {
       self.vram_block = (value >> 18) & 0x3;
       self.character_base = (value >> 24) & 0x7;
       self.screen_base = (value >> 27) & 0x7;

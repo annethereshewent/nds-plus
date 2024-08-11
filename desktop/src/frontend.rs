@@ -220,13 +220,9 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::G {
             bus.debug_on = !bus.debug_on
           } else if keycode.unwrap() == Keycode::F {
-            let mut engine_a = bus.gpu.engine_a.lock().unwrap();
-            let mut engine_b = bus.gpu.engine_b.lock().unwrap();
-            let mut engine3d = bus.gpu.engine3d.lock().unwrap();
-
-            engine_a.debug_on = !engine_a.debug_on;
-            engine_b.debug_on = !engine_b.debug_on;
-            engine3d.debug_on = !engine3d.debug_on;
+            bus.gpu.engine_a.debug_on = !bus.gpu.engine_a.debug_on;
+            bus.gpu.engine_b.debug_on = !bus.gpu.engine_b.debug_on;
+            bus.gpu.engine3d.debug_on = !bus.gpu.engine3d.debug_on;
           }
         }
         Event::KeyUp { keycode, .. } => {
@@ -265,16 +261,12 @@ impl Frontend {
       .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
       .unwrap();
 
-    let engine_a = gpu.engine_a.lock().unwrap();
-    let engine_b = gpu.engine_b.lock().unwrap();
-    let powcnt1 = gpu.powcnt1.lock().unwrap();
-
-    if powcnt1.contains(PowerControlRegister1::TOP_A) {
-      texture_a.update(None, &engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
+      texture_a.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_b.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
     } else {
-      texture_a.update(None, &engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_a.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_b.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
     }
 
 
