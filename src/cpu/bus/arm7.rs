@@ -120,7 +120,7 @@ impl Bus {
 
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
-      0x400_0006 => self.gpu.vcount,
+      0x400_0006 => *self.gpu.vcount.lock().unwrap(),
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_0102 => self.arm7.timers.t[0].timer_ctl.bits(),
       0x400_0104 => self.arm7.timers.t[1].read_timer_value(&self.scheduler),
@@ -261,7 +261,7 @@ impl Bus {
       0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] = val,
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
       0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
-      0x600_0000..=0x6ff_ffff => self.gpu.vram.write_arm7_wram(address, val),
+      0x600_0000..=0x6ff_ffff => self.gpu.vram.lock().unwrap().write_arm7_wram(address, val),
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);

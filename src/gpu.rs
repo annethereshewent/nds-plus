@@ -1,4 +1,19 @@
-use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
+use std::{
+  sync::{
+    Arc,
+    Mutex,
+    MutexGuard
+  },
+  thread::{
+    sleep,
+    JoinHandle
+  },
+  time::{
+    Duration,
+    SystemTime,
+    UNIX_EPOCH
+  }
+};
 
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
@@ -90,20 +105,22 @@ impl BgProps {
 }
 
 pub struct GPU {
-  pub engine_a: Engine2d<false>,
-  pub engine_b: Engine2d<true>,
-  pub engine3d: Engine3d,
+  pub engine_a: Arc<Mutex<Engine2d<false>>>,
+  pub engine_b: Arc<Mutex<Engine2d<true>>>,
+  pub engine3d: Arc<Mutex<Engine3d>>,
   pub powcnt1: PowerControlRegister1,
   pub powcnt2: PowerControlRegister2,
   pub vramcnt: [VramControlRegister; 9],
   pub dispstat: [DisplayStatusRegister; 2],
   pub frame_finished: bool,
-  pub vram: VRam,
-  pub vcount: u16,
-  pub dispcapcnt: DisplayCaptureControlRegister,
+  pub vram: Arc<Mutex<VRam>>,
+  pub vcount: Arc<Mutex<u16>>,
+  pub dispcapcnt: Arc<Mutex<DisplayCaptureControlRegister>>,
   pub mosaic: MosaicRegister,
-  pub is_capturing: bool,
-  previous_time: u128
+  pub is_capturing: Arc<Mutex<bool>>,
+  previous_time: u128,
+  rendering2d_thread: Option<JoinHandle<()>>,
+  rendering3d_thread: Option<JoinHandle<()>>
 }
 
 impl GPU {
@@ -115,20 +132,22 @@ impl GPU {
     }
 
     let gpu = Self {
-      engine_a: Engine2d::new(),
-      engine_b: Engine2d::new(),
-      engine3d: Engine3d::new(),
+      engine_a: Arc::new(Mutex::new(Engine2d::new())),
+      engine_b: Arc::new(Mutex::new(Engine2d::new())),
+      engine3d: Arc::new(Mutex::new(Engine3d::new())),
       powcnt1: PowerControlRegister1::from_bits_retain(0),
       powcnt2: PowerControlRegister2::from_bits_retain(0),
       vramcnt: vramcnt.try_into().unwrap(),
       dispstat: [DisplayStatusRegister::new(), DisplayStatusRegister::new()],
-      dispcapcnt: DisplayCaptureControlRegister::new(),
-      vcount: 0,
+      dispcapcnt: Arc::new(Mutex::new(DisplayCaptureControlRegister::new())),
+      vcount: Arc::new(Mutex::new(0)),
       frame_finished: false,
-      vram: VRam::new(),
+      vram: Arc::new(Mutex::new(VRam::new())),
       mosaic: MosaicRegister::new(),
-      is_capturing: false,
-      previous_time: 0
+      is_capturing: Arc::new(Mutex::new(false)),
+      previous_time: 0,
+      rendering2d_thread: None,
+      rendering3d_thread: None
     };
 
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
@@ -173,16 +192,16 @@ impl GPU {
       dma.notify_gpu_event(DmaTiming::Hblank);
     }
 
-    if self.vcount < SCREEN_HEIGHT {
+    if *self.vcount.lock().unwrap() < SCREEN_HEIGHT {
       self.render_line();
     }
 
-    self.check_interrupts(DispStatFlags::HBLANK_IRQ_ENABLE, InterruptRequestRegister::HBLANK, interrupt_requests);
+    Self::check_interrupts(&mut self.dispstat, DispStatFlags::HBLANK_IRQ_ENABLE, InterruptRequestRegister::HBLANK, interrupt_requests);
   }
 
-  pub fn check_interrupts(&mut self, dispstat_flag: DispStatFlags, interrupt_flag: InterruptRequestRegister, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
+  pub fn check_interrupts(dispstat: &mut [DisplayStatusRegister], dispstat_flag: DispStatFlags, interrupt_flag: InterruptRequestRegister, interrupt_requests: &mut [&mut InterruptRequestRegister]) {
     for i in 0..2 {
-      let dispstat = &mut self.dispstat[i];
+      let dispstat = &mut dispstat[i];
       let interrupt_request = &mut interrupt_requests[i];
 
       if dispstat.flags.contains(dispstat_flag) {
@@ -199,29 +218,38 @@ impl GPU {
   {
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES - cycles_left);
 
-    self.engine_a.clear_obj_lines();
-    self.engine_b.clear_obj_lines();
+    let mut engine_a = self.engine_a.lock().unwrap();
+    let mut engine_b = self.engine_b.lock().unwrap();
 
-    self.vcount += 1;
+    engine_a.clear_obj_lines();
+    engine_b.clear_obj_lines();
 
-    if self.vcount == NUM_LINES {
-      self.vcount = 0;
+    let mut vcount = self.vcount.lock().unwrap();
 
-      self.engine_a.on_end_vblank();
-      self.engine_b.on_end_vblank();
+    *vcount += 1;
+
+    if *vcount == NUM_LINES {
+      *vcount = 0;
+
+      engine_a.on_end_vblank();
+      engine_b.on_end_vblank();
     }
 
-    if self.vcount == 0 {
-      self.is_capturing = self.dispcapcnt.capture_enable;
+    if *vcount == 0 {
+      let mut is_capturing = self.is_capturing.lock().unwrap();
+
+      *is_capturing = self.dispcapcnt.lock().unwrap().capture_enable;
 
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
       }
-    } else if self.vcount == SCREEN_HEIGHT {
-      if self.is_capturing {
-        self.dispcapcnt.capture_enable = false;
+    } else if *vcount == SCREEN_HEIGHT {
+      if *self.is_capturing.lock().unwrap() {
+        self.dispcapcnt.lock().unwrap().capture_enable = false;
       }
-      self.trigger_vblank();
+      for dispstat in &mut self.dispstat {
+        dispstat.flags.insert(DispStatFlags::VBLANK);
+      }
 
       for dma in dma_channels {
         dma.notify_gpu_event(DmaTiming::Vblank);
@@ -229,17 +257,19 @@ impl GPU {
 
       self.frame_finished = true;
 
-      self.check_interrupts(DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
-    } else if self.vcount == NUM_LINES - 48 {
+      Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
+    } else if *vcount == NUM_LINES - 48 {
       // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
       // self.engine3d.clear_frame_buffer();
 
       if self.powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
-        self.engine3d.start_rendering(&self.vram);
+        let mut engine3d = self.engine3d.lock().unwrap();
 
-        self.engine3d.execute_commands(&mut interrupt_requests[1]);
+        engine3d.start_rendering(&self.vram.lock().unwrap());
 
-        if self.engine3d.should_run_dmas() {
+        engine3d.execute_commands(&mut interrupt_requests[1]);
+
+        if engine3d.should_run_dmas() {
           for dma in dma_channels {
             dma.notify_geometry_fifo_event();
           }
@@ -251,41 +281,46 @@ impl GPU {
       let dispstat = &mut self.dispstat[i];
       let interrupt_request = &mut interrupt_requests[i];
 
-      if dispstat.flags.contains(DispStatFlags::VCOUNTER_IRQ_ENABLE) && self.vcount == dispstat.vcount_setting {
+      if dispstat.flags.contains(DispStatFlags::VCOUNTER_IRQ_ENABLE) && *vcount == dispstat.vcount_setting {
         interrupt_request.insert(InterruptRequestRegister::VCOUNTER_MATCH);
       }
     }
   }
 
-  fn get_pixel(&self, address: usize) -> u16 {
-    let r = self.engine_a.pixels[3 * address] >> 3;
-    let g = self.engine_a.pixels[3 * address + 1] >> 3;
-    let b = self.engine_a.pixels[3 * address + 2] >> 3;
+  fn get_capture_pixel(engine_a: &MutexGuard<Engine2d<false>>, address: usize) -> u16 {
+    let r = engine_a.pixels[3 * address] >> 3;
+    let g = engine_a.pixels[3 * address + 1] >> 3;
+    let b = engine_a.pixels[3 * address + 2] >> 3;
 
     (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
   }
 
-  fn start_capture_image(&mut self) {
-    let width = self.dispcapcnt.get_capture_width() as usize;
-    let start_address = self.vcount as usize * SCREEN_WIDTH as usize;
-    let block = self.engine_a.dispcnt.vram_block;
+  fn start_capture_image(
+    dispcapcnt: &mut MutexGuard<DisplayCaptureControlRegister>,
+    engine_a: &MutexGuard<Engine2d<false>>,
+    vcount: u16,
+    vram: &mut MutexGuard<VRam>
+  ) {
+    let width = dispcapcnt.get_capture_width() as usize;
+    let start_address = vcount as usize * SCREEN_WIDTH as usize;
+    let block = engine_a.dispcnt.vram_block;
 
-    if self.dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
+    if dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
       todo!("main memory display fifo not implemented");
     }
 
-    let read_offset = if self.engine_a.dispcnt.display_mode != DisplayMode::Mode2 {
-      2 * start_address + self.dispcapcnt.vram_read_offset as usize
+    let read_offset = if engine_a.dispcnt.display_mode != DisplayMode::Mode2 {
+      2 * start_address + dispcapcnt.vram_read_offset as usize
     } else {
       2 * start_address
     };
 
     let mut source_b: [u8; 2 * SCREEN_WIDTH as usize] = [0; 2 * SCREEN_WIDTH as usize];
 
-    source_b[..2 * width].copy_from_slice(&self.vram.banks[block as usize][read_offset..read_offset + 2 * width]);
+    source_b[..2 * width].copy_from_slice(&vram.banks[block as usize][read_offset..read_offset + 2 * width]);
 
-    let write_offset = 2 * start_address as usize + self.dispcapcnt.vram_write_offset as usize;
-    let write_block = self.dispcapcnt.vram_write_block as usize;
+    let write_offset = 2 * start_address as usize + dispcapcnt.vram_write_offset as usize;
+    let write_block = dispcapcnt.vram_write_block as usize;
 
     fn process_channels(channel_a: u16, channel_b: u16, a_alpha: u16, b_alpha: u16, eva: u16, evb: u16) -> u8 {
       /*
@@ -296,27 +331,27 @@ impl GPU {
     }
 
     // finally transfer the capture image!
-    match self.dispcapcnt.capture_source {
+    match dispcapcnt.capture_source {
       CaptureSource::SourceA => {
         let mut index = 0;
         for address in start_address..start_address+width {
-          let pixel = self.get_pixel(address);
+          let pixel = Self::get_capture_pixel(&engine_a, address);
 
-          self.vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
-          self.vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
+          vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
+          vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
 
           index += 1;
         }
       }
       CaptureSource::SourceB => {
-        self.vram.banks[write_block][write_offset..write_offset + 2 * width].copy_from_slice(&source_b[..2 * width]);
+        vram.banks[write_block][write_offset..write_offset + 2 * width].copy_from_slice(&source_b[..2 * width]);
       }
       CaptureSource::Blended => {
         let mut index: usize = 0;
         for address_a in start_address..start_address+width {
-          let r_a = self.engine_a.pixels[3 * address_a] >> 3;
-          let g_a = self.engine_a.pixels[3 * address_a + 1] >> 3;
-          let b_a = self.engine_a.pixels[3 * address_a + 2] >> 3;
+          let r_a = engine_a.pixels[3 * address_a] >> 3;
+          let g_a = engine_a.pixels[3 * address_a + 1] >> 3;
+          let b_a = engine_a.pixels[3 * address_a + 2] >> 3;
 
           let pixel_b = source_b[index] as u16 | (source_b[index] as u16) << 8;
 
@@ -335,32 +370,32 @@ impl GPU {
             r_b as u16,
             alpha_a as u16,
             alpha_b as u16,
-            self.dispcapcnt.eva as u16,
-            self.dispcapcnt.evb as u16
+            dispcapcnt.eva as u16,
+            dispcapcnt.evb as u16
           );
           let new_g = process_channels(
             g_a as u16,
             g_b as u16,
             alpha_a as u16,
             alpha_b as u16,
-            self.dispcapcnt.eva as u16,
-            self.dispcapcnt.evb as u16
+            dispcapcnt.eva as u16,
+            dispcapcnt.evb as u16
           );
           let new_b = process_channels(
             b_a as u16,
             b_b as u16,
             alpha_a as u16,
             alpha_b as u16,
-            self.dispcapcnt.eva as u16,
-            self.dispcapcnt.evb as u16
+            dispcapcnt.eva as u16,
+            dispcapcnt.evb as u16
           );
           // Dest_Alpha = (SrcA_Alpha AND (EVA>0)) OR (SrcB_Alpha AND EVB>0))
-          let alpha = (alpha_a > 0 && self.dispcapcnt.eva > 0) || (alpha_b > 0 && self.dispcapcnt.evb > 0);
+          let alpha = (alpha_a > 0 && dispcapcnt.eva > 0) || (alpha_b > 0 && dispcapcnt.evb > 0);
 
           let new_color = (new_r as u16) & 0x1f | ((new_g as u16) & 0x1f) << 5 | ((new_b as u16) & 0x1f) << 10 | (alpha as u16) << 15;
 
-          self.vram.banks[write_block][write_offset + 2 * index] = new_color as u8;
-          self.vram.banks[write_block][write_offset + 2 * index + 1] = (new_color >> 8) as u8;
+          vram.banks[write_block][write_offset + 2 * index] = new_color as u8;
+          vram.banks[write_block][write_offset + 2 * index + 1] = (new_color >> 8) as u8;
 
           index += 1;
         }
@@ -369,67 +404,72 @@ impl GPU {
   }
 
   pub fn write_palette_a(&mut self, address: u32, val: u8) {
-    self.engine_a.write_palette_ram(address, val);
+    self.engine_a.lock().unwrap().write_palette_ram(address, val);
   }
 
   pub fn read_palette_a(&self, address: u32) -> u8 {
-    self.engine_a.read_palette_ram(address)
+    self.engine_a.lock().unwrap().read_palette_ram(address)
   }
 
   pub fn read_palette_b(&self, address: u32) -> u8 {
-    self.engine_b.read_palette_ram(address)
+    self.engine_b.lock().unwrap().read_palette_ram(address)
   }
 
   pub fn write_palette_b(&mut self, address: u32, val: u8) {
-    self.engine_b.write_palette_ram(address, val);
+    self.engine_b.lock().unwrap().write_palette_ram(address, val);
   }
 
   pub fn write_lcdc(&mut self, address: u32, val: u8) {
+    let mut vram = self.vram.lock().unwrap();
+
     match address {
-      0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val),
-      0x682_0000..=0x683_ffff => self.vram.write_lcdc_bank(Bank::BankB, address, val),
-      0x684_0000..=0x685_ffff => self.vram.write_lcdc_bank(Bank::BankC, address, val),
-      0x686_0000..=0x687_ffff => self.vram.write_lcdc_bank(Bank::BankD, address, val),
-      0x688_0000..=0x688_ffff => self.vram.write_lcdc_bank(Bank::BankE, address, val),
-      0x689_0000..=0x689_3fff => self.vram.write_lcdc_bank(Bank::BankF, address, val),
-      0x689_4000..=0x689_7fff => self.vram.write_lcdc_bank(Bank::BankG, address, val),
-      0x689_8000..=0x689_ffff => self.vram.write_lcdc_bank(Bank::BankH, address, val),
-      0x68a_0000..=0x68a_3fff => self.vram.write_lcdc_bank(Bank::BankI, address, val),
+      0x680_0000..=0x681_ffff => vram.write_lcdc_bank(Bank::BankA, address, val),
+      0x682_0000..=0x683_ffff => vram.write_lcdc_bank(Bank::BankB, address, val),
+      0x684_0000..=0x685_ffff => vram.write_lcdc_bank(Bank::BankC, address, val),
+      0x686_0000..=0x687_ffff => vram.write_lcdc_bank(Bank::BankD, address, val),
+      0x688_0000..=0x688_ffff => vram.write_lcdc_bank(Bank::BankE, address, val),
+      0x689_0000..=0x689_3fff => vram.write_lcdc_bank(Bank::BankF, address, val),
+      0x689_4000..=0x689_7fff => vram.write_lcdc_bank(Bank::BankG, address, val),
+      0x689_8000..=0x689_ffff => vram.write_lcdc_bank(Bank::BankH, address, val),
+      0x68a_0000..=0x68a_3fff => vram.write_lcdc_bank(Bank::BankI, address, val),
       _ => unreachable!("received address: {:X}", address)
     }
   }
 
   pub fn read_lcdc(&mut self, address: u32) -> u8 {
+    let mut vram = self.vram.lock().unwrap();
+
     match address {
-      0x680_0000..=0x681_ffff => self.vram.read_lcdc_bank(Bank::BankA, address),
-      0x682_0000..=0x683_ffff => self.vram.read_lcdc_bank(Bank::BankB, address),
-      0x684_0000..=0x685_ffff => self.vram.read_lcdc_bank(Bank::BankC, address),
-      0x686_0000..=0x687_ffff => self.vram.read_lcdc_bank(Bank::BankD, address),
-      0x688_0000..=0x688_ffff => self.vram.read_lcdc_bank(Bank::BankE, address),
-      0x689_0000..=0x689_3fff => self.vram.read_lcdc_bank(Bank::BankF, address),
-      0x689_4000..=0x689_7fff => self.vram.read_lcdc_bank(Bank::BankG, address),
-      0x689_8000..=0x689_ffff => self.vram.read_lcdc_bank(Bank::BankH, address),
-      0x68a_0000..=0x68a_3fff => self.vram.read_lcdc_bank(Bank::BankI, address),
+      0x680_0000..=0x681_ffff => vram.read_lcdc_bank(Bank::BankA, address),
+      0x682_0000..=0x683_ffff => vram.read_lcdc_bank(Bank::BankB, address),
+      0x684_0000..=0x685_ffff => vram.read_lcdc_bank(Bank::BankC, address),
+      0x686_0000..=0x687_ffff => vram.read_lcdc_bank(Bank::BankD, address),
+      0x688_0000..=0x688_ffff => vram.read_lcdc_bank(Bank::BankE, address),
+      0x689_0000..=0x689_3fff => vram.read_lcdc_bank(Bank::BankF, address),
+      0x689_4000..=0x689_7fff => vram.read_lcdc_bank(Bank::BankG, address),
+      0x689_8000..=0x689_ffff => vram.read_lcdc_bank(Bank::BankH, address),
+      0x68a_0000..=0x68a_3fff => vram.read_lcdc_bank(Bank::BankI, address),
       _ => unreachable!("received address: {:X}", address)
     }
   }
 
   pub fn read_arm7_wram(&self, address: u32) -> u8 {
-    self.vram.read_arm7_wram(address)
+    self.vram.lock().unwrap().read_arm7_wram(address)
   }
 
   pub fn write_vramcnt(&mut self, offset: u32, val: u8) {
+    let mut vram = self.vram.lock().unwrap();
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => self.vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
-        BANK_B => self.vram.unmap_bank(Bank::BankB, &self.vramcnt[offset as usize]),
-        BANK_C => self.vram.unmap_bank(Bank::BankC, &self.vramcnt[offset as usize]),
-        BANK_D => self.vram.unmap_bank(Bank::BankD, &self.vramcnt[offset as usize]),
-        BANK_E => self.vram.unmap_bank(Bank::BankE, &self.vramcnt[offset as usize]),
-        BANK_F => self.vram.unmap_bank(Bank::BankF, &self.vramcnt[offset as usize]),
-        BANK_G => self.vram.unmap_bank(Bank::BankG, &self.vramcnt[offset as usize]),
-        BANK_H => self.vram.unmap_bank(Bank::BankH, &self.vramcnt[offset as usize]),
-        BANK_I => self.vram.unmap_bank(Bank::BankI, &self.vramcnt[offset as usize]),
+        BANK_A => vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => vram.unmap_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => vram.unmap_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => vram.unmap_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => vram.unmap_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => vram.unmap_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => vram.unmap_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => vram.unmap_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => vram.unmap_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => unreachable!("can't happen")
       }
     }
@@ -438,15 +478,15 @@ impl GPU {
 
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => self.vram.map_bank(Bank::BankA, &self.vramcnt[offset as usize]),
-        BANK_B => self.vram.map_bank(Bank::BankB, &self.vramcnt[offset as usize]),
-        BANK_C => self.vram.map_bank(Bank::BankC, &self.vramcnt[offset as usize]),
-        BANK_D => self.vram.map_bank(Bank::BankD, &self.vramcnt[offset as usize]),
-        BANK_E => self.vram.map_bank(Bank::BankE, &self.vramcnt[offset as usize]),
-        BANK_F => self.vram.map_bank(Bank::BankF, &self.vramcnt[offset as usize]),
-        BANK_G => self.vram.map_bank(Bank::BankG, &self.vramcnt[offset as usize]),
-        BANK_H => self.vram.map_bank(Bank::BankH, &self.vramcnt[offset as usize]),
-        BANK_I => self.vram.map_bank(Bank::BankI, &self.vramcnt[offset as usize]),
+        BANK_A => vram.map_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => vram.map_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => vram.map_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => vram.map_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => vram.map_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => vram.map_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => vram.map_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => vram.map_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => vram.map_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => todo!("unimplemented")
       }
     }
@@ -464,24 +504,26 @@ impl GPU {
     scheduler.schedule(EventType::HDraw, HDRAW_CYCLES - cycles_left);
   }
 
-  fn trigger_vblank(&mut self) {
-    for dispstat in &mut self.dispstat {
-      dispstat.flags.insert(DispStatFlags::VBLANK);
-    }
-  }
-
   fn render_line(&mut self) {
-    if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
-      self.engine_a.render_line(self.vcount, &mut self.vram, &self.engine3d.frame_buffer);
+    let engine3d = self.engine3d.lock().unwrap();
+    let vcount = self.vcount.lock().unwrap();
+    let mut vram = self.vram.lock().unwrap();
+    let mut engine_a = self.engine_a.lock().unwrap();
+    let mut engine_b = self.engine_b.lock().unwrap();
+    let is_capturing = *self.is_capturing.lock().unwrap();
 
+    if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
+      engine_a.render_line(*vcount, &mut vram, &engine3d.frame_buffer);
+
+      let mut dispcapcnt = self.dispcapcnt.lock().unwrap();
       // capture image if needed
-      if self.is_capturing && self.vcount < self.dispcapcnt.get_capture_height() {
-        self.dispcapcnt.capture_enable = false;
-        self.start_capture_image();
+      if is_capturing && *vcount < dispcapcnt.get_capture_height() {
+        dispcapcnt.capture_enable = false;
+        Self::start_capture_image(&mut dispcapcnt, &engine_a, *vcount, &mut vram);
       }
     }
     if self.powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
-      self.engine_b.render_line(self.vcount, &mut self.vram, &self.engine3d.frame_buffer);
+      engine_b.render_line(*vcount, &mut vram, &engine3d.frame_buffer);
     }
   }
 }

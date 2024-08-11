@@ -106,9 +106,13 @@ impl Nds {
         EventType::ResetAudio(channel_id) => bus.arm7.apu.channels[channel_id].reset_audio(),
         EventType::GenerateSample => bus.arm7.apu.generate_samples(&mut bus.scheduler, cycles_left),
         EventType::CheckGeometryFifo => {
-          if bus.gpu.engine3d.should_run_dmas() {
+          let engine3d = bus.gpu.engine3d.lock().unwrap();
+          if engine3d.should_run_dmas() {
+            drop(engine3d);
             bus.arm9.dma.notify_geometry_fifo_event();
             bus.arm7.dma.notify_geometry_fifo_event();
+          } else {
+            drop(engine3d);
           }
         }
       }

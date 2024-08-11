@@ -1,11 +1,12 @@
 use std::{
   collections::VecDeque,
-  fs::{self, File},
+  fs,
   path::PathBuf,
   sync::{
     Arc,
     Mutex
-  }
+  },
+  thread::JoinHandle
 };
 
 use backup_file::BackupFile;
@@ -149,7 +150,7 @@ pub struct Bus {
   pub scheduler: Scheduler,
   exmem: ExternalMemory,
   pub touchscreen: Touchscreen,
-  pub debug_on: bool
+  pub debug_on: bool,
 }
 
 impl Bus {

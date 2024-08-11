@@ -22,7 +22,7 @@ impl Bus {
 
   pub fn arm9_io_read_32(&mut self, address: u32) -> u32 {
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.read(),
+      0x400_0000 => self.gpu.engine_a.lock().unwrap().dispcnt.read(),
       0x400_0004..=0x400_005f => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
       0x400_00b0..=0x400_00ba => self.arm9.dma.read(0, (address - 0x400_00b0) as usize),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.read(1, (address - 0x400_00bc) as usize),
@@ -47,10 +47,10 @@ impl Bus {
       0x400_02b8 => self.arm9.sqrt_param as u32,
       0x400_02bc => (self.arm9.sqrt_param >> 32) as u32,
       0x400_0440..=0x400_05c8 => 0,
-      0x400_0600 => self.gpu.engine3d.read_geometry_status(&mut self.arm9.interrupt_request),
-      0x400_0640..=0x400_067f => self.gpu.engine3d.read_clip_matrix(address),
-      0x400_0680..=0x400_06a3 => self.gpu.engine3d.read_vector_matrix(address),
-      0x400_1000 => self.gpu.engine_b.dispcnt.read(),
+      0x400_0600 => self.gpu.engine3d.lock().unwrap().read_geometry_status(&mut self.arm9.interrupt_request),
+      0x400_0640..=0x400_067f => self.gpu.engine3d.lock().unwrap().read_clip_matrix(address),
+      0x400_0680..=0x400_06a3 => self.gpu.engine3d.lock().unwrap().read_vector_matrix(address),
+      0x400_1000 => self.gpu.engine_b.lock().unwrap().dispcnt.read(),
       0x400_4000..=0x400_4010 => 0, // DSi I/O ports
       0x410_0000 => self.receive_from_fifo(true),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
@@ -99,13 +99,13 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
       0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
       0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
-      0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
-      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
-      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
-      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.lock().unwrap().read_engine_a_bg(address),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.lock().unwrap().read_engine_b_bg(address),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.lock().unwrap().read_engine_a_obj(address),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.lock().unwrap().read_engine_b_obj(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
-      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize],
-      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize],
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.lock().unwrap().oam[(address & 0x3ff) as usize],
+      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.lock().unwrap().oam[(address & 0x3ff) as usize],
       0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
       _ => {
         panic!("reading from unsupported address: {:X}", address);
@@ -122,13 +122,13 @@ impl Bus {
     // };
 
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.read() as u16,
-      0x400_0002 => (self.gpu.engine_a.dispcnt.read() >> 16) as u16,
+      0x400_0000 => self.gpu.engine_a.lock().unwrap().dispcnt.read() as u16,
+      0x400_0002 => (self.gpu.engine_a.lock().unwrap().dispcnt.read() >> 16) as u16,
       0x400_0004 => self.gpu.dispstat[1].read(),
-      0x400_0006 => self.gpu.vcount,
-      0x400_0008..=0x400_005f => self.gpu.engine_a.read_register(address),
-      0x400_0060 => self.gpu.engine3d.disp3dcnt.bits() as u16,
-      0x400_006c => self.gpu.engine_a.master_brightness.read(),
+      0x400_0006 => *self.gpu.vcount.lock().unwrap(),
+      0x400_0008..=0x400_005f => self.gpu.engine_a.lock().unwrap().read_register(address),
+      0x400_0060 => self.gpu.engine3d.lock().unwrap().disp3dcnt.bits() as u16,
+      0x400_006c => self.gpu.engine_a.lock().unwrap().master_brightness.read(),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0b11);
         let value = self.arm9.dma.read(0, (actual_addr - 0x400_00b0) as usize);
@@ -213,10 +213,10 @@ impl Bus {
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
-      0x400_1000 => self.gpu.engine_b.dispcnt.read() as u16,
-      0x400_1002 => (self.gpu.engine_b.dispcnt.read() >> 16) as u16,
-      0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
-      0x400_106c => self.gpu.engine_b.master_brightness.read(),
+      0x400_1000 => self.gpu.engine_b.lock().unwrap().dispcnt.read() as u16,
+      0x400_1002 => (self.gpu.engine_b.lock().unwrap().dispcnt.read() >> 16) as u16,
+      0x400_1008..=0x400_105f => self.gpu.engine_b.lock().unwrap().read_register(address),
+      0x400_106c => self.gpu.engine_b.lock().unwrap().master_brightness.read(),
       0x400_4000..=0x400_4fff => 0,
       _ => panic!("register not implemented: {:X}", address)
     }
@@ -291,13 +291,13 @@ impl Bus {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x500_03ff => self.gpu.write_palette_a(address, val),
       0x500_0400..=0x500_07ff => self.gpu.write_palette_b(address, val),
-      0x600_0000..=0x61f_ffff => self.gpu.vram.write_engine_a_bg(address, val),
-      0x620_0000..=0x63f_ffff => self.gpu.vram.write_engine_b_bg(address, val),
-      0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
-      0x660_0000..=0x67f_ffff => self.gpu.vram.write_engine_b_obj(address, val),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.lock().unwrap().write_engine_a_bg(address, val),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.lock().unwrap().write_engine_b_bg(address, val),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.lock().unwrap().write_engine_a_obj(address, val),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.lock().unwrap().write_engine_b_obj(address, val),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
-      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
-      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.lock().unwrap().oam[(address & 0x3ff) as usize] = val,
+      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.lock().unwrap().oam[(address & 0x3ff) as usize] = val,
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);
@@ -307,7 +307,7 @@ impl Bus {
 
   pub fn arm9_io_write_32(&mut self, address: u32, value: u32) {
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.write(value, None),
+      0x400_0000 => self.gpu.engine_a.lock().unwrap().dispcnt.write(value, None),
       0x400_0004 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
@@ -316,9 +316,9 @@ impl Bus {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
-      0x400_0060 => self.gpu.engine3d.disp3dcnt = Display3dControlRegister::from_bits_retain(value),
-      0x400_0064 => self.gpu.dispcapcnt.write(value),
-      0x400_006c => self.gpu.engine_a.master_brightness.write(value as u16),
+      0x400_0060 => self.gpu.engine3d.lock().unwrap().disp3dcnt = Display3dControlRegister::from_bits_retain(value),
+      0x400_0064 => self.gpu.dispcapcnt.lock().unwrap().write(value),
+      0x400_006c => self.gpu.engine_a.lock().unwrap().master_brightness.write(value as u16),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, None, &mut self.scheduler),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, None, &mut self.scheduler),
       0x400_00c8..=0x400_00d2 => self.arm9.dma.write(2, (address - 0x400_00c8) as usize, value, None, &mut self.scheduler),
@@ -343,7 +343,7 @@ impl Bus {
       0x400_0214 => {
         self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
 
-        self.gpu.engine3d.check_interrupts(&mut self.arm9.interrupt_request);
+        self.gpu.engine3d.lock().unwrap().check_interrupts(&mut self.arm9.interrupt_request);
       }
       0x400_0240 => {
         self.arm9_io_write_16(address, value as u16);
@@ -390,23 +390,23 @@ impl Bus {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
-      0x400_0350 => self.gpu.engine3d.write_clear_color(value),
-      0x400_0358 => self.gpu.engine3d.write_fog_color(value),
+      0x400_0350 => self.gpu.engine3d.lock().unwrap().write_clear_color(value),
+      0x400_0358 => self.gpu.engine3d.lock().unwrap().write_fog_color(value),
       0x400_0360..=0x400_03bf => {
         // toon table and fog table
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
-      0x400_0400..=0x400_043f => self.gpu.engine3d.write_geometry_fifo(value, &mut self.arm9.interrupt_request),
+      0x400_0400..=0x400_043f => self.gpu.engine3d.lock().unwrap().write_geometry_fifo(value, &mut self.arm9.interrupt_request),
       0x400_0440..=0x400_05c8 => {
-        self.gpu.engine3d.write_geometry_command(address, value, &mut self.arm9.interrupt_request);
-        if self.gpu.engine3d.should_run_dmas() {
+        self.gpu.engine3d.lock().unwrap().write_geometry_command(address, value, &mut self.arm9.interrupt_request);
+        if self.gpu.engine3d.lock().unwrap().should_run_dmas() {
           self.arm9.dma.notify_geometry_fifo_event();
           self.arm7.dma.notify_geometry_fifo_event();
         }
       }
-      0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request),
-      0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
+      0x400_0600 => self.gpu.engine3d.lock().unwrap().write_geometry_status(value, &mut self.arm9.interrupt_request),
+      0x400_1000 => self.gpu.engine_b.lock().unwrap().dispcnt.write(value, None),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
         self.arm9_io_write_16(address, value as u16);
@@ -414,7 +414,7 @@ impl Bus {
       }
       0x400_1060..=0x400_1068 => (),
       0x400_4000..=0x400_4fff => (),
-      0x400_106c => self.gpu.engine_b.master_brightness.write(value as u16),
+      0x400_106c => self.gpu.engine_b.lock().unwrap().master_brightness.write(value as u16),
       _ => panic!("write to unsupported io address: {:X}", address)
     }
   }
@@ -428,13 +428,13 @@ impl Bus {
     // };
 
     match address {
-      0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000)),
-      0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff)),
+      0x400_0000 => self.gpu.engine_a.lock().unwrap().dispcnt.write(value as u32, Some(0xffff0000)),
+      0x400_0002 => self.gpu.engine_a.lock().unwrap().dispcnt.write((value as u32) << 16, Some(0xffff)),
       0x400_0004 => self.gpu.dispstat[1].write(value),
       0x400_0006 => (),
-      0x400_0008..=0x400_005f => self.gpu.engine_a.write_register(address, value, None),
-      0x400_0060 => self.gpu.engine3d.disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
-      0x400_006c => self.gpu.engine_a.master_brightness.write(value),
+      0x400_0008..=0x400_005f => self.gpu.engine_a.lock().unwrap().write_register(address, value, None),
+      0x400_0060 => self.gpu.engine3d.lock().unwrap().disp3dcnt = Display3dControlRegister::from_bits_retain(value as u32),
+      0x400_006c => self.gpu.engine_a.lock().unwrap().master_brightness.write(value),
       0x400_00b0..=0x400_00ba => {
         let actual_addr = address & !(0x3);
 
@@ -501,20 +501,20 @@ impl Bus {
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
-      0x400_0330..=0x400_033f => self.gpu.engine3d.write_edge_color(address, value),
-      0x400_0340 => self.gpu.engine3d.write_alpha_ref(value),
-      0x400_0354 => self.gpu.engine3d.write_clear_depth(value),
-      0x400_0356 => self.gpu.engine3d.write_clear_image_offset(value),
-      0x400_035c => self.gpu.engine3d.write_fog_offset(value),
+      0x400_0330..=0x400_033f => self.gpu.engine3d.lock().unwrap().write_edge_color(address, value),
+      0x400_0340 => self.gpu.engine3d.lock().unwrap().write_alpha_ref(value),
+      0x400_0354 => self.gpu.engine3d.lock().unwrap().write_clear_depth(value),
+      0x400_0356 => self.gpu.engine3d.lock().unwrap().write_clear_image_offset(value),
+      0x400_035c => self.gpu.engine3d.lock().unwrap().write_fog_offset(value),
       0x400_0360..=0x400_037f => {
         self.arm9_io_write_8(address, value as u8);
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
-      0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
-      0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000)),
-      0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff)),
-      0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
-      0x400_106c => self.gpu.engine_b.master_brightness.write(value),
+      0x400_0380..=0x400_03bf => self.gpu.engine3d.lock().unwrap().write_toon_table(address, value),
+      0x400_1000 => self.gpu.engine_b.lock().unwrap().dispcnt.write(value as u32, Some(0xffff0000)),
+      0x400_1002 => self.gpu.engine_b.lock().unwrap().dispcnt.write((value as u32) << 16, Some(0xffff)),
+      0x400_1008..=0x400_105f => self.gpu.engine_b.lock().unwrap().write_register(address, value, None),
+      0x400_106c => self.gpu.engine_b.lock().unwrap().master_brightness.write(value),
       _ => {
         panic!("register not implemented: {:X}", address)
       }
@@ -549,14 +549,14 @@ impl Bus {
       0x400_0247 => self.wramcnt.write(value),
       0x400_0248 => self.gpu.write_vramcnt(7, value),
       0x400_0249 => self.gpu.write_vramcnt(8, value),
-      0x400_0360..=0x400_037f => self.gpu.engine3d.write_fog_table(address, value),
+      0x400_0360..=0x400_037f => self.gpu.engine3d.lock().unwrap().write_fog_table(address, value),
       0x400_1008..=0x400_105f => {
         let actual_address = address & !(0b1);
 
         if address & 0b1 == 0 {
-          self.gpu.engine_b.write_register(actual_address, value as u16, Some(0xff00));
+          self.gpu.engine_b.lock().unwrap().write_register(actual_address, value as u16, Some(0xff00));
         } else {
-          self.gpu.engine_b.write_register(actual_address, (value as u16) << 8, Some(0xff));
+          self.gpu.engine_b.lock().unwrap().write_register(actual_address, (value as u16) << 8, Some(0xff));
         }
       }
       _ => panic!("8-bit write to unsupported io address {:x}", address)
