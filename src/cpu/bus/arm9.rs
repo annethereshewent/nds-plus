@@ -298,7 +298,7 @@ impl Bus {
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
       0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
-      0x800_0000..=0x8ff_ffff => (), // todo: fix this
+      0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }

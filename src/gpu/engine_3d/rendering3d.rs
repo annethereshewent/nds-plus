@@ -267,28 +267,25 @@ impl Engine3d {
     let mut left_start_index = start_index;
     let mut right_start_index = start_index;
 
-    let next_left = |index| {
-      if polygon.is_front {
-        (index + 1) % vertices.len()
+    let next = |index| (index + 1) % vertices.len();
+    let previous = |index| {
+      if index == 0 {
+        vertices.len() - 1
       } else {
-        if index == 0 {
-          vertices.len() - 1
-        } else {
-          index - 1
-        }
+        index - 1
       }
     };
 
-    let next_right = |index| {
-      if !polygon.is_front {
-        (index + 1) % vertices.len()
-      } else {
-        if index == 0 {
-          vertices.len() - 1
-        } else {
-          index - 1
-        }
-      }
+    let next_left: Box<dyn Fn(usize) -> usize> = if polygon.is_front {
+      Box::new(next)
+    } else {
+      Box::new(previous)
+    };
+
+    let next_right: Box<dyn Fn(usize) -> usize> = if !polygon.is_front {
+      Box::new(next)
+    } else {
+      Box::new(previous)
     };
 
     let left_end_index = next_left(left_start_index);

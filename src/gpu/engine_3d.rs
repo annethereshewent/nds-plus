@@ -35,6 +35,8 @@ pub mod polygon;
 pub mod box_test;
 
 pub const FIFO_CAPACITY: usize = 256;
+pub const POLYGON_BUFFER_SIZE: usize = 2048;
+pub const VERTEX_BUFFER_SIZE: usize = 6144;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Pixel3d {
@@ -340,7 +342,7 @@ pub struct Engine3d {
   original_texcoord: Texcoord,
   current_vertex: Vertex,
   max_vertices: usize,
-  clip_vtx_recalculate: bool,
+  clip_mtx_recalculate: bool,
   clip_matrix: Matrix,
   vertices_buffer: Vec<Vertex>,
   polygon_buffer: Vec<Polygon>,
@@ -412,7 +414,7 @@ impl Engine3d {
       original_texcoord: Texcoord::new(),
       current_vertex: Vertex::new(),
       max_vertices: 0,
-      clip_vtx_recalculate: false,
+      clip_mtx_recalculate: false,
       clip_matrix: Matrix::new(),
       vertices_buffer: Vec::new(),
       polygon_buffer: Vec::new(),
@@ -435,7 +437,7 @@ impl Engine3d {
   }
 
   pub fn read_clip_matrix(&mut self, address: u32) -> u32 {
-    if self.clip_vtx_recalculate {
+    if self.clip_mtx_recalculate {
       self.recalculate_clip_matrix();
     }
 
@@ -570,17 +572,17 @@ impl Engine3d {
         match self.matrix_mode {
           MatrixMode::Position => {
             self.current_position_matrix = Matrix::new();
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::PositionAndVector => {
             self.current_position_matrix = Matrix::new();
             self.current_vector_matrix = Matrix::new();
 
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Projection => {
             self.current_projection_matrix = Matrix::new();
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Texture => {
             self.current_texture_matrix = Matrix::new();
@@ -600,7 +602,7 @@ impl Engine3d {
             self.current_position_matrix = self.position_stack[(self.position_vector_sp as usize) & 31];
             self.current_vector_matrix = self.vector_stack[(self.position_vector_sp as usize) & 31];
 
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Projection => {
             if self.projection_sp > 0 {
@@ -609,7 +611,7 @@ impl Engine3d {
 
             self.current_projection_matrix = self.projection_stack;
 
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Texture => {
             if self.texture_sp > 0 {
@@ -757,17 +759,17 @@ impl Engine3d {
               MatrixMode::Position => {
                 self.current_position_matrix.translate(&self.translation_vector);
 
-                self.clip_vtx_recalculate = true;
+                self.clip_mtx_recalculate = true;
               }
               MatrixMode::PositionAndVector => {
                 self.current_position_matrix.translate(&self.translation_vector);
                 self.current_vector_matrix.translate(&self.translation_vector);
 
-                self.clip_vtx_recalculate = true;
+                self.clip_mtx_recalculate = true;
               }
               MatrixMode::Projection => {
                 self.current_projection_matrix.translate(&self.translation_vector);
-                self.clip_vtx_recalculate = true;
+                self.clip_mtx_recalculate = true;
               }
               MatrixMode::Texture => {
                 self.current_texture_matrix.translate(&self.translation_vector);
@@ -844,11 +846,11 @@ impl Engine3d {
               MatrixMode::Position | MatrixMode::PositionAndVector => {
                 self.current_position_matrix.scale(&self.scale_vector);
 
-                self.clip_vtx_recalculate = true;
+                self.clip_mtx_recalculate = true;
               }
               MatrixMode::Projection => {
                 self.current_projection_matrix.scale(&self.scale_vector);
-                self.clip_vtx_recalculate = true;
+                self.clip_mtx_recalculate = true;
               }
               MatrixMode::Texture => {
                 self.current_texture_matrix.scale(&self.scale_vector);
@@ -915,11 +917,11 @@ impl Engine3d {
             self.current_vector_matrix = self.vector_stack[offset as usize];
 
 
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Projection => {
             self.current_projection_matrix = self.projection_stack;
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
           }
           MatrixMode::Texture => {
             self.current_texture_matrix = self.texture_stack;
@@ -1081,17 +1083,17 @@ impl Engine3d {
       if self.command_params == 0 {
         let matrices = match self.matrix_mode {
           MatrixMode::Position => {
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
 
             [Some(&mut self.current_position_matrix), None]
           }
           MatrixMode::PositionAndVector => {
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
 
             [Some(&mut self.current_position_matrix), Some(&mut self.current_vector_matrix)]
           }
           MatrixMode::Projection => {
-            self.clip_vtx_recalculate = true;
+            self.clip_mtx_recalculate = true;
 
             [Some(&mut self.current_projection_matrix), None]
           }
@@ -1120,9 +1122,12 @@ impl Engine3d {
     let vertex = self.current_vertex;
 
     // TODO: check polygon ram overflow here
+    if self.polygon_buffer.len() == POLYGON_BUFFER_SIZE {
+      return;
+    }
 
     // recalculate clip matrix
-    if self.clip_vtx_recalculate {
+    if self.clip_mtx_recalculate {
       self.recalculate_clip_matrix();
     }
 
@@ -1439,7 +1444,7 @@ impl Engine3d {
   fn recalculate_clip_matrix(&mut self) {
     self.clip_matrix = self.current_position_matrix * self.current_projection_matrix;
 
-    self.clip_vtx_recalculate = false;
+    self.clip_mtx_recalculate = false;
   }
 
   fn load_4_by_n_matrix(&mut self, entry: GeometryCommandEntry, num_params: usize, n: usize) {
@@ -1474,11 +1479,11 @@ impl Engine3d {
       MatrixMode::Position  => {
         self.current_position_matrix = self.temp_matrix;
 
-        self.clip_vtx_recalculate = true;
+        self.clip_mtx_recalculate = true;
       }
       MatrixMode::Projection => {
         self.current_projection_matrix = self.temp_matrix;
-        self.clip_vtx_recalculate = true;
+        self.clip_mtx_recalculate = true;
       }
       MatrixMode::Texture => {
         self.current_texture_matrix = self.temp_matrix;
@@ -1487,7 +1492,7 @@ impl Engine3d {
         self.current_position_matrix = self.temp_matrix;
         self.current_vector_matrix = self.temp_matrix;
 
-        self.clip_vtx_recalculate = true;
+        self.clip_mtx_recalculate = true;
       }
     }
   }
