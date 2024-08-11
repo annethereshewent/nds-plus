@@ -14,6 +14,7 @@ use super::{
 };
 
 pub mod rendering2d;
+pub mod renderer2d;
 pub mod pixel_processing;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;

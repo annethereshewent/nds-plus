@@ -10,8 +10,8 @@ use std::{
   }
 };
 
-use engine_2d::Engine2d;
-use engine_3d::Engine3d;
+use engine_2d::{renderer2d::Renderer2d, Engine2d};
+use engine_3d::{Engine3d, Pixel3d};
 use registers::{
   display_capture_control_register::{
     CaptureSource,
@@ -99,24 +99,43 @@ impl BgProps {
   }
 }
 
+pub struct ThreadData {
+  pub vram: Mutex<VRam>,
+  pub vcount: AtomicU16,
+  pub dispcapcnt: Mutex<DisplayCaptureControlRegister>,
+  pub is_capturing: AtomicBool,
+  pub finished_line: AtomicBool,
+  pub powcnt1: Mutex<PowerControlRegister1>,
+  pub rendering_data: [RenderingData; 2]
+}
+
+pub struct RenderingData {
+
+}
+
+impl RenderingData {
+  pub fn new() -> Self {
+    Self {
+
+    }
+  }
+}
+
 pub struct GPU {
-  pub engine_a: Arc<Mutex<Engine2d<false>>>,
-  pub engine_b: Arc<Mutex<Engine2d<true>>>,
-  pub engine3d: Arc<Mutex<Engine3d>>,
-  pub powcnt1: Arc<Mutex<PowerControlRegister1>>,
+  pub engine_a: Engine2d<false>,
+  pub engine_b: Engine2d<true>,
+  pub engine3d: Engine3d,
   pub powcnt2: PowerControlRegister2,
+  pub powcnt1: PowerControlRegister1,
   pub vramcnt: [VramControlRegister; 9],
   pub dispstat: [DisplayStatusRegister; 2],
   pub frame_finished: bool,
-  pub vram: Arc<Mutex<VRam>>,
-  pub vcount: Arc<AtomicU16>,
-  pub dispcapcnt: Arc<Mutex<DisplayCaptureControlRegister>>,
   pub mosaic: MosaicRegister,
-  pub is_capturing: Arc<Mutex<bool>>,
   previous_time: u128,
-  finished_line: Arc<AtomicBool>,
   rendering2d_thread: Option<JoinHandle<()>>,
-  rendering3d_thread: Option<JoinHandle<()>>
+  rendering3d_thread: Option<JoinHandle<()>>,
+  pub thread_data: Arc<ThreadData>,
+  pub dispcapcnt: DisplayCaptureControlRegister
 }
 
 impl GPU {
@@ -127,118 +146,94 @@ impl GPU {
       vramcnt.push(VramControlRegister::new(i));
     }
 
-    let engine_a = Arc::new(Mutex::new(Engine2d::new()));
-    let engine_b = Arc::new(Mutex::new(Engine2d::new()));
-    let vcount = Arc::new(AtomicU16::new(0));
-    let powcnt1 =  Arc::new(Mutex::new(PowerControlRegister1::from_bits_retain(0)));
-    let is_capturing = Arc::new(Mutex::new(false));
-    let dispcapcnt = Arc::new(Mutex::new(DisplayCaptureControlRegister::new()));
-    let engine3d = Arc::new(Mutex::new(Engine3d::new()));
-    let vram = Arc::new(Mutex::new(VRam::new()));
-    let finished_line = Arc::new(AtomicBool::new(false));
+    let rendering_data = RenderingData::new();
+    let rendering_data2 = RenderingData::new();
+
+
+    let thread_data = Arc::new(ThreadData {
+      vcount: AtomicU16::new(0),
+      powcnt1: Mutex::new(PowerControlRegister1::from_bits_retain(0)),
+      is_capturing: AtomicBool::new(false),
+      dispcapcnt: Mutex::new(DisplayCaptureControlRegister::new()),
+      vram: Mutex::new(VRam::new()),
+      finished_line: AtomicBool::new(false),
+      rendering_data: [rendering_data, rendering_data2]
+    });
 
     let mut gpu = Self {
-      engine_a: engine_a.clone(),
-      engine_b: engine_b.clone(),
-      engine3d: engine3d.clone(),
-      powcnt1: powcnt1.clone(),
+      engine_a: Engine2d::new(),
+      engine_b: Engine2d::new(),
+      engine3d: Engine3d::new(),
       powcnt2: PowerControlRegister2::from_bits_retain(0),
+      powcnt1: PowerControlRegister1::from_bits_retain(0),
       vramcnt: vramcnt.try_into().unwrap(),
       dispstat: [DisplayStatusRegister::new(), DisplayStatusRegister::new()],
-      dispcapcnt: dispcapcnt.clone(),
-      vcount: vcount.clone(),
       frame_finished: false,
-      vram: vram.clone(),
       mosaic: MosaicRegister::new(),
-      is_capturing: is_capturing.clone(),
       previous_time: 0,
       rendering2d_thread: None,
       rendering3d_thread: None,
-      finished_line: finished_line.clone()
+      thread_data: thread_data.clone(),
+      dispcapcnt: DisplayCaptureControlRegister::new()
     };
 
-    let engine3d_clone = engine3d.clone();
-    let vram_3d = vram.clone();
-    let vcount_3d = vcount.clone();
+    let mut renderer2d = Renderer2d {
+      thread_data: thread_data.clone()
+    };
 
     gpu.rendering2d_thread = Some(
       thread::spawn(move || {
         loop {
-          let mut engine_a = engine_a.lock().unwrap();
-          let mut engine_b = engine_b.lock().unwrap();
+          let vcount = thread_data.vcount.load(Ordering::Acquire);
+          let powcnt1 = thread_data.powcnt1.lock().unwrap();
 
-          let engine3d = engine3d.lock().unwrap();
-
-          let powcnt1 = powcnt1.lock().unwrap();
-          let mut dispcapcnt = dispcapcnt.lock().unwrap();
-
-          let is_capturing = is_capturing.lock().unwrap();
-
-          let vcount = vcount.load(Ordering::Acquire);
-
-          let mut vram = vram.lock().unwrap();
-
-          if !finished_line.load(Ordering::Relaxed) {
+          if !thread_data.finished_line.load(Ordering::Relaxed) {
             hint::spin_loop();
-            drop(engine_a);
-            drop(engine_b);
-            drop(engine3d);
-            drop(powcnt1);
-            drop(dispcapcnt);
-            drop(is_capturing);
-            drop(vram);
             continue;
           }
 
           if vcount >= SCREEN_HEIGHT {
-            drop(engine_a);
-            drop(engine_b);
-            drop(engine3d);
             drop(powcnt1);
-            drop(dispcapcnt);
-            drop(is_capturing);
-            drop(vram);
             thread::park();
             continue;
           }
 
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
-            engine_a.render_line(vcount, &mut vram, &engine3d.frame_buffer);
+            renderer2d.render_line(false);
 
             // capture image if needed
-            if *is_capturing && vcount < dispcapcnt.get_capture_height() {
-              dispcapcnt.capture_enable = false;
-              Self::start_capture_image(&mut dispcapcnt, &engine_a, vcount, &mut vram);
-            }
+            // if is_capturing.load(Ordering::Relaxed) && vcount < dispcapcnt.get_capture_height() {
+            //   dispcapcnt.capture_enable = false;
+            //   Self::start_capture_image(&mut dispcapcnt, &engine_a, vcount, &mut vram);
+            // }
           }
           if powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
-            engine_b.render_line(vcount, &mut vram, &engine3d.frame_buffer);
+            renderer2d.render_line(true);
           }
 
-          finished_line.store(false, Ordering::Release);
+          thread_data.finished_line.store(false, Ordering::Release);
         }
       })
     );
 
-    gpu.rendering3d_thread = Some(
-      thread::spawn(move || {
-        loop {
-          let mut engine3d = engine3d_clone.lock().unwrap();
-          let vram = vram_3d.lock().unwrap();
+    // gpu.rendering3d_thread = Some(
+    //   thread::spawn(move || {
+    //     loop {
+    //       let mut engine3d = engine3d_clone.lock().unwrap();
+    //       let vram = vram_3d.lock().unwrap();
 
-          if vcount_3d.load(Ordering::Acquire) != NUM_LINES - 48 {
-            hint::spin_loop();
-            drop(engine3d);
-            drop(vram);
-            thread::park();
-            continue;
-          }
+    //       if vcount_3d.load(Ordering::Acquire) != NUM_LINES - 48 {
+    //         drop(engine3d);
+    //         drop(vram);
+    //         thread::park();
+    //         continue;
+    //       }
 
-          engine3d.start_rendering(&vram);
-        }
+    //       engine3d.start_rendering(&vram);
+    //     }
 
-      })
-    );
+    //   })
+    // );
 
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
 
@@ -306,38 +301,36 @@ impl GPU {
   {
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES - cycles_left);
 
-    let mut engine_a = self.engine_a.lock().unwrap();
-    let mut engine_b = self.engine_b.lock().unwrap();
+    self.engine_a.clear_obj_lines();
+    self.engine_b.clear_obj_lines();
 
-    engine_a.clear_obj_lines();
-    engine_b.clear_obj_lines();
-
-    let mut vcount = self.vcount.load(Ordering::Acquire);
+    let mut vcount = self.thread_data.vcount.load(Ordering::Acquire);
 
     vcount += 1;
 
-    self.finished_line.store(true, Ordering::Release);
+    self.thread_data.finished_line.store(true, Ordering::Release);
 
     if vcount == NUM_LINES {
       vcount = 0;
 
-      engine_a.on_end_vblank();
-      engine_b.on_end_vblank();
+      self.engine_a.on_end_vblank();
+      self.engine_b.on_end_vblank();
     }
 
     if vcount == 0 {
       self.rendering2d_thread.as_ref().unwrap().thread().unpark();
 
-      let mut is_capturing = self.is_capturing.lock().unwrap();
-
-      *is_capturing = self.dispcapcnt.lock().unwrap().capture_enable;
+      self.thread_data.is_capturing.store(
+        self.thread_data.dispcapcnt.lock().unwrap().capture_enable,
+        Ordering::Relaxed
+      );
 
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
       }
     } else if vcount == SCREEN_HEIGHT {
-      if *self.is_capturing.lock().unwrap() {
-        self.dispcapcnt.lock().unwrap().capture_enable = false;
+      if self.thread_data.is_capturing.load(Ordering::Relaxed) {
+        self.thread_data.dispcapcnt.lock().unwrap().capture_enable = false;
       }
       for dispstat in &mut self.dispstat {
         dispstat.flags.insert(DispStatFlags::VBLANK);
@@ -354,16 +347,14 @@ impl GPU {
       // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
       // self.engine3d.clear_frame_buffer();
 
-      let powcnt1 = self.powcnt1.lock().unwrap();
+      let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
 
       if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
         self.rendering3d_thread.as_ref().unwrap().thread().unpark();
 
-        let mut engine3d = self.engine3d.lock().unwrap();
+        self.engine3d.execute_commands(&mut interrupt_requests[1]);
 
-        engine3d.execute_commands(&mut interrupt_requests[1]);
-
-        if engine3d.should_run_dmas() {
+        if self.engine3d.should_run_dmas() {
           for dma in dma_channels {
             dma.notify_geometry_fifo_event();
           }
@@ -372,9 +363,7 @@ impl GPU {
     }
 
     if vcount > 0 && vcount <= SCREEN_HEIGHT {
-      drop(engine_a);
-      drop(engine_b);
-      while self.finished_line.load(Ordering::Acquire) {
+      while self.thread_data.finished_line.load(Ordering::Acquire) {
         hint::spin_loop();
       }
     }
@@ -388,7 +377,7 @@ impl GPU {
       }
     }
 
-    self.vcount.store(vcount, Ordering::Release);
+    self.thread_data.vcount.store(vcount, Ordering::Release);
   }
 
   fn get_capture_pixel(engine_a: &MutexGuard<Engine2d<false>>, address: usize) -> u16 {
@@ -508,23 +497,23 @@ impl GPU {
   }
 
   pub fn write_palette_a(&mut self, address: u32, val: u8) {
-    self.engine_a.lock().unwrap().write_palette_ram(address, val);
+    self.engine_a.write_palette_ram(address, val);
   }
 
   pub fn read_palette_a(&self, address: u32) -> u8 {
-    self.engine_a.lock().unwrap().read_palette_ram(address)
+    self.engine_a.read_palette_ram(address)
   }
 
   pub fn read_palette_b(&self, address: u32) -> u8 {
-    self.engine_b.lock().unwrap().read_palette_ram(address)
+    self.engine_b.read_palette_ram(address)
   }
 
   pub fn write_palette_b(&mut self, address: u32, val: u8) {
-    self.engine_b.lock().unwrap().write_palette_ram(address, val);
+    self.engine_b.write_palette_ram(address, val);
   }
 
   pub fn write_lcdc(&mut self, address: u32, val: u8) {
-    let mut vram = self.vram.lock().unwrap();
+    let mut vram = self.thread_data.vram.lock().unwrap();
 
     match address {
       0x680_0000..=0x681_ffff => vram.write_lcdc_bank(Bank::BankA, address, val),
@@ -541,7 +530,7 @@ impl GPU {
   }
 
   pub fn read_lcdc(&mut self, address: u32) -> u8 {
-    let mut vram = self.vram.lock().unwrap();
+    let mut vram = self.thread_data.vram.lock().unwrap();
 
     match address {
       0x680_0000..=0x681_ffff => vram.read_lcdc_bank(Bank::BankA, address),
@@ -558,11 +547,11 @@ impl GPU {
   }
 
   pub fn read_arm7_wram(&self, address: u32) -> u8 {
-    self.vram.lock().unwrap().read_arm7_wram(address)
+    self.thread_data.vram.lock().unwrap().read_arm7_wram(address)
   }
 
   pub fn write_vramcnt(&mut self, offset: u32, val: u8) {
-    let mut vram = self.vram.lock().unwrap();
+    let mut vram = self.thread_data.vram.lock().unwrap();
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
         BANK_A => vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
