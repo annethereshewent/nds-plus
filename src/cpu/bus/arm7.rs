@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use crate::{
   apu::BitLength,
   cpu::registers::{
@@ -120,7 +122,7 @@ impl Bus {
 
     match address {
       0x400_0004 => self.gpu.dispstat[0].read(),
-      0x400_0006 => *self.gpu.vcount.lock().unwrap(),
+      0x400_0006 => self.gpu.vcount.load(Ordering::Acquire),
       0x400_0100 => self.arm7.timers.t[0].read_timer_value(&self.scheduler),
       0x400_0102 => self.arm7.timers.t[0].timer_ctl.bits(),
       0x400_0104 => self.arm7.timers.t[1].read_timer_value(&self.scheduler),

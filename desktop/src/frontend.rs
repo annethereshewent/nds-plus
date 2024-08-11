@@ -267,8 +267,9 @@ impl Frontend {
 
     let engine_a = gpu.engine_a.lock().unwrap();
     let engine_b = gpu.engine_b.lock().unwrap();
+    let powcnt1 = gpu.powcnt1.lock().unwrap();
 
-    if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
+    if powcnt1.contains(PowerControlRegister1::TOP_A) {
       texture_a.update(None, &engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
       texture_b.update(None, &engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
     } else {

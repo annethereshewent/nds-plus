@@ -1,14 +1,9 @@
 use std::{
-  sync::{
-    Arc,
-    Mutex,
-    MutexGuard
-  },
-  thread::{
-    sleep,
-    JoinHandle
-  },
-  time::{
+  hint, sync::{
+    atomic::{AtomicBool, AtomicU16, Ordering}, Arc, Mutex, MutexGuard
+  }, thread::{
+    self, sleep, JoinHandle
+  }, time::{
     Duration,
     SystemTime,
     UNIX_EPOCH
@@ -108,17 +103,18 @@ pub struct GPU {
   pub engine_a: Arc<Mutex<Engine2d<false>>>,
   pub engine_b: Arc<Mutex<Engine2d<true>>>,
   pub engine3d: Arc<Mutex<Engine3d>>,
-  pub powcnt1: PowerControlRegister1,
+  pub powcnt1: Arc<Mutex<PowerControlRegister1>>,
   pub powcnt2: PowerControlRegister2,
   pub vramcnt: [VramControlRegister; 9],
   pub dispstat: [DisplayStatusRegister; 2],
   pub frame_finished: bool,
   pub vram: Arc<Mutex<VRam>>,
-  pub vcount: Arc<Mutex<u16>>,
+  pub vcount: Arc<AtomicU16>,
   pub dispcapcnt: Arc<Mutex<DisplayCaptureControlRegister>>,
   pub mosaic: MosaicRegister,
   pub is_capturing: Arc<Mutex<bool>>,
   previous_time: u128,
+  finished_line: Arc<AtomicBool>,
   rendering2d_thread: Option<JoinHandle<()>>,
   rendering3d_thread: Option<JoinHandle<()>>
 }
@@ -131,24 +127,94 @@ impl GPU {
       vramcnt.push(VramControlRegister::new(i));
     }
 
-    let gpu = Self {
-      engine_a: Arc::new(Mutex::new(Engine2d::new())),
-      engine_b: Arc::new(Mutex::new(Engine2d::new())),
-      engine3d: Arc::new(Mutex::new(Engine3d::new())),
-      powcnt1: PowerControlRegister1::from_bits_retain(0),
+    let engine_a = Arc::new(Mutex::new(Engine2d::new()));
+    let engine_b = Arc::new(Mutex::new(Engine2d::new()));
+    let vcount = Arc::new(AtomicU16::new(0));
+    let powcnt1 =  Arc::new(Mutex::new(PowerControlRegister1::from_bits_retain(0)));
+    let is_capturing = Arc::new(Mutex::new(false));
+    let dispcapcnt = Arc::new(Mutex::new(DisplayCaptureControlRegister::new()));
+    let engine3d = Arc::new(Mutex::new(Engine3d::new()));
+    let vram = Arc::new(Mutex::new(VRam::new()));
+    let finished_line = Arc::new(AtomicBool::new(false));
+
+    let mut gpu = Self {
+      engine_a: engine_a.clone(),
+      engine_b: engine_b.clone(),
+      engine3d: engine3d.clone(),
+      powcnt1: powcnt1.clone(),
       powcnt2: PowerControlRegister2::from_bits_retain(0),
       vramcnt: vramcnt.try_into().unwrap(),
       dispstat: [DisplayStatusRegister::new(), DisplayStatusRegister::new()],
-      dispcapcnt: Arc::new(Mutex::new(DisplayCaptureControlRegister::new())),
-      vcount: Arc::new(Mutex::new(0)),
+      dispcapcnt: dispcapcnt.clone(),
+      vcount: vcount.clone(),
       frame_finished: false,
-      vram: Arc::new(Mutex::new(VRam::new())),
+      vram: vram.clone(),
       mosaic: MosaicRegister::new(),
-      is_capturing: Arc::new(Mutex::new(false)),
+      is_capturing: is_capturing.clone(),
       previous_time: 0,
       rendering2d_thread: None,
-      rendering3d_thread: None
+      rendering3d_thread: None,
+      finished_line: finished_line.clone()
     };
+
+    gpu.rendering2d_thread = Some(
+      thread::spawn(move || {
+        loop {
+          let mut engine_a = engine_a.lock().unwrap();
+          let mut engine_b = engine_b.lock().unwrap();
+
+          let engine3d = engine3d.lock().unwrap();
+
+          let powcnt1 = powcnt1.lock().unwrap();
+          let mut dispcapcnt = dispcapcnt.lock().unwrap();
+
+          let is_capturing = is_capturing.lock().unwrap();
+
+          let vcount = vcount.load(Ordering::Acquire);
+
+          let mut vram = vram.lock().unwrap();
+
+          if !finished_line.load(Ordering::Relaxed) {
+            hint::spin_loop();
+            drop(engine_a);
+            drop(engine_b);
+            drop(engine3d);
+            drop(powcnt1);
+            drop(dispcapcnt);
+            drop(is_capturing);
+            drop(vram);
+            continue;
+          }
+
+          if vcount >= SCREEN_HEIGHT {
+            drop(engine_a);
+            drop(engine_b);
+            drop(engine3d);
+            drop(powcnt1);
+            drop(dispcapcnt);
+            drop(is_capturing);
+            drop(vram);
+            thread::park();
+            continue;
+          }
+
+          if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
+            engine_a.render_line(vcount, &mut vram, &engine3d.frame_buffer);
+
+            // capture image if needed
+            if *is_capturing && vcount < dispcapcnt.get_capture_height() {
+              dispcapcnt.capture_enable = false;
+              Self::start_capture_image(&mut dispcapcnt, &engine_a, vcount, &mut vram);
+            }
+          }
+          if powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
+            engine_b.render_line(vcount, &mut vram, &engine3d.frame_buffer);
+          }
+
+          finished_line.store(false, Ordering::Release);
+        }
+      })
+    );
 
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES);
 
@@ -163,6 +229,8 @@ impl GPU {
 
     if self.previous_time != 0 {
       let diff = current_time - self.previous_time;
+
+      println!("fps = {}", 1000 / diff);
 
       if diff < FPS_INTERVAL {
         sleep(Duration::from_millis((FPS_INTERVAL - diff) as u64));
@@ -190,10 +258,6 @@ impl GPU {
 
     for dma in dma_channels {
       dma.notify_gpu_event(DmaTiming::Hblank);
-    }
-
-    if *self.vcount.lock().unwrap() < SCREEN_HEIGHT {
-      self.render_line();
     }
 
     Self::check_interrupts(&mut self.dispstat, DispStatFlags::HBLANK_IRQ_ENABLE, InterruptRequestRegister::HBLANK, interrupt_requests);
@@ -224,18 +288,22 @@ impl GPU {
     engine_a.clear_obj_lines();
     engine_b.clear_obj_lines();
 
-    let mut vcount = self.vcount.lock().unwrap();
+    let mut vcount = self.vcount.load(Ordering::Acquire);
 
-    *vcount += 1;
+    vcount += 1;
 
-    if *vcount == NUM_LINES {
-      *vcount = 0;
+    self.finished_line.store(true, Ordering::Release);
+
+    if vcount == NUM_LINES {
+      vcount = 0;
 
       engine_a.on_end_vblank();
       engine_b.on_end_vblank();
     }
 
-    if *vcount == 0 {
+    if vcount == 0 {
+      self.rendering2d_thread.as_ref().unwrap().thread().unpark();
+
       let mut is_capturing = self.is_capturing.lock().unwrap();
 
       *is_capturing = self.dispcapcnt.lock().unwrap().capture_enable;
@@ -243,7 +311,7 @@ impl GPU {
       for dispstat in &mut self.dispstat {
         dispstat.flags.remove(DispStatFlags::VBLANK);
       }
-    } else if *vcount == SCREEN_HEIGHT {
+    } else if vcount == SCREEN_HEIGHT {
       if *self.is_capturing.lock().unwrap() {
         self.dispcapcnt.lock().unwrap().capture_enable = false;
       }
@@ -258,11 +326,13 @@ impl GPU {
       self.frame_finished = true;
 
       Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
-    } else if *vcount == NUM_LINES - 48 {
+    } else if vcount == NUM_LINES - 48 {
       // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
       // self.engine3d.clear_frame_buffer();
 
-      if self.powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
+      let powcnt1 = self.powcnt1.lock().unwrap();
+
+      if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
         let mut engine3d = self.engine3d.lock().unwrap();
 
         engine3d.start_rendering(&self.vram.lock().unwrap());
@@ -277,14 +347,24 @@ impl GPU {
       }
     }
 
+    if vcount > 0 && vcount <= SCREEN_HEIGHT {
+      drop(engine_a);
+      drop(engine_b);
+      while self.finished_line.load(Ordering::Acquire) {
+        hint::spin_loop();
+      }
+    }
+
     for i in 0..2 {
       let dispstat = &mut self.dispstat[i];
       let interrupt_request = &mut interrupt_requests[i];
 
-      if dispstat.flags.contains(DispStatFlags::VCOUNTER_IRQ_ENABLE) && *vcount == dispstat.vcount_setting {
+      if dispstat.flags.contains(DispStatFlags::VCOUNTER_IRQ_ENABLE) && vcount == dispstat.vcount_setting {
         interrupt_request.insert(InterruptRequestRegister::VCOUNTER_MATCH);
       }
     }
+
+    self.vcount.store(vcount, Ordering::Release);
   }
 
   fn get_capture_pixel(engine_a: &MutexGuard<Engine2d<false>>, address: usize) -> u16 {
@@ -502,28 +582,5 @@ impl GPU {
 
   pub fn schedule_hdraw(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     scheduler.schedule(EventType::HDraw, HDRAW_CYCLES - cycles_left);
-  }
-
-  fn render_line(&mut self) {
-    let engine3d = self.engine3d.lock().unwrap();
-    let vcount = self.vcount.lock().unwrap();
-    let mut vram = self.vram.lock().unwrap();
-    let mut engine_a = self.engine_a.lock().unwrap();
-    let mut engine_b = self.engine_b.lock().unwrap();
-    let is_capturing = *self.is_capturing.lock().unwrap();
-
-    if self.powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
-      engine_a.render_line(*vcount, &mut vram, &engine3d.frame_buffer);
-
-      let mut dispcapcnt = self.dispcapcnt.lock().unwrap();
-      // capture image if needed
-      if is_capturing && *vcount < dispcapcnt.get_capture_height() {
-        dispcapcnt.capture_enable = false;
-        Self::start_capture_image(&mut dispcapcnt, &engine_a, *vcount, &mut vram);
-      }
-    }
-    if self.powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
-      engine_b.render_line(*vcount, &mut vram, &engine3d.frame_buffer);
-    }
   }
 }

@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use crate::{
   cpu::registers::{
     external_memory::AccessRights,
@@ -125,7 +127,7 @@ impl Bus {
       0x400_0000 => self.gpu.engine_a.lock().unwrap().dispcnt.read() as u16,
       0x400_0002 => (self.gpu.engine_a.lock().unwrap().dispcnt.read() >> 16) as u16,
       0x400_0004 => self.gpu.dispstat[1].read(),
-      0x400_0006 => *self.gpu.vcount.lock().unwrap(),
+      0x400_0006 => self.gpu.vcount.load(Ordering::Acquire),
       0x400_0008..=0x400_005f => self.gpu.engine_a.lock().unwrap().read_register(address),
       0x400_0060 => self.gpu.engine3d.lock().unwrap().disp3dcnt.bits() as u16,
       0x400_006c => self.gpu.engine_a.lock().unwrap().master_brightness.read(),
@@ -211,7 +213,7 @@ impl Bus {
       0x400_0280 => self.arm9.divcnt.read(),
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
-      0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_0304 => self.gpu.powcnt1.lock().unwrap().bits() as u16,
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1000 => self.gpu.engine_b.lock().unwrap().dispcnt.read() as u16,
       0x400_1002 => (self.gpu.engine_b.lock().unwrap().dispcnt.read() >> 16) as u16,
@@ -385,7 +387,10 @@ impl Bus {
 
         self.arm9.sqrt_result = self.start_sqrt_calculation();
       }
-      0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
+      0x400_0304 => {
+        let mut powcnt1 = self.gpu.powcnt1.lock().unwrap();
+        *powcnt1 = PowerControlRegister1::from_bits_retain(value as u16)
+      }
       0x400_0330..=0x400_033f => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
@@ -500,7 +505,11 @@ impl Bus {
       0x400_0280 => self.arm9.divcnt.write(value),
       0x400_02b0 => self.write_sqrtcnt(value),
       0x400_0300 => self.arm9.postflg |= value & 0b1 == 1,
-      0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value),
+      0x400_0304 => {
+        let mut powcnt1 = self.gpu.powcnt1.lock().unwrap();
+
+        *powcnt1 = PowerControlRegister1::from_bits_retain(value);
+      }
       0x400_0330..=0x400_033f => self.gpu.engine3d.lock().unwrap().write_edge_color(address, value),
       0x400_0340 => self.gpu.engine3d.lock().unwrap().write_alpha_ref(value),
       0x400_0354 => self.gpu.engine3d.lock().unwrap().write_clear_depth(value),
