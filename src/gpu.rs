@@ -145,6 +145,8 @@ impl GPU {
     if self.previous_time != 0 {
       let diff = current_time - self.previous_time;
 
+      println!("fps = {}", 1000 / diff);
+
       if diff < FPS_INTERVAL {
         sleep(Duration::from_millis((FPS_INTERVAL - diff) as u64));
       }
