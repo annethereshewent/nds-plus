@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::{collections::{HashSet, VecDeque}, sync::{atomic::Ordering, Arc}};
 
 use box_test::BoxTest;
 use diffuse_color::DiffuseColor;
@@ -15,10 +15,9 @@ use viewport::Viewport;
 use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
 
 use super::{
-  color::Color,
-  registers::{
+  color::Color, registers::{
     clear_color_register::ClearColorRegister, display_3d_control_register::Display3dControlRegister, fog_color_register::FogColorRegister, geometry_status_register::{GeometryIrq, GeometryStatusRegister}
-  }, SCREEN_HEIGHT, SCREEN_WIDTH
+  }, ThreadData, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
 pub mod matrix;
@@ -33,6 +32,7 @@ pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
 pub mod box_test;
+pub mod renderer3d;
 
 pub const FIFO_CAPACITY: usize = 256;
 pub const POLYGON_BUFFER_SIZE: usize = 2048;
@@ -294,16 +294,16 @@ pub struct Engine3d {
   current_command: Command,
   params_processed: usize,
   num_params: usize,
-  gxstat: GeometryStatusRegister,
-  clear_color: ClearColorRegister,
-  clear_depth: u32,
+  pub gxstat: GeometryStatusRegister,
+  pub clear_color: ClearColorRegister,
+  pub clear_depth: u32,
   clear_offset_x: u16,
   clear_offset_y: u16,
   fog_color: FogColorRegister,
   fog_offset: u16,
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
-  toon_table: [Color; 32],
+  pub toon_table: [Color; 32],
   shininess_table: [u8; 128],
   matrix_mode: MatrixMode,
   current_position_matrix: Matrix,
@@ -325,7 +325,6 @@ pub struct Engine3d {
   palette_base: u32,
   transluscent_polygon_sort: bool,
   depth_buffering_with_w: bool,
-  polygons_ready: bool,
   viewport: Viewport,
   temp_matrix: Matrix,
   diffuse_reflection: DiffuseColor,
@@ -344,8 +343,8 @@ pub struct Engine3d {
   max_vertices: usize,
   clip_mtx_recalculate: bool,
   clip_matrix: Matrix,
-  vertices_buffer: Vec<Vertex>,
-  polygon_buffer: Vec<Polygon>,
+  pub vertices_buffer: Vec<Vertex>,
+  pub polygon_buffer: Vec<Polygon>,
   scale_vector: [i32; 3],
   pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
   alpha_ref: u8,
@@ -354,7 +353,8 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>
+  pub found: HashSet<String>,
+  pub polygons_ready: bool
 }
 
 impl Engine3d {
@@ -396,7 +396,6 @@ impl Engine3d {
       palette_base: 0,
       transluscent_polygon_sort: false,
       depth_buffering_with_w: false,
-      polygons_ready: false,
       viewport: Viewport::new(),
       temp_matrix: Matrix::new(),
       diffuse_reflection: DiffuseColor::new(),
@@ -425,14 +424,8 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new()
-    }
-  }
-
-  pub fn clear_frame_buffer(&mut self) {
-    for pixel in &mut self.frame_buffer {
-      *pixel = Pixel3d::new();
-      pixel.depth = self.clear_depth as u32;
+      found: HashSet::new(),
+      polygons_ready: false
     }
   }
 

@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub struct ClearColorRegister {
   pub r: u8,
   pub g: u8,

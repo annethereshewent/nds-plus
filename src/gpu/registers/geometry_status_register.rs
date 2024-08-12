@@ -9,6 +9,7 @@ pub enum GeometryIrq {
   Empty = 2
 }
 
+#[derive(Copy, Clone)]
 pub struct GeometryStatusRegister {
   pub test_busy: bool,
   pub box_test_result: bool,

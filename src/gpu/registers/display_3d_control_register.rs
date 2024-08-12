@@ -14,6 +14,7 @@
 */
 
 bitflags! {
+  #[derive(Copy, Clone)]
   pub struct Display3dControlRegister: u32 {
     const TEXTURE_MAPPING_ENABLE = 1;
     const POLYGON_ATTR_SHADING = 1 << 1;

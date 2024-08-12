@@ -1,6 +1,6 @@
 use super::{polygon_attributes::PolygonAttributes, texture_params::TextureParams, PrimitiveType};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Polygon {
   pub start: usize,
   pub end: usize,

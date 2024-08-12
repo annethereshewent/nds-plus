@@ -1,8 +1,8 @@
-use std::{cmp, collections::HashSet};
+use std::{cmp, collections::HashSet, sync::{atomic::{AtomicBool, Ordering}, Mutex}};
 
-use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, rendering_data3d::RenderingData3d, vram::VRam, ThreadData, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
-use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, renderer3d::Renderer3d, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
 
 pub struct Deltas {
@@ -151,31 +151,42 @@ impl RgbSlopes {
 }
 
 
-impl Engine3d {
-  pub fn start_rendering(&mut self, vram: &VRam) {
-    if self.polygons_ready {
-      if self.clear_color.alpha != 0 {
-        for pixel in &mut self.frame_buffer {
+impl Renderer3d {
+  pub fn start_rendering(
+    &mut self, vram: &VRam,
+    data: &mut RenderingData3d,
+    frame_buffer: &mut [Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+  ) {
+    if data.polygons_ready {
+      if data.clear_color.alpha != 0 {
+        for pixel in frame_buffer.iter_mut() {
           pixel.color = Some(Color {
-            r: self.clear_color.r,
-            g: self.clear_color.g,
-            b: self.clear_color.b,
-            alpha: Some(self.clear_color.alpha)
+            r: data.clear_color.r,
+            g: data.clear_color.g,
+            b: data.clear_color.b,
+            alpha: Some(data.clear_color.alpha)
           });
-          pixel.depth = self.clear_depth as u32;
+          pixel.depth = data.clear_depth as u32;
         }
       } else {
-        self.clear_frame_buffer();
+        Self::clear_frame_buffer(frame_buffer, &data);
       }
 
-      for polygon in self.polygon_buffer.drain(..) {
-        let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-        Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+      for polygon in data.polygon_buffer.drain(..) {
+        let vertices = &mut data.vertices_buffer[polygon.start..polygon.end];
+        Self::render_polygon(&polygon, vertices, vram, frame_buffer, &data.toon_table, &data.disp3dcnt);
       }
 
-      self.vertices_buffer.clear();
-      self.polygons_ready = false;
-      self.gxstat.geometry_engine_busy = false;
+      data.vertices_buffer.clear();
+      data.polygons_ready = false;
+      data.gxstat_busy = false;
+    }
+  }
+
+  pub fn clear_frame_buffer(frame_buffer: &mut [Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize], data: &RenderingData3d) {
+    for pixel in frame_buffer.iter_mut() {
+      *pixel = Pixel3d::new();
+      pixel.depth = data.clear_depth as u32;
     }
   }
 
@@ -211,9 +222,7 @@ impl Engine3d {
     vram: &VRam,
     frame_buffer: &mut [Pixel3d],
     toon_table: &[Color],
-    disp3dcnt: &Display3dControlRegister,
-    debug_on: bool,
-    found: &mut HashSet<String>)
+    disp3dcnt: &Display3dControlRegister)
   {
     let mut min_y = vertices[0].screen_y;
     let mut max_y = vertices[0].screen_y;
@@ -429,7 +438,7 @@ impl Engine3d {
 
         let mut color: Option<Color> = None;
 
-        if let Some(texel_color) = Self::get_texel_color(polygon, curr_u, curr_v, vram, debug_on, found) {
+        if let Some(texel_color) = Self::get_texel_color(polygon, curr_u, curr_v, vram) {
           color = if texel_color.alpha.is_some() && texel_color.alpha.unwrap() == 0 {
             None
           } else {
@@ -561,7 +570,7 @@ impl Engine3d {
     return_val
   }
 
-  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> Option<Color> {
+  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam) -> Option<Color> {
     let mut u = curr_u;
 
     u = Self::check_if_texture_repeated(
