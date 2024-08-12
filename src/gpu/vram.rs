@@ -28,6 +28,7 @@ const ARM7_WRAM_BLOCKS: usize = 2;
 
 const BLOCK_SIZE: usize = 16 * 1024;
 
+#[derive(Clone)]
 pub struct VRam {
   pub banks: [Vec<u8>; 9],
   lcdc: HashSet<Bank>,

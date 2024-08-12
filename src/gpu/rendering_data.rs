@@ -1,4 +1,4 @@
-use super::{color::Color, engine_2d::ObjectPixel, registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::DisplayControlRegister, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH};
+use super::{color::Color, engine_2d::{Engine2d, ObjectPixel}, registers::{alpha_blend_register::AlphaBlendRegister, bg_control_register::BgControlRegister, brightness_register::BrightnessRegister, color_effects_register::ColorEffectsRegister, display_control_register::DisplayControlRegister, master_brightness_register::MasterBrightnessRegister, window_horizontal_register::WindowHorizontalRegister, window_in_register::WindowInRegister, window_out_register::WindowOutRegister, window_vertical_register::WindowVerticalRegister}, BgProps, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub struct RenderingData {
   pub dispcnt: DisplayControlRegister,
@@ -22,7 +22,7 @@ pub struct RenderingData {
 }
 
 impl RenderingData {
-  pub fn new( ) -> Self {
+  pub fn new() -> Self {
     Self {
       dispcnt: DisplayControlRegister::new(),
       bgcnt: [BgControlRegister::from_bits_retain(0); 4],

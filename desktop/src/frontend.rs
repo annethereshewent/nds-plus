@@ -261,14 +261,19 @@ impl Frontend {
       .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
       .unwrap();
 
+    let data_a = gpu.thread_data.rendering_data[0].lock().unwrap();
+    let data_b = gpu.thread_data.rendering_data[1].lock().unwrap();
+
     if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
-      texture_a.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_a.update(None, &data_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_b.update(None, &data_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
     } else {
-      texture_a.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_a.update(None, &data_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      texture_b.update(None, &data_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
     }
 
+    drop(data_a);
+    drop(data_b);
 
     let screen_a = Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
     let screen_b = Rect::new(0, SCREEN_HEIGHT as i32, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);

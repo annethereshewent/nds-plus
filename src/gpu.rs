@@ -183,26 +183,21 @@ impl GPU {
     gpu.rendering2d_thread = Some(
       thread::spawn(move || {
         loop {
-          let vcount = thread_data.vcount.load(Ordering::Acquire);
-          let powcnt1 = thread_data.powcnt1.lock().unwrap();
-          let mut vram = thread_data.vram.lock().unwrap();
-          let mut frame_buffer = thread_data.frame_buffer.lock().unwrap();
-
           if !thread_data.finished_line.load(Ordering::Relaxed) {
             hint::spin_loop();
-            drop(powcnt1);
-            drop(vram);
-            drop(frame_buffer);
             continue;
           }
 
+          let vcount = thread_data.vcount.load(Ordering::Acquire);
+
           if vcount >= SCREEN_HEIGHT {
-            drop(powcnt1);
-            drop(vram);
-            drop(frame_buffer);
             thread::park();
             continue;
           }
+
+          let powcnt1 = thread_data.powcnt1.lock().unwrap();
+          let mut vram = thread_data.vram.lock().unwrap();
+          let mut frame_buffer = thread_data.frame_buffer.lock().unwrap();
 
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, false);
@@ -218,6 +213,9 @@ impl GPU {
           }
 
           thread_data.finished_line.store(false, Ordering::Release);
+          drop(powcnt1);
+          drop(vram);
+          drop(frame_buffer);
         }
       })
     );
@@ -303,6 +301,15 @@ impl GPU {
     let mut rendering_data_a = self.thread_data.rendering_data[0].lock().unwrap();
     let mut rendering_data_b = self.thread_data.rendering_data[1].lock().unwrap();
 
+    let pixels_a = rendering_data_a.pixels;
+    let pixels_b = rendering_data_b.pixels;
+
+    let mut vram = self.thread_data.vram.lock().unwrap();
+    let mut powcnt1 = self.thread_data.powcnt1.lock().unwrap();
+
+    *vram = self.vram.clone();
+    *powcnt1 = self.powcnt1;
+
     macro_rules! set_rendering_data {
       ($engine:ident) => {{
         RenderingData {
@@ -330,6 +337,9 @@ impl GPU {
 
     *rendering_data_a = set_rendering_data!(engine_a);
     *rendering_data_b = set_rendering_data!(engine_b);
+
+    rendering_data_a.pixels = pixels_a;
+    rendering_data_b.pixels = pixels_b;
   }
 
   pub fn start_next_line(
@@ -346,6 +356,13 @@ impl GPU {
     let mut vcount = self.thread_data.vcount.load(Ordering::Acquire);
 
     vcount += 1;
+
+    if vcount > 0 && vcount <= SCREEN_HEIGHT {
+      while self.thread_data.finished_line.load(Ordering::Acquire) {
+        hint::spin_loop();
+      }
+      self.flush_rendering_data();
+    }
 
     self.thread_data.finished_line.store(true, Ordering::Release);
 
@@ -389,7 +406,7 @@ impl GPU {
       let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
 
       if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
-        self.rendering3d_thread.as_ref().unwrap().thread().unpark();
+        // self.rendering3d_thread.as_ref().unwrap().thread().unpark();
 
         self.engine3d.execute_commands(&mut interrupt_requests[1]);
 
@@ -398,13 +415,6 @@ impl GPU {
             dma.notify_geometry_fifo_event();
           }
         }
-      }
-    }
-
-    if vcount > 0 && vcount <= SCREEN_HEIGHT {
-      self.flush_rendering_data();
-      while self.thread_data.finished_line.load(Ordering::Acquire) {
-        hint::spin_loop();
       }
     }
 
