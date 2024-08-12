@@ -15,6 +15,22 @@ pub enum Bank {
   BankI = 8
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub enum Region {
+  Lcdc,
+  EngineAObj,
+  EngineBObj,
+  EngineABg,
+  EngineBBg,
+  Arm7Wram,
+  EngineABgExtendedPalette,
+  EngineBBgExtendedPalette,
+  EngineAObjExtendedPalette,
+  EngineBObjExtendedPalette,
+  Textures,
+  TexturePalette
+}
+
 const ENGINE_A_OBJ_BLOCKS: usize = 256 / 16;
 const ENGINE_A_BG_BLOCKS: usize = 512 / 16;
 const ENGINE_B_BG_BLOCKS: usize = 128 / 16;
@@ -42,7 +58,8 @@ pub struct VRam {
   engine_a_obj_extended_palette: Vec<HashSet<Bank>>,
   engine_b_obj_extended_palette: Vec<HashSet<Bank>>,
   textures: Vec<HashSet<Bank>>,
-  texture_palette: Vec<HashSet<Bank>>
+  texture_palette: Vec<HashSet<Bank>>,
+  pub updated: HashSet<Region>
 }
 
 pub const BANK_SIZES: [usize; 9] = [
@@ -82,7 +99,8 @@ impl VRam {
       engine_a_obj_extended_palette: Self::create_vec(ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS),
       engine_b_obj_extended_palette: Self::create_vec(ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS),
       textures: Self::create_vec(TEXTURE_BLOCKS),
-      texture_palette: Self::create_vec(TEXTURE_PALETTE_BLOCKS)
+      texture_palette: Self::create_vec(TEXTURE_PALETTE_BLOCKS),
+      updated: HashSet::new()
     }
   }
 
@@ -102,6 +120,8 @@ impl VRam {
       let bank_len = bank.len();
 
       bank[(address as usize) & (bank_len - 1)] = value;
+
+      self.updated.insert(Region::Lcdc);
     } else {
       println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
     }
@@ -137,6 +157,68 @@ impl VRam {
     value
   }
 
+  pub fn flush_banks(&mut self, vram: &mut VRam) {
+    if vram.updated.is_empty() {
+      return;
+    }
+
+    for updated in &vram.updated {
+      match updated {
+        Region::Lcdc => {
+          for bank in &vram.lcdc {
+            self.banks[*bank as usize] = vram.banks[*bank as usize].clone();
+          }
+          self.lcdc = vram.lcdc.clone();
+        }
+        Region::Arm7Wram => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.arm7_wram, &vram.arm7_wram);
+        }
+        Region::EngineABg => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_bg, &vram.engine_a_bg);
+        }
+        Region::EngineBBg => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_bg,&vram.engine_b_bg);
+        }
+        Region::EngineABgExtendedPalette => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_bg_extended_palette, &vram.engine_a_bg_extended_palette);
+        }
+        Region::EngineBBgExtendedPalette => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_bg_extended_palette, &vram.engine_b_bg_extended_palette);
+        }
+        Region::Textures => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.textures, &vram.textures);
+        }
+        Region::TexturePalette => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.texture_palette, &vram.texture_palette);
+        }
+        Region::EngineAObj => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_obj, &vram.engine_a_obj);
+        }
+        Region::EngineBObj => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_obj, &vram.engine_b_obj);
+        }
+        Region::EngineAObjExtendedPalette => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_obj_extended_palette, &vram.engine_a_obj_extended_palette);
+        }
+        Region::EngineBObjExtendedPalette => {
+          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_obj_extended_palette, &vram.engine_b_obj_extended_palette);
+        }
+      }
+    }
+
+    vram.updated.clear();
+  }
+
+  pub fn flush_bank(banks: &mut [Vec<u8>], other_banks: &[Vec<u8>], region: &mut Vec<HashSet<Bank>>, other_region: &Vec<HashSet<Bank>>) {
+    for elem in other_region {
+      for bank_enum in elem.iter() {
+        banks[*bank_enum as usize] = other_banks[*bank_enum as usize].clone();
+      }
+    }
+
+    *region = other_region.clone();
+  }
+
   pub fn write_arm7_wram(&mut self, address: u32, val: u8) {
     let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
     index = index as usize / BANK_SIZES[BANK_C as usize];
@@ -150,6 +232,8 @@ impl VRam {
 
       bank[address] = val;
     }
+
+    self.updated.insert(Region::Arm7Wram);
   }
 
   pub fn get_lcdc_bank(&mut self, block_num: u32) -> &Vec<u8> {
@@ -170,14 +254,17 @@ impl VRam {
 
   pub fn write_engine_a_obj(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address, val);
+    self.updated.insert(Region::EngineAObj);
   }
 
   pub fn write_engine_b_obj(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address, val);
+    self.updated.insert(Region::EngineBObj);
   }
 
   pub fn write_engine_a_bg(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks,&mut self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address, val);
+    self.updated.insert(Region::EngineABg);
   }
 
   fn write_mapping(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: u8) {
@@ -248,6 +335,7 @@ impl VRam {
 
   pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
+    self.updated.insert(Region::EngineBBg);
   }
 
   pub fn read_engine_a_bg(&self, address: u32) -> u8 {

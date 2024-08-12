@@ -301,13 +301,17 @@ impl GPU {
     let mut rendering_data_a = self.thread_data.rendering_data[0].lock().unwrap();
     let mut rendering_data_b = self.thread_data.rendering_data[1].lock().unwrap();
 
-    let pixels_a = rendering_data_a.pixels;
-    let pixels_b = rendering_data_b.pixels;
+    self.engine_a.pixels = rendering_data_a.pixels;
+    self.engine_b.pixels = rendering_data_b.pixels;
 
     let mut vram = self.thread_data.vram.lock().unwrap();
     let mut powcnt1 = self.thread_data.powcnt1.lock().unwrap();
 
-    *vram = self.vram.clone();
+    if !self.vram.updated.is_empty() {
+      *vram = self.vram.clone();
+      self.vram.updated.clear();
+    }
+
     *powcnt1 = self.powcnt1;
 
     macro_rules! set_rendering_data {
@@ -337,9 +341,6 @@ impl GPU {
 
     *rendering_data_a = set_rendering_data!(engine_a);
     *rendering_data_b = set_rendering_data!(engine_b);
-
-    rendering_data_a.pixels = pixels_a;
-    rendering_data_b.pixels = pixels_b;
   }
 
   pub fn start_next_line(
