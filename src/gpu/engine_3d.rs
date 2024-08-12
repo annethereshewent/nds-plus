@@ -1,4 +1,4 @@
-use std::{collections::{HashSet, VecDeque}, sync::{atomic::Ordering, Arc}};
+use std::collections::{HashSet, VecDeque};
 
 use box_test::BoxTest;
 use diffuse_color::DiffuseColor;
@@ -16,8 +16,16 @@ use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
 
 use super::{
   color::Color, registers::{
-    clear_color_register::ClearColorRegister, display_3d_control_register::Display3dControlRegister, fog_color_register::FogColorRegister, geometry_status_register::{GeometryIrq, GeometryStatusRegister}
-  }, ThreadData, SCREEN_HEIGHT, SCREEN_WIDTH
+    clear_color_register::ClearColorRegister,
+    display_3d_control_register::Display3dControlRegister,
+    fog_color_register::FogColorRegister,
+    geometry_status_register::{
+      GeometryIrq,
+      GeometryStatusRegister
+    }
+  },
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH
 };
 
 pub mod matrix;
@@ -353,8 +361,7 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>,
-  pub polygons_ready: bool
+  pub found: HashSet<String>
 }
 
 impl Engine3d {
@@ -424,8 +431,7 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new(),
-      polygons_ready: false
+      found: HashSet::new()
     }
   }
 
@@ -515,21 +521,25 @@ impl Engine3d {
   }
 
   pub fn execute_commands(&mut self, interrupt_request: &mut InterruptRequestRegister) {
-    if !self.polygons_ready {
+    if !self.gxstat.geometry_engine_busy {
       while let Some(entry) = self.fifo.pop_front() {
         self.execute_command(entry);
 
-        if self.polygons_ready {
+        if self.gxstat.geometry_engine_busy {
           break;
         }
       }
+    }
+
+    if self.fifo.is_empty() {
+      self.gxstat.geometry_engine_busy = false;
     }
 
     self.check_interrupts(interrupt_request);
   }
 
   pub fn should_run_dmas(&self) -> bool {
-    !self.polygons_ready && self.fifo.len() < FIFO_CAPACITY / 2
+    !self.gxstat.geometry_engine_busy && self.fifo.len() < FIFO_CAPACITY / 2
   }
 
   pub fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
@@ -644,8 +654,6 @@ impl Engine3d {
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
 
         self.gxstat.geometry_engine_busy = true;
-
-        self.polygons_ready = true;
       }
       Viewport => self.viewport.write(entry.param),
       MtxLoad4x4 => self.load_4_by_n_matrix(entry, MtxLoad4x4.get_num_params(), 4),

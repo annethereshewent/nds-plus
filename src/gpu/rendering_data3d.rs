@@ -8,8 +8,6 @@ pub struct RenderingData3d {
   pub toon_table: [Color; 32],
   pub disp3dcnt: Display3dControlRegister,
   pub gxstat: GeometryStatusRegister,
-  pub polygons_ready: bool,
-  pub gxstat_busy: bool
 }
 
 impl RenderingData3d {
@@ -22,8 +20,6 @@ impl RenderingData3d {
       toon_table: [Color::new(); 32],
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       gxstat: GeometryStatusRegister::new(),
-      polygons_ready: false,
-      gxstat_busy: false
     }
   }
 }

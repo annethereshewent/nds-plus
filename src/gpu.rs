@@ -354,8 +354,6 @@ impl GPU {
     rendering_data3d.clear_depth = self.engine3d.clear_depth;
     rendering_data3d.disp3dcnt = self.engine3d.disp3dcnt;
     rendering_data3d.gxstat = self.engine3d.gxstat;
-    rendering_data3d.polygons_ready = self.engine3d.polygons_ready;
-    rendering_data3d.gxstat_busy = self.engine3d.gxstat.geometry_engine_busy;
     rendering_data3d.polygon_buffer = self.engine3d.polygon_buffer.clone();
     rendering_data3d.vertices_buffer = self.engine3d.vertices_buffer.clone();
     rendering_data3d.toon_table = self.engine3d.toon_table;
@@ -368,9 +366,6 @@ impl GPU {
     cycles_left: usize)
   {
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES - cycles_left);
-
-    self.engine_a.clear_obj_lines();
-    self.engine_b.clear_obj_lines();
 
     let mut vcount = self.thread_data.vcount.load(Ordering::Acquire);
 
@@ -429,20 +424,6 @@ impl GPU {
         drop(powcnt1);
         self.flush_rendering_data3d();
         self.rendering3d_thread.as_ref().unwrap().thread().unpark();
-
-        loop {
-          hint::spin_loop();
-          let data = self.thread_data.rendering_data3d.lock().unwrap();
-
-          if !data.polygons_ready {
-            drop(data);
-            break;
-          }
-          drop(data);
-        }
-
-        self.engine3d.polygons_ready = false;
-        self.engine3d.gxstat.geometry_engine_busy = false;
 
         self.engine3d.execute_commands(&mut interrupt_requests[1]);
 

@@ -1,8 +1,25 @@
-use std::{cmp, collections::HashSet, sync::{atomic::{AtomicBool, Ordering}, Mutex}};
+use std::cmp;
 
-use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, rendering_data3d::RenderingData3d, vram::VRam, ThreadData, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{
+  color::Color,
+  registers::display_3d_control_register::Display3dControlRegister,
+  rendering_data3d::RenderingData3d,
+  vram::VRam,
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH
+};
 
-use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, renderer3d::Renderer3d, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
+use super::{
+  polygon::Polygon,
+  polygon_attributes::{
+    PolygonAttributes,
+    PolygonMode
+  },
+  renderer3d::Renderer3d,
+  texture_params::TextureFormat,
+  vertex::Vertex,
+  Pixel3d
+};
 
 
 pub struct Deltas {
@@ -157,7 +174,7 @@ impl Renderer3d {
     data: &mut RenderingData3d,
     frame_buffer: &mut [Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
   ) {
-    if data.polygons_ready {
+    if data.gxstat.geometry_engine_busy {
       if data.clear_color.alpha != 0 {
         for pixel in frame_buffer.iter_mut() {
           pixel.color = Some(Color {
@@ -178,8 +195,7 @@ impl Renderer3d {
       }
 
       data.vertices_buffer.clear();
-      data.polygons_ready = false;
-      data.gxstat_busy = false;
+      data.gxstat.geometry_engine_busy = false;
     }
   }
 
@@ -473,7 +489,11 @@ impl Renderer3d {
         }
 
         if let Some(mut color) = color {
-          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && pixel.color.unwrap().alpha.is_some() && color.alpha.is_some() {
+          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) &&
+            pixel.color.is_some() &&
+            pixel.color.unwrap().alpha.is_some() &&
+            color.alpha.is_some()
+          {
             let fb_alpha = pixel.color.unwrap().alpha.unwrap();
             let polygon_alpha = color.alpha.unwrap();
 
