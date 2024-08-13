@@ -223,7 +223,8 @@ impl VRam {
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
-      value |= bank[address as usize] as u16 | (bank[(address + 1) as usize] as u16) << 8;
+      // value |= bank[address as usize] as u16 | (bank[(address + 1) as usize] as u16) << 8;
+      value |= unsafe { *(&bank[address as usize] as *const u8 as *const u16) }
     }
 
     value

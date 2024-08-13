@@ -327,6 +327,7 @@ impl Engine3d {
     let mut boundary1 = left_start.screen_x as f32;
     let mut boundary2 = right_start.screen_x as f32;
 
+
     while y < max_y {
       while y >= left_end.screen_y {
         // need to calculate a new left slope
@@ -422,8 +423,6 @@ impl Engine3d {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
 
-        z += dzdx;
-
         let mut vertex_color = rgb_d.next_color();
 
         vertex_color.alpha = Some(polygon.attributes.alpha());
@@ -496,6 +495,7 @@ impl Engine3d {
             pixel.depth = z as u32;
           }
         }
+        z += dzdx;
         x += 1;
       }
       boundary1 += left_slope;
