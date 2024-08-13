@@ -21,6 +21,7 @@ pub struct DmaParams {
   pub destination_address: u32
 }
 
+#[derive(Copy, Clone)]
 pub struct DmaChannel {
   id: usize,
   pub source_address: u32,

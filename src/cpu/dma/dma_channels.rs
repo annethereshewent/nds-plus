@@ -6,6 +6,7 @@ use super::dma_channel::{registers::dma_control_register::{DmaControlRegister, D
 // pub const HBLANK_TIMING: u16 = 2;
 // const FIFO_TIMING: u16 = 3;
 
+#[derive(Copy, Clone)]
 pub struct DmaChannels {
   pub channels: [DmaChannel; 4],
   is_arm9: bool

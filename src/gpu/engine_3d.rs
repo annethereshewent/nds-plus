@@ -361,7 +361,8 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>
+  pub found: HashSet<String>,
+  pub polygons_ready: bool
 }
 
 impl Engine3d {
@@ -431,7 +432,8 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new()
+      found: HashSet::new(),
+      polygons_ready: false
     }
   }
 
@@ -521,25 +523,15 @@ impl Engine3d {
   }
 
   pub fn execute_commands(&mut self, interrupt_request: &mut InterruptRequestRegister) {
-    if !self.gxstat.geometry_engine_busy {
-      while let Some(entry) = self.fifo.pop_front() {
-        self.execute_command(entry);
-
-        if self.gxstat.geometry_engine_busy {
-          break;
-        }
-      }
-    }
-
-    if self.fifo.is_empty() {
-      self.gxstat.geometry_engine_busy = false;
+    while let Some(entry) = self.fifo.pop_front() {
+      self.execute_command(entry);
     }
 
     self.check_interrupts(interrupt_request);
   }
 
   pub fn should_run_dmas(&self) -> bool {
-    !self.gxstat.geometry_engine_busy && self.fifo.len() < FIFO_CAPACITY / 2
+    self.fifo.len() < FIFO_CAPACITY / 2
   }
 
   pub fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
@@ -555,9 +547,7 @@ impl Engine3d {
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
-    if self.fifo.len() < FIFO_CAPACITY {
-      self.gxstat.geometry_engine_busy = false;
-    }
+    self.gxstat.geometry_engine_busy = true;
 
     use Command::*;
     match entry.command {
@@ -653,7 +643,7 @@ impl Engine3d {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
 
-        self.gxstat.geometry_engine_busy = true;
+        self.polygons_ready = true;
       }
       Viewport => self.viewport.write(entry.param),
       MtxLoad4x4 => self.load_4_by_n_matrix(entry, MtxLoad4x4.get_num_params(), 4),
@@ -960,13 +950,13 @@ impl Engine3d {
         if !self.command_started {
           self.command_started = true;
 
-          self.num_params = BoxTest.get_num_params();
-          self.max_params = self.num_params;
+          self.command_params = BoxTest.get_num_params();
+          self.max_params = self.command_params;
 
           self.box_test = box_test::BoxTest::new();
         }
 
-        let index = self.max_params - self.num_params;
+        let index = self.max_params - self.command_params;
 
         if index == 0 {
           self.box_test.x = entry.param as i16;
@@ -979,15 +969,19 @@ impl Engine3d {
           self.box_test.depth = (entry.param >> 16) as i16;
         }
 
-        self.num_params -= 1;
+        self.command_params -= 1;
 
-        if self.num_params == 0 {
+        if self.command_params == 0 {
           self.gxstat.box_test_result = self.box_test.do_test(self.clip_matrix);
 
           self.command_started = false;
         }
       }
       _ => panic!("command not iplemented yet: {:?}", entry.command)
+    }
+
+    if self.command_params != 0 || self.fifo.is_empty() {
+      self.gxstat.geometry_engine_busy = false;
     }
   }
 
@@ -1526,7 +1520,9 @@ impl Engine3d {
   pub fn push_command(&mut self, entry: GeometryCommandEntry, interrupt_request: &mut InterruptRequestRegister) {
     self.fifo.push_back(entry);
 
-    self.execute_commands(interrupt_request);
+    if !self.polygons_ready {
+      self.execute_commands(interrupt_request);
+    }
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {

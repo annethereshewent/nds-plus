@@ -348,14 +348,20 @@ impl GPU {
   }
 
   fn flush_rendering_data3d(&mut self) {
+    self.engine3d.polygons_ready = false;
+
     let mut rendering_data3d = self.thread_data.rendering_data3d.lock().unwrap();
 
     rendering_data3d.clear_color = self.engine3d.clear_color;
     rendering_data3d.clear_depth = self.engine3d.clear_depth;
     rendering_data3d.disp3dcnt = self.engine3d.disp3dcnt;
     rendering_data3d.gxstat = self.engine3d.gxstat;
+    // rendering_data3d.polygon_buffer.copy_from_slice(&self.engine3d.polygon_buffer);
+    // rendering_data3d.vertices_buffer.copy_from_slice(&self.engine3d.vertices_buffer);
+
     rendering_data3d.polygon_buffer = self.engine3d.polygon_buffer.clone();
     rendering_data3d.vertices_buffer = self.engine3d.vertices_buffer.clone();
+
     rendering_data3d.toon_table = self.engine3d.toon_table;
   }
 
@@ -407,23 +413,12 @@ impl GPU {
         dispstat.flags.insert(DispStatFlags::VBLANK);
       }
 
-      for dma in dma_channels {
+      for dma in &mut *dma_channels {
         dma.notify_gpu_event(DmaTiming::Vblank);
       }
 
-      self.frame_finished = true;
-
-      Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
-    } else if vcount == NUM_LINES - 48 {
-      // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
-      // self.engine3d.clear_frame_buffer();
-
-      let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
-
-      if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
-        drop(powcnt1);
+      if self.engine3d.polygons_ready {
         self.flush_rendering_data3d();
-        self.rendering3d_thread.as_ref().unwrap().thread().unpark();
 
         self.engine3d.execute_commands(&mut interrupt_requests[1]);
 
@@ -432,6 +427,23 @@ impl GPU {
             dma.notify_geometry_fifo_event();
           }
         }
+      }
+
+      self.frame_finished = true;
+
+      Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
+    } else if vcount == SCREEN_HEIGHT {
+
+    } else if vcount == NUM_LINES - 48 {
+      // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
+      // self.engine3d.clear_frame_buffer();
+
+      let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
+
+      if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
+        drop(powcnt1);
+
+        self.rendering3d_thread.as_ref().unwrap().thread().unpark();
       }
     }
 

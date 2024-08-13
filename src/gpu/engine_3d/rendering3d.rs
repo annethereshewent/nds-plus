@@ -174,29 +174,27 @@ impl Renderer3d {
     data: &mut RenderingData3d,
     frame_buffer: &mut [Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
   ) {
-    if data.gxstat.geometry_engine_busy {
-      if data.clear_color.alpha != 0 {
-        for pixel in frame_buffer.iter_mut() {
-          pixel.color = Some(Color {
-            r: data.clear_color.r,
-            g: data.clear_color.g,
-            b: data.clear_color.b,
-            alpha: Some(data.clear_color.alpha)
-          });
-          pixel.depth = data.clear_depth as u32;
-        }
-      } else {
-        Self::clear_frame_buffer(frame_buffer, &data);
+    if data.clear_color.alpha != 0 {
+      for pixel in frame_buffer.iter_mut() {
+        pixel.color = Some(Color {
+          r: data.clear_color.r,
+          g: data.clear_color.g,
+          b: data.clear_color.b,
+          alpha: Some(data.clear_color.alpha)
+        });
+        pixel.depth = data.clear_depth as u32;
       }
-
-      for polygon in data.polygon_buffer.drain(..) {
-        let vertices = &mut data.vertices_buffer[polygon.start..polygon.end];
-        Self::render_polygon(&polygon, vertices, vram, frame_buffer, &data.toon_table, &data.disp3dcnt);
-      }
-
-      data.vertices_buffer.clear();
-      data.gxstat.geometry_engine_busy = false;
+    } else {
+      Self::clear_frame_buffer(frame_buffer, &data);
     }
+
+    for polygon in data.polygon_buffer.drain(..) {
+      let vertices = &mut data.vertices_buffer[polygon.start..polygon.end];
+      Self::render_polygon(&polygon, vertices, vram, frame_buffer, &data.toon_table, &data.disp3dcnt);
+    }
+
+    data.polygons_ready = false;
+    data.vertices_buffer.clear();
   }
 
   pub fn clear_frame_buffer(frame_buffer: &mut [Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize], data: &RenderingData3d) {

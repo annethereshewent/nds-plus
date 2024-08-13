@@ -5,6 +5,7 @@ pub struct RenderingData3d {
   pub clear_depth: u32,
   pub vertices_buffer: Vec<Vertex>,
   pub polygon_buffer: Vec<Polygon>,
+  pub polygons_ready: bool,
   pub toon_table: [Color; 32],
   pub disp3dcnt: Display3dControlRegister,
   pub gxstat: GeometryStatusRegister,
@@ -20,6 +21,7 @@ impl RenderingData3d {
       toon_table: [Color::new(); 32],
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       gxstat: GeometryStatusRegister::new(),
+      polygons_ready: false
     }
   }
 }
