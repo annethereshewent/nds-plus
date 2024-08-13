@@ -288,11 +288,9 @@ impl Bus {
     let mut cpu_cycles = 0;
 
     if is_arm9 && self.arm9.dma.has_pending_transfers() {
-      let mut dma_params = self.arm9.dma.get_transfer_parameters();
-
       for i in 0..4 {
-        if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, is_arm9);
+        if let Some(mut params) = self.arm9.dma.get_transfer_parameters(i) {
+          cpu_cycles += self.handle_dma(&mut params, is_arm9);
 
           // i would DRY this code up by adding it to the handle DMA method, but Rust is being a jerk
           // about ownership :/
@@ -317,11 +315,9 @@ impl Bus {
         }
       }
     } else if !is_arm9 && self.arm7.dma.has_pending_transfers() {
-      let mut dma_params = self.arm7.dma.get_transfer_parameters();
-
       for i in 0..4 {
-        if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, is_arm9);
+        if let Some(mut params) = self.arm7.dma.get_transfer_parameters(i) {
+          cpu_cycles += self.handle_dma(&mut params, is_arm9);
 
           // update internal destination and source address for the dma channel as well.
           // see above comment

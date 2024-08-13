@@ -959,13 +959,13 @@ impl Engine3d {
         if !self.command_started {
           self.command_started = true;
 
-          self.num_params = BoxTest.get_num_params();
-          self.max_params = self.num_params;
+          self.command_params = BoxTest.get_num_params();
+          self.max_params = self.command_params;
 
           self.box_test = box_test::BoxTest::new();
         }
 
-        let index = self.max_params - self.num_params;
+        let index = self.max_params - self.command_params;
 
         if index == 0 {
           self.box_test.x = entry.param as i16;
@@ -978,9 +978,9 @@ impl Engine3d {
           self.box_test.depth = (entry.param >> 16) as i16;
         }
 
-        self.num_params -= 1;
+        self.command_params -= 1;
 
-        if self.num_params == 0 {
+        if self.command_params == 0 {
           self.gxstat.box_test_result = self.box_test.do_test(self.clip_matrix);
 
           self.command_started = false;
