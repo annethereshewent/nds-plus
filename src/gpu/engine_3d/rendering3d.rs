@@ -213,8 +213,8 @@ impl Engine3d {
     toon_table: &[Color],
     disp3dcnt: &Display3dControlRegister,
     debug_on: bool,
-    found: &mut HashSet<String>)
-  {
+    found: &mut HashSet<String>
+  ) {
     let mut min_y = vertices[0].screen_y;
     let mut max_y = vertices[0].screen_y;
     let mut min_x = vertices[0].screen_x;
@@ -337,15 +337,17 @@ impl Engine3d {
 
         left_start_index = left_end_index;
 
-        left_slope = Self::calculate_slope(left_start, left_end);
+        if y < left_end.screen_y {
+          left_slope = Self::calculate_slope(left_start, left_end);
 
-        left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
-        left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
+          left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
+          left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
 
-        left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
-        left_vertical_delta = Deltas::get_deltas(left_start, left_end);
+          left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
+          left_vertical_delta = Deltas::get_deltas(left_start, left_end);
 
-        boundary1 = left_start.screen_x as f32;
+          boundary1 = left_start.screen_x as f32;
+        }
       }
       while y >= right_end.screen_y {
         // need to calculate a new right slope
@@ -356,15 +358,17 @@ impl Engine3d {
 
         right_start_index = right_end_index;
 
-        right_slope = Self::calculate_slope(right_start, right_end);
+        if y < right_end.screen_y {
+          right_slope = Self::calculate_slope(right_start, right_end);
 
-        right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
-        right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
+          right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
+          right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
 
-        right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
-        right_vertical_delta = Deltas::get_deltas(right_start, right_end);
+          right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
+          right_vertical_delta = Deltas::get_deltas(right_start, right_end);
 
-        boundary2 = right_start.screen_x as f32;
+          boundary2 = right_start.screen_x as f32;
+        }
       }
 
       let left_u = left_vertical_u.next();

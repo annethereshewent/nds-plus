@@ -1,6 +1,6 @@
 use std::{
   collections::VecDeque,
-  fs::{self, File},
+  fs,
   path::PathBuf,
   sync::{
     Arc,
@@ -346,7 +346,7 @@ impl Bus {
   }
 
   // these are similar to the cpu methods but only to be used with dma
-  pub fn load_32(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
+  fn load_32(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width32);
 
@@ -359,7 +359,7 @@ impl Bus {
     }
   }
 
-  pub fn load_16(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
+ fn load_16(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width16);
 
@@ -372,35 +372,7 @@ impl Bus {
     }
   }
 
-  pub fn load_8(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u8, u32) {
-    // TODO: write this method
-    // self.get_cycles(address, access, MemoryWidth::Width8);
-
-    let cpu_cycles = 1;
-
-    if !is_arm9 {
-      (self.arm7_mem_read_8(address), cpu_cycles)
-    } else {
-      (self.arm9_mem_read_8(address), cpu_cycles)
-    }
-  }
-
-  pub fn store_8(&mut self, address: u32, value: u8, _access: MemoryAccess, is_arm9: bool) -> u32 {
-    // TODO
-    // self.get_cycles(address, access, MemoryWidth::Width8);
-
-    let cpu_cycles = 1;
-
-    if !is_arm9 {
-      self.arm7_mem_write_8(address, value);
-    } else {
-      self.arm9_mem_write_8(address, value);
-    }
-
-    cpu_cycles
-  }
-
-  pub fn store_16(&mut self, address: u32, value: u16, _access: MemoryAccess, is_arm9: bool) -> u32 {
+  fn store_16(&mut self, address: u32, value: u16, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8)
 
@@ -415,7 +387,7 @@ impl Bus {
     cpu_cycles
   }
 
-  pub fn store_32(&mut self, address: u32, value: u32, _access: MemoryAccess, is_arm9: bool) -> u32 {
+  fn store_32(&mut self, address: u32, value: u32, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8);
 
