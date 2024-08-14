@@ -6,9 +6,6 @@ use self::registers::dma_control_register::DmaControlRegister;
 
 pub mod registers;
 
-const FIFO_REGISTER_A: u32 = 0x400_00a0;
-const FIFO_REGISTER_B: u32 = 0x400_00a4;
-
 #[derive(Copy, Clone, Debug)]
 pub struct DmaParams {
   pub fifo_mode: bool,
@@ -81,14 +78,6 @@ impl DmaChannel {
       _ => panic!("illegal value specified for source address control")
     };
 
-    // might need to add this back in
-    // if self.id == 3 && word_size == 2 {
-    //   if let BackupMedia::Eeprom(eeprom_controller) = &mut cpu.cartridge.backup {
-    //     eeprom_controller.handle_dma(self.internal_destination_address, self.internal_source_address, self.internal_count.into());
-    //   }
-    // }
-
-
     if self.dma_control.contains(DmaControlRegister::IRQ_ENABLE) {
       should_trigger_irq = true;
     }
@@ -145,11 +134,6 @@ impl DmaChannel {
       } else {
         self.pending = false;
       }
-
-      // self.fifo_mode = timing == DmaTiming::Fifo
-      //   && dma_control.contains(DmaControlRegister::DMA_REPEAT)
-      //   && (self.id == 1) || (self.id == 2)
-      //   && (self.destination_address == FIFO_REGISTER_A || self.destination_address == FIFO_REGISTER_B);
     }
 
     if !dma_control.contains(DmaControlRegister::DMA_ENABLE) {

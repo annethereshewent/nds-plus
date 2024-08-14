@@ -104,21 +104,19 @@ impl DmaChannels{
     }
   }
 
-  pub fn get_transfer_parameters(&mut self) -> Vec<Option<DmaParams>> {
-    let mut dma_params = Vec::new();
+  pub fn get_transfer_parameters(&mut self, index: usize) -> Option<DmaParams> {
+    let channel = &mut self.channels[index];
 
-    for channel in &mut self.channels {
-      if channel.pending {
-        let params = channel.get_transfer_parameters();
+    if channel.pending {
+      let params = channel.get_transfer_parameters();
 
-        dma_params.push(Some(params));
-        channel.pending = false;
-      } else {
-        dma_params.push(None);
-      }
+      channel.pending = false;
+
+      return Some(params);
     }
 
-    dma_params
+
+    None
   }
 
   pub fn has_pending_transfers(&self) -> bool {

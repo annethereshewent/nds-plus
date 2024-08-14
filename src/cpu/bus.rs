@@ -9,6 +9,7 @@ use std::{
   thread::JoinHandle
 };
 
+use crate::number::Number;
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -289,11 +290,9 @@ impl Bus {
     let mut cpu_cycles = 0;
 
     if is_arm9 && self.arm9.dma.has_pending_transfers() {
-      let mut dma_params = self.arm9.dma.get_transfer_parameters();
-
       for i in 0..4 {
-        if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, is_arm9);
+        if let Some(mut params) = self.arm9.dma.get_transfer_parameters(i) {
+          cpu_cycles += self.handle_dma(&mut params, is_arm9);
 
           // i would DRY this code up by adding it to the handle DMA method, but Rust is being a jerk
           // about ownership :/
@@ -318,11 +317,9 @@ impl Bus {
         }
       }
     } else if !is_arm9 && self.arm7.dma.has_pending_transfers() {
-      let mut dma_params = self.arm7.dma.get_transfer_parameters();
-
       for i in 0..4 {
-        if let Some(params) = &mut dma_params[i] {
-          cpu_cycles += self.handle_dma(params, is_arm9);
+        if let Some(mut params) = self.arm7.dma.get_transfer_parameters(i) {
+          cpu_cycles += self.handle_dma(&mut params, is_arm9);
 
           // update internal destination and source address for the dma channel as well.
           // see above comment
@@ -351,7 +348,7 @@ impl Bus {
   }
 
   // these are similar to the cpu methods but only to be used with dma
-  pub fn load_32(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
+  fn load_32(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u32, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width32);
 
@@ -364,7 +361,7 @@ impl Bus {
     }
   }
 
-  pub fn load_16(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
+ fn load_16(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u16, u32) {
     // TODO: write this method
     // self.get_cycles(address, access, MemoryWidth::Width16);
 
@@ -377,35 +374,7 @@ impl Bus {
     }
   }
 
-  pub fn load_8(&mut self, address: u32, _access: MemoryAccess, is_arm9: bool) -> (u8, u32) {
-    // TODO: write this method
-    // self.get_cycles(address, access, MemoryWidth::Width8);
-
-    let cpu_cycles = 1;
-
-    if !is_arm9 {
-      (self.arm7_mem_read_8(address), cpu_cycles)
-    } else {
-      (self.arm9_mem_read_8(address), cpu_cycles)
-    }
-  }
-
-  pub fn store_8(&mut self, address: u32, value: u8, _access: MemoryAccess, is_arm9: bool) -> u32 {
-    // TODO
-    // self.get_cycles(address, access, MemoryWidth::Width8);
-
-    let cpu_cycles = 1;
-
-    if !is_arm9 {
-      self.arm7_mem_write_8(address, value);
-    } else {
-      self.arm9_mem_write_8(address, value);
-    }
-
-    cpu_cycles
-  }
-
-  pub fn store_16(&mut self, address: u32, value: u16, _access: MemoryAccess, is_arm9: bool) -> u32 {
+  fn store_16(&mut self, address: u32, value: u16, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8)
 
@@ -420,7 +389,7 @@ impl Bus {
     cpu_cycles
   }
 
-  pub fn store_32(&mut self, address: u32, value: u32, _access: MemoryAccess, is_arm9: bool) -> u32 {
+  fn store_32(&mut self, address: u32, value: u32, _access: MemoryAccess, is_arm9: bool) -> u32 {
     // TODO
     // self.get_cycles(address, access, MemoryWidth::Width8);
 
@@ -516,7 +485,7 @@ impl Bus {
     0
   }
 
-  pub fn read_gba_rom(&self, address: u32, is_arm9: bool) -> u8 {
+  pub fn read_gba_rom<T: Number>(&self, address: u32, is_arm9: bool) -> T {
     let exmemcnt = if is_arm9 {
       &self.exmem.arm9_exmem
     } else {
@@ -533,17 +502,20 @@ impl Bus {
         _ => unreachable!()
       } & 0xffff;
 
-      return match address & 0x3 {
-        0 => value as u8,
-        1 => (value >> 8) as u8,
+      let value = match address & 0x3 {
+        0 => value,
+        1 => value >> 8,
         2 => 0,
         3 => 0,
         _ => unreachable!()
       };
+
+      // for some reason this isn't working rn
+      return num::cast::<u32, T>(value).unwrap();
     }
 
     // return back 0 for the deselected cpu
-    0
+    num::zero()
   }
 
   pub fn step_audio(&mut self, channel_id: usize, cycles_left: usize) {

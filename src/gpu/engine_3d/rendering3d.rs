@@ -207,7 +207,7 @@ impl Renderer3d {
   fn get_palette_color(polygon: &Polygon, palette_base: u32, palette_index: u32, vram: &VRam, alpha: Option<u8>) -> Option<Color> {
     let address = palette_base + 2 * palette_index;
 
-    let color_raw = vram.read_texture_palette(address);
+    let color_raw = vram.read_texture_palette::<u16>(address);
 
     let mut color = Color::from(color_raw).to_rgb6();
 
@@ -236,8 +236,8 @@ impl Renderer3d {
     vram: &VRam,
     frame_buffer: &mut [Pixel3d],
     toon_table: &[Color],
-    disp3dcnt: &Display3dControlRegister)
-  {
+    disp3dcnt: &Display3dControlRegister
+  ) {
     let mut min_y = vertices[0].screen_y;
     let mut max_y = vertices[0].screen_y;
     let mut min_x = vertices[0].screen_x;
@@ -350,6 +350,7 @@ impl Renderer3d {
     let mut boundary1 = left_start.screen_x as f32;
     let mut boundary2 = right_start.screen_x as f32;
 
+
     while y < max_y {
       while y >= left_end.screen_y {
         // need to calculate a new left slope
@@ -360,15 +361,17 @@ impl Renderer3d {
 
         left_start_index = left_end_index;
 
-        left_slope = Self::calculate_slope(left_start, left_end);
+        if y < left_end.screen_y {
+          left_slope = Self::calculate_slope(left_start, left_end);
 
-        left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
-        left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
+          left_vertical_u = Slope::get_texture_slope(left_start, left_end, true);
+          left_vertical_v = Slope::get_texture_slope(left_start, left_end, false);
 
-        left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
-        left_vertical_delta = Deltas::get_deltas(left_start, left_end);
+          left_vertical_rgb = RgbSlopes::get_slopes(left_start, left_end);
+          left_vertical_delta = Deltas::get_deltas(left_start, left_end);
 
-        boundary1 = left_start.screen_x as f32;
+          boundary1 = left_start.screen_x as f32;
+        }
       }
       while y >= right_end.screen_y {
         // need to calculate a new right slope
@@ -379,15 +382,17 @@ impl Renderer3d {
 
         right_start_index = right_end_index;
 
-        right_slope = Self::calculate_slope(right_start, right_end);
+        if y < right_end.screen_y {
+          right_slope = Self::calculate_slope(right_start, right_end);
 
-        right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
-        right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
+          right_vertical_u = Slope::get_texture_slope(right_start, right_end, true);
+          right_vertical_v = Slope::get_texture_slope(right_start, right_end, false);
 
-        right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
-        right_vertical_delta = Deltas::get_deltas(right_start, right_end);
+          right_vertical_rgb = RgbSlopes::get_slopes(right_start, right_end);
+          right_vertical_delta = Deltas::get_deltas(right_start, right_end);
 
-        boundary2 = right_start.screen_x as f32;
+          boundary2 = right_start.screen_x as f32;
+        }
       }
 
       let left_u = left_vertical_u.next();
@@ -440,8 +445,6 @@ impl Renderer3d {
       while x < boundary2_u32 as u32 {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
-
-        z += dzdx;
 
         let mut vertex_color = rgb_d.next_color();
 
@@ -519,6 +522,7 @@ impl Renderer3d {
             pixel.depth = z as u32;
           }
         }
+        z += dzdx;
         x += 1;
       }
       boundary1 += left_slope;
@@ -627,7 +631,7 @@ impl Renderer3d {
     match polygon.tex_params.texture_format {
       TextureFormat::None => None,
       TextureFormat::A3I5Transluscent => {
-        let byte = vram.read_texture(address);
+        let byte = vram.read_texture::<u8>(address);
 
         let palette_index = byte & 0x1f;
         let alpha = (byte >> 5) & 0x7;
@@ -635,7 +639,7 @@ impl Renderer3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha * 4 + alpha / 2))
       }
       TextureFormat::A5I3Transluscent => {
-        let byte = vram.read_texture(address);
+        let byte = vram.read_texture::<u8>(address);
 
         let palette_index = byte & 0x7;
 
@@ -646,7 +650,7 @@ impl Renderer3d {
       TextureFormat::Color16 => {
         let real_address = vram_offset + texel / 2;
 
-        let byte = vram.read_texture(real_address);
+        let byte = vram.read_texture::<u8>(real_address);
 
         let palette_index = if texel & 0b1 == 0 {
           byte & 0xf
@@ -657,7 +661,7 @@ impl Renderer3d {
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
       TextureFormat::Color256 => {
-        let palette_index = vram.read_texture(address);
+        let palette_index = vram.read_texture::<u8>(address);
 
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
       }
@@ -668,7 +672,7 @@ impl Renderer3d {
 
         let base_address = vram_offset + 4 * block_address;
 
-        let mut texel_value = vram.read_texture(base_address + (v & 0x3));
+        let mut texel_value = vram.read_texture::<u8>(base_address + (v & 0x3));
 
         texel_value = match u & 0x3 {
           0 => texel_value & 0x3,
@@ -684,7 +688,7 @@ impl Renderer3d {
           0
         };
 
-        let extra_palette_info = vram.read_texture_16(slot1_address);
+        let extra_palette_info = vram.read_texture::<u16>(slot1_address);
 
         let palette_offset = palette_base as u32 + ((extra_palette_info & 0x3fff) * 4) as u32;
 
@@ -733,7 +737,7 @@ impl Renderer3d {
         }
       }
       TextureFormat::Color4 => {
-        let mut palette_index = vram.read_texture(vram_offset + texel / 4);
+        let mut palette_index = vram.read_texture::<u8>(vram_offset + texel / 4);
 
         palette_index = match texel & 0x3 {
           0 => palette_index & 0x3,
@@ -759,7 +763,7 @@ impl Renderer3d {
       }
       TextureFormat::Direct => {
         let address = vram_offset + 2 * texel;
-        let color_raw = vram.read_texture_16(address);
+        let color_raw = vram.read_texture::<u16>(address);
 
         let alpha = if color_raw & 0x8000 == 0 { Some(0) } else { None };
 

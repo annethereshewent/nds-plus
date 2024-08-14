@@ -16,6 +16,8 @@ use engine_2d::{
   ObjectPixel
 };
 use engine_3d::{renderer3d::Renderer3d, Engine3d, Pixel3d};
+
+use crate::number::Number;
 use registers::{
     display_capture_control_register::{
     CaptureSource,
@@ -40,8 +42,7 @@ use crate::{
     dma::{
       dma_channel::registers::dma_control_register::DmaTiming,
       dma_channels::DmaChannels
-    },
-    registers::{
+    }, registers::{
       interrupt_request_register::InterruptRequestRegister,
       mosaic_register::MosaicRegister
     }
@@ -574,24 +575,25 @@ impl GPU {
     }
   }
 
-  pub fn write_palette_a(&mut self, address: u32, val: u8) {
+  pub fn write_palette_a<T: Number>(&mut self, address: u32, val: T) {
     self.engine_a.write_palette_ram(address, val);
   }
 
-  pub fn read_palette_a(&self, address: u32) -> u8 {
-    self.engine_a.read_palette_ram(address)
+  pub fn read_palette_a<T: Number>(&self, address: u32) -> T {
+    self.engine_a.read_palette_ram::<T>(address)
   }
 
-  pub fn read_palette_b(&self, address: u32) -> u8 {
-    self.engine_b.read_palette_ram(address)
+  pub fn read_palette_b<T: Number>(&self, address: u32) -> T {
+    self.engine_b.read_palette_ram::<T>(address)
   }
 
-  pub fn write_palette_b(&mut self, address: u32, val: u8) {
+  pub fn write_palette_b<T: Number>(&mut self, address: u32, val: T) {
     self.engine_b.write_palette_ram(address, val);
   }
 
-  pub fn write_lcdc(&mut self, address: u32, val: u8) {
+  pub fn write_lcdc<T: Number>(&mut self, address: u32, val: T) {
     let mut vram = self.thread_data.vram.lock().unwrap();
+
     match address {
       0x680_0000..=0x681_ffff => vram.write_lcdc_bank(Bank::BankA, address, val),
       0x682_0000..=0x683_ffff => vram.write_lcdc_bank(Bank::BankB, address, val),
@@ -606,9 +608,8 @@ impl GPU {
     }
   }
 
-  pub fn read_lcdc(&mut self, address: u32) -> u8 {
+  pub fn read_lcdc<T: Number>(&mut self, address: u32) -> T {
     let mut vram = self.thread_data.vram.lock().unwrap();
-
     match address {
       0x680_0000..=0x681_ffff => vram.read_lcdc_bank(Bank::BankA, address),
       0x682_0000..=0x683_ffff => vram.read_lcdc_bank(Bank::BankB, address),
@@ -623,7 +624,7 @@ impl GPU {
     }
   }
 
-  pub fn read_arm7_wram(&self, address: u32) -> u8 {
+  pub fn read_arm7_wram<T: Number>(&self, address: u32) -> T {
     self.thread_data.vram.lock().unwrap().read_arm7_wram(address)
   }
 

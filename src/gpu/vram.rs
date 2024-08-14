@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::number::Number;
+
 use super::{registers::vram_control_register::VramControlRegister, BANK_C};
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -114,32 +116,30 @@ impl VRam {
     vec
   }
 
-  pub fn write_lcdc_bank(&mut self, bank_enum: Bank, address: u32, value: u8) {
+  pub fn write_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32, value: T) {
     if self.lcdc.contains(&bank_enum) {
       let bank = &mut self.banks[bank_enum as usize];
       let bank_len = bank.len();
 
-      bank[(address as usize) & (bank_len - 1)] = value;
-
-      self.updated.insert(Region::Lcdc);
+      unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
     } else {
       println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
     }
   }
 
-  pub fn read_lcdc_bank(&mut self, bank_enum: Bank, address: u32) -> u8 {
+  pub fn read_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32) -> T {
     if self.lcdc.contains(&bank_enum) {
       let bank = &mut self.banks[bank_enum as usize];
 
-      bank[(address as usize) & (bank.len() - 1)]
+      unsafe { *(&bank[(address as usize) & (bank.len() - 1)] as *const u8 as *const T) }
     } else {
       println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
-      0
+      num::zero()
     }
   }
 
-  pub fn read_arm7_wram(&self, address: u32) -> u8 {
-    let mut value: u8 = 0;
+  pub fn read_arm7_wram<T: Number>(&self, address: u32) -> T {
+    let mut value: T = num::zero();
 
     let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
     index = index as usize / BANK_SIZES[BANK_C as usize];
@@ -151,75 +151,13 @@ impl VRam {
     for bank_enum in region.into_iter() {
       let bank = &self.banks[*bank_enum as usize];
 
-      value |= bank[address];
+      value |= unsafe { *(&bank[address] as *const u8 as *const T) };
     }
 
     value
   }
 
-  pub fn flush_banks(&mut self, vram: &mut VRam) {
-    if vram.updated.is_empty() {
-      return;
-    }
-
-    for updated in &vram.updated {
-      match updated {
-        Region::Lcdc => {
-          for bank in &vram.lcdc {
-            self.banks[*bank as usize] = vram.banks[*bank as usize].clone();
-          }
-          self.lcdc = vram.lcdc.clone();
-        }
-        Region::Arm7Wram => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.arm7_wram, &vram.arm7_wram);
-        }
-        Region::EngineABg => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_bg, &vram.engine_a_bg);
-        }
-        Region::EngineBBg => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_bg,&vram.engine_b_bg);
-        }
-        Region::EngineABgExtendedPalette => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_bg_extended_palette, &vram.engine_a_bg_extended_palette);
-        }
-        Region::EngineBBgExtendedPalette => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_bg_extended_palette, &vram.engine_b_bg_extended_palette);
-        }
-        Region::Textures => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.textures, &vram.textures);
-        }
-        Region::TexturePalette => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.texture_palette, &vram.texture_palette);
-        }
-        Region::EngineAObj => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_obj, &vram.engine_a_obj);
-        }
-        Region::EngineBObj => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_obj, &vram.engine_b_obj);
-        }
-        Region::EngineAObjExtendedPalette => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_a_obj_extended_palette, &vram.engine_a_obj_extended_palette);
-        }
-        Region::EngineBObjExtendedPalette => {
-          Self::flush_bank(&mut self.banks, &vram.banks, &mut self.engine_b_obj_extended_palette, &vram.engine_b_obj_extended_palette);
-        }
-      }
-    }
-
-    vram.updated.clear();
-  }
-
-  pub fn flush_bank(banks: &mut [Vec<u8>], other_banks: &[Vec<u8>], region: &mut Vec<HashSet<Bank>>, other_region: &Vec<HashSet<Bank>>) {
-    for elem in other_region {
-      for bank_enum in elem.iter() {
-        banks[*bank_enum as usize] = other_banks[*bank_enum as usize].clone();
-      }
-    }
-
-    *region = other_region.clone();
-  }
-
-  pub fn write_arm7_wram(&mut self, address: u32, val: u8) {
+  pub fn write_arm7_wram<T: Number>(&mut self, address: u32, val: T) {
     let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
     index = index as usize / BANK_SIZES[BANK_C as usize];
 
@@ -230,7 +168,7 @@ impl VRam {
     for bank_enum in region.into_iter() {
       let bank = &mut self.banks[*bank_enum as usize];
 
-      bank[address] = val;
+      unsafe { *(&mut bank[address] as *mut u8 as *mut T) = val };
     }
 
     self.updated.insert(Region::Arm7Wram);
@@ -252,22 +190,22 @@ impl VRam {
     }
   }
 
-  pub fn write_engine_a_obj(&mut self, address: u32, val: u8) {
+  pub fn write_engine_a_obj<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address, val);
     self.updated.insert(Region::EngineAObj);
   }
 
-  pub fn write_engine_b_obj(&mut self, address: u32, val: u8) {
+  pub fn write_engine_b_obj<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address, val);
     self.updated.insert(Region::EngineBObj);
   }
 
-  pub fn write_engine_a_bg(&mut self, address: u32, val: u8) {
+  pub fn write_engine_a_bg<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks,&mut self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address, val);
     self.updated.insert(Region::EngineABg);
   }
 
-  fn write_mapping(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: u8) {
+  fn write_mapping<T: Number>(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: T) {
     let index = address as usize / BLOCK_SIZE;
 
     let bank_enums = &region[index & mask];
@@ -277,14 +215,14 @@ impl VRam {
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
-      bank[address] = val;
+      unsafe { *(&mut bank[address] as *mut u8 as *mut T) = val };
     }
   }
 
-  fn read_mapping(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u8 {
+  fn read_mapping<T: Number>(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> T {
     let index = address as usize / BLOCK_SIZE;
 
-    let mut value = 0;
+    let mut value: T = num::zero();
 
     let bank_enums = &region[index & mask];
 
@@ -293,93 +231,55 @@ impl VRam {
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
-      value |= bank[address as usize];
+      value |= unsafe { *(&bank[address as usize] as *const u8 as *const T) }
     }
 
     value
   }
 
-  fn read_mapping_16(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u16 {
-    let index = address as usize / BLOCK_SIZE;
-
-    let mut value = 0;
-
-    let bank_enums = &region[index & mask];
-
-    for bank_enum in bank_enums.iter() {
-      let bank = &banks[*bank_enum as usize];
-
-      let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
-
-      value |= bank[address as usize] as u16 | (bank[(address + 1) as usize] as u16) << 8;
-    }
-
-    value
+  pub fn read_engine_a_obj<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_obj(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
+  pub fn read_engine_b_obj<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_obj(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn read_engine_a_obj_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn read_engine_b_obj_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
+  pub fn write_engine_b_bg<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
     self.updated.insert(Region::EngineBBg);
   }
 
-  pub fn read_engine_a_bg(&self, address: u32) -> u8 {
+  pub fn read_engine_a_bg<T: Number>(&self, address: u32) -> T {
     Self::read_mapping(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_bg_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_obj_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_bg(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
+  pub fn read_engine_b_extended_obj_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_bg_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_bg_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_obj_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_extended_bg_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_extended_obj_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_bg<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_bg_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
+  pub fn read_texture_palette<T: Number>(&self, index: u32) -> T {
+    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
   }
 
-  pub fn read_engine_b_extended_bg_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture_palette(&self, index: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
+  pub fn read_texture<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
   }
 
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {
