@@ -200,15 +200,17 @@ impl GPU {
           let powcnt1 = thread_data.powcnt1.lock().unwrap();
           let mut vram = thread_data.vram.lock().unwrap();
           let frame_buffer = thread_data.frame_buffer.lock().unwrap();
+          let mut dispcapcnt = thread_data.dispcapcnt.lock().unwrap();
+          let rendering_data_a = thread_data.rendering_data[0].lock().unwrap();
 
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, false);
 
             // capture image if needed
-            // if is_capturing.load(Ordering::Relaxed) && vcount < dispcapcnt.get_capture_height() {
-            //   dispcapcnt.capture_enable = false;
-            //   Self::start_capture_image(&mut dispcapcnt, &engine_a, vcount, &mut vram);
-            // }
+            if thread_data.is_capturing.load(Ordering::Relaxed) && vcount < dispcapcnt.get_capture_height() {
+              dispcapcnt.capture_enable = false;
+              Self::start_capture_image(&mut dispcapcnt, &rendering_data_a, vcount, &mut vram);
+            }
           }
           if powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, true);
@@ -218,6 +220,8 @@ impl GPU {
           drop(powcnt1);
           drop(vram);
           drop(frame_buffer);
+          drop(rendering_data_a);
+          drop(dispcapcnt);
         }
       })
     );
@@ -420,29 +424,29 @@ impl GPU {
     self.thread_data.vcount.store(vcount, Ordering::Release);
   }
 
-  fn get_capture_pixel(engine_a: &MutexGuard<Engine2d<false>>, address: usize) -> u16 {
-    let r = engine_a.pixels[3 * address] >> 3;
-    let g = engine_a.pixels[3 * address + 1] >> 3;
-    let b = engine_a.pixels[3 * address + 2] >> 3;
+  fn get_capture_pixel(pixels: &[u8], address: usize) -> u16 {
+    let r = pixels[3 * address] >> 3;
+    let g = pixels[3 * address + 1] >> 3;
+    let b = pixels[3 * address + 2] >> 3;
 
     (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
   }
 
   fn start_capture_image(
     dispcapcnt: &mut MutexGuard<DisplayCaptureControlRegister>,
-    engine_a: &MutexGuard<Engine2d<false>>,
+    data: &RenderingData,
     vcount: u16,
-    vram: &mut MutexGuard<VRam>
+    vram: &mut VRam
   ) {
     let width = dispcapcnt.get_capture_width() as usize;
     let start_address = vcount as usize * SCREEN_WIDTH as usize;
-    let block = engine_a.dispcnt.vram_block;
+    let block = data.dispcnt.vram_block;
 
     if dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
       todo!("main memory display fifo not implemented");
     }
 
-    let read_offset = if engine_a.dispcnt.display_mode != DisplayMode::Mode2 {
+    let read_offset = if data.dispcnt.display_mode != DisplayMode::Mode2 {
       2 * start_address + dispcapcnt.vram_read_offset as usize
     } else {
       2 * start_address
@@ -468,7 +472,7 @@ impl GPU {
       CaptureSource::SourceA => {
         let mut index = 0;
         for address in start_address..start_address+width {
-          let pixel = Self::get_capture_pixel(&engine_a, address);
+          let pixel = Self::get_capture_pixel(&data.pixels, address);
 
           vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
           vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
@@ -482,9 +486,9 @@ impl GPU {
       CaptureSource::Blended => {
         let mut index: usize = 0;
         for address_a in start_address..start_address+width {
-          let r_a = engine_a.pixels[3 * address_a] >> 3;
-          let g_a = engine_a.pixels[3 * address_a + 1] >> 3;
-          let b_a = engine_a.pixels[3 * address_a + 2] >> 3;
+          let r_a = data.pixels[3 * address_a] >> 3;
+          let g_a = data.pixels[3 * address_a + 1] >> 3;
+          let b_a = data.pixels[3 * address_a + 2] >> 3;
 
           let pixel_b = source_b[index] as u16 | (source_b[index] as u16) << 8;
 
