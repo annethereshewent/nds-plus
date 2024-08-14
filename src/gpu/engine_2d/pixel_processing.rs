@@ -212,8 +212,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       // lastly apply master brightness
       top_layer_color = self.master_brightness.apply_effect(top_layer_color);
 
+      self.pixel_alphas[x as usize] = true;
       self.set_pixel(x as usize, y as usize, top_layer_color.convert());
     } else {
+      self.pixel_alphas[x as usize] = false;
       self.set_pixel(x as usize, y as usize, default_color);
     }
 

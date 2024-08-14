@@ -146,8 +146,6 @@ impl GPU {
     if self.previous_time != 0 {
       let diff = current_time - self.previous_time;
 
-      println!("fps = {}", 1000 / diff);
-
       if diff < FPS_INTERVAL {
         sleep(Duration::from_millis((FPS_INTERVAL - diff) as u64));
       }
@@ -323,9 +321,7 @@ impl GPU {
 
           let pixel_b = source_b[index] as u16 | (source_b[index] as u16) << 8;
 
-          // TODO: colors are converted from rgb15 to rgb24 and lose the alpha bit. need to find
-          // a way around that
-          let alpha_a = 1 as u8;
+          let alpha_a = self.engine_a.pixel_alphas[index] as u8;
           let alpha_b = (pixel_b >> 15 & 0b1) as u8;
 
           let r_b = (pixel_b & 0x1f) as u8;

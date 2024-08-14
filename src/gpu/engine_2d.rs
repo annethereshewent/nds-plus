@@ -103,13 +103,15 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   obj_lines: [ObjectPixel; SCREEN_WIDTH as usize],
   pub master_brightness: MasterBrightnessRegister,
   pub palette_ram: [u8; 0x400],
-  pub debug_on: bool
+  pub debug_on: bool,
+  pub pixel_alphas: [bool; SCREEN_WIDTH as usize],
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   pub fn new() -> Self {
     Self {
       dispcnt: DisplayControlRegister::new(),
+      pixel_alphas: [false; SCREEN_WIDTH as usize],
       oam: [0; 0x400],
       pixels: [0; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
       bgxofs: [0; 4],
