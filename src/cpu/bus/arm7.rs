@@ -265,7 +265,7 @@ impl Bus {
       0x380_0000..=0x3ff_ffff => {
         unsafe { *(&mut self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] as *mut u8 as *mut T) = val }
       }
-      0x600_0000..=0x6ff_ffff => self.gpu.thread_data.vram.lock().unwrap().write_arm7_wram(address, val),
+      0x600_0000..=0x6ff_ffff => self.gpu.vram.write_arm7_wram(address, val),
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);

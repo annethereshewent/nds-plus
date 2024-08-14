@@ -135,6 +135,7 @@ pub struct GPU {
   rendering2d_thread: Option<JoinHandle<()>>,
   pub thread_data: Arc<ThreadData>,
   pub dispcapcnt: DisplayCaptureControlRegister,
+  pub vram: VRam
 }
 
 impl GPU {
@@ -173,7 +174,8 @@ impl GPU {
       previous_time: 0,
       rendering2d_thread: None,
       thread_data: thread_data.clone(),
-      dispcapcnt: DisplayCaptureControlRegister::new()
+      dispcapcnt: DisplayCaptureControlRegister::new(),
+      vram: VRam::new()
     };
 
     let mut renderer2d = Renderer2d {
@@ -198,8 +200,6 @@ impl GPU {
           let powcnt1 = thread_data.powcnt1.lock().unwrap();
           let mut vram = thread_data.vram.lock().unwrap();
           let frame_buffer = thread_data.frame_buffer.lock().unwrap();
-
-          let existing: Vec<&Pixel3d> = frame_buffer.iter().filter(|pixel| pixel.color.is_some()).collect();
 
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, false);
@@ -290,6 +290,12 @@ impl GPU {
     let data = &mut self.thread_data;
     let mut rendering_data_a = data.rendering_data[0].lock().unwrap();
     let mut rendering_data_b = data.rendering_data[1].lock().unwrap();
+    let mut vram = data.vram.lock().unwrap();
+
+    if self.vram.updated.len() > 0 {
+      *vram = self.vram.clone();
+      self.vram.updated.clear();
+    }
 
     self.engine_a.pixels = rendering_data_a.pixels;
     self.engine_b.pixels = rendering_data_b.pixels;
@@ -389,7 +395,7 @@ impl GPU {
 
       if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
         drop(powcnt1);
-        self.engine3d.start_rendering(&self.thread_data.vram.lock().unwrap());
+        self.engine3d.start_rendering(&self.vram);
 
         self.flush_frame_buffer();
 
@@ -547,56 +553,51 @@ impl GPU {
   }
 
   pub fn write_lcdc<T: Number>(&mut self, address: u32, val: T) {
-    let mut vram = self.thread_data.vram.lock().unwrap();
-
     match address {
-      0x680_0000..=0x681_ffff => vram.write_lcdc_bank(Bank::BankA, address, val),
-      0x682_0000..=0x683_ffff => vram.write_lcdc_bank(Bank::BankB, address, val),
-      0x684_0000..=0x685_ffff => vram.write_lcdc_bank(Bank::BankC, address, val),
-      0x686_0000..=0x687_ffff => vram.write_lcdc_bank(Bank::BankD, address, val),
-      0x688_0000..=0x688_ffff => vram.write_lcdc_bank(Bank::BankE, address, val),
-      0x689_0000..=0x689_3fff => vram.write_lcdc_bank(Bank::BankF, address, val),
-      0x689_4000..=0x689_7fff => vram.write_lcdc_bank(Bank::BankG, address, val),
-      0x689_8000..=0x689_ffff => vram.write_lcdc_bank(Bank::BankH, address, val),
-      0x68a_0000..=0x68a_3fff => vram.write_lcdc_bank(Bank::BankI, address, val),
+      0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val),
+      0x682_0000..=0x683_ffff => self.vram.write_lcdc_bank(Bank::BankB, address, val),
+      0x684_0000..=0x685_ffff => self.vram.write_lcdc_bank(Bank::BankC, address, val),
+      0x686_0000..=0x687_ffff => self.vram.write_lcdc_bank(Bank::BankD, address, val),
+      0x688_0000..=0x688_ffff => self.vram.write_lcdc_bank(Bank::BankE, address, val),
+      0x689_0000..=0x689_3fff => self.vram.write_lcdc_bank(Bank::BankF, address, val),
+      0x689_4000..=0x689_7fff => self.vram.write_lcdc_bank(Bank::BankG, address, val),
+      0x689_8000..=0x689_ffff => self.vram.write_lcdc_bank(Bank::BankH, address, val),
+      0x68a_0000..=0x68a_3fff => self.vram.write_lcdc_bank(Bank::BankI, address, val),
       _ => unreachable!("received address: {:X}", address)
     }
   }
 
   pub fn read_lcdc<T: Number>(&mut self, address: u32) -> T {
-    let mut vram = self.thread_data.vram.lock().unwrap();
     match address {
-      0x680_0000..=0x681_ffff => vram.read_lcdc_bank(Bank::BankA, address),
-      0x682_0000..=0x683_ffff => vram.read_lcdc_bank(Bank::BankB, address),
-      0x684_0000..=0x685_ffff => vram.read_lcdc_bank(Bank::BankC, address),
-      0x686_0000..=0x687_ffff => vram.read_lcdc_bank(Bank::BankD, address),
-      0x688_0000..=0x688_ffff => vram.read_lcdc_bank(Bank::BankE, address),
-      0x689_0000..=0x689_3fff => vram.read_lcdc_bank(Bank::BankF, address),
-      0x689_4000..=0x689_7fff => vram.read_lcdc_bank(Bank::BankG, address),
-      0x689_8000..=0x689_ffff => vram.read_lcdc_bank(Bank::BankH, address),
-      0x68a_0000..=0x68a_3fff => vram.read_lcdc_bank(Bank::BankI, address),
+      0x680_0000..=0x681_ffff => self.vram.read_lcdc_bank(Bank::BankA, address),
+      0x682_0000..=0x683_ffff => self.vram.read_lcdc_bank(Bank::BankB, address),
+      0x684_0000..=0x685_ffff => self.vram.read_lcdc_bank(Bank::BankC, address),
+      0x686_0000..=0x687_ffff => self.vram.read_lcdc_bank(Bank::BankD, address),
+      0x688_0000..=0x688_ffff => self.vram.read_lcdc_bank(Bank::BankE, address),
+      0x689_0000..=0x689_3fff => self.vram.read_lcdc_bank(Bank::BankF, address),
+      0x689_4000..=0x689_7fff => self.vram.read_lcdc_bank(Bank::BankG, address),
+      0x689_8000..=0x689_ffff => self.vram.read_lcdc_bank(Bank::BankH, address),
+      0x68a_0000..=0x68a_3fff => self.vram.read_lcdc_bank(Bank::BankI, address),
       _ => unreachable!("received address: {:X}", address)
     }
   }
 
   pub fn read_arm7_wram<T: Number>(&self, address: u32) -> T {
-    self.thread_data.vram.lock().unwrap().read_arm7_wram(address)
+    self.vram.read_arm7_wram(address)
   }
 
   pub fn write_vramcnt(&mut self, offset: u32, val: u8) {
-    let mut vram = self.thread_data.vram.lock().unwrap();
-
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
-        BANK_B => vram.unmap_bank(Bank::BankB, &self.vramcnt[offset as usize]),
-        BANK_C => vram.unmap_bank(Bank::BankC, &self.vramcnt[offset as usize]),
-        BANK_D => vram.unmap_bank(Bank::BankD, &self.vramcnt[offset as usize]),
-        BANK_E => vram.unmap_bank(Bank::BankE, &self.vramcnt[offset as usize]),
-        BANK_F => vram.unmap_bank(Bank::BankF, &self.vramcnt[offset as usize]),
-        BANK_G => vram.unmap_bank(Bank::BankG, &self.vramcnt[offset as usize]),
-        BANK_H => vram.unmap_bank(Bank::BankH, &self.vramcnt[offset as usize]),
-        BANK_I => vram.unmap_bank(Bank::BankI, &self.vramcnt[offset as usize]),
+        BANK_A => self.vram.unmap_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => self.vram.unmap_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => self.vram.unmap_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => self.vram.unmap_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => self.vram.unmap_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => self.vram.unmap_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => self.vram.unmap_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => self.vram.unmap_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => self.vram.unmap_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => unreachable!("can't happen")
       }
     }
@@ -605,15 +606,15 @@ impl GPU {
 
     if self.vramcnt[offset as usize].vram_enable {
       match offset {
-        BANK_A => vram.map_bank(Bank::BankA, &self.vramcnt[offset as usize]),
-        BANK_B => vram.map_bank(Bank::BankB, &self.vramcnt[offset as usize]),
-        BANK_C => vram.map_bank(Bank::BankC, &self.vramcnt[offset as usize]),
-        BANK_D => vram.map_bank(Bank::BankD, &self.vramcnt[offset as usize]),
-        BANK_E => vram.map_bank(Bank::BankE, &self.vramcnt[offset as usize]),
-        BANK_F => vram.map_bank(Bank::BankF, &self.vramcnt[offset as usize]),
-        BANK_G => vram.map_bank(Bank::BankG, &self.vramcnt[offset as usize]),
-        BANK_H => vram.map_bank(Bank::BankH, &self.vramcnt[offset as usize]),
-        BANK_I => vram.map_bank(Bank::BankI, &self.vramcnt[offset as usize]),
+        BANK_A => self.vram.map_bank(Bank::BankA, &self.vramcnt[offset as usize]),
+        BANK_B => self.vram.map_bank(Bank::BankB, &self.vramcnt[offset as usize]),
+        BANK_C => self.vram.map_bank(Bank::BankC, &self.vramcnt[offset as usize]),
+        BANK_D => self.vram.map_bank(Bank::BankD, &self.vramcnt[offset as usize]),
+        BANK_E => self.vram.map_bank(Bank::BankE, &self.vramcnt[offset as usize]),
+        BANK_F => self.vram.map_bank(Bank::BankF, &self.vramcnt[offset as usize]),
+        BANK_G => self.vram.map_bank(Bank::BankG, &self.vramcnt[offset as usize]),
+        BANK_H => self.vram.map_bank(Bank::BankH, &self.vramcnt[offset as usize]),
+        BANK_I => self.vram.map_bank(Bank::BankI, &self.vramcnt[offset as usize]),
         _ => todo!("unimplemented")
       }
     }

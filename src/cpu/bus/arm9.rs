@@ -59,10 +59,10 @@ impl Bus {
       }
       0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
       0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
-      0x600_0000..=0x61f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_a_bg(address),
-      0x620_0000..=0x63f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_b_bg(address),
-      0x640_0000..=0x65f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_a_obj(address),
-      0x660_0000..=0x67f_ffff => self.gpu.thread_data.vram.lock().unwrap().read_engine_b_obj(address),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
       0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400 => {
         unsafe { *(&self.gpu.engine_a.oam[(address & 0x3ff) as usize] as *const u8 as *const T) }
@@ -296,10 +296,10 @@ impl Bus {
       }
       0x500_0000..=0x500_03ff => self.gpu.write_palette_a(address, val),
       0x500_0400..=0x500_07ff => self.gpu.write_palette_b(address, val),
-      0x600_0000..=0x61f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_a_bg(address, val),
-      0x620_0000..=0x63f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_b_bg(address, val),
-      0x640_0000..=0x65f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_a_obj(address, val),
-      0x660_0000..=0x67f_ffff => self.gpu.thread_data.vram.lock().unwrap().write_engine_b_obj(address, val),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.write_engine_a_bg(address, val),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.write_engine_b_bg(address, val),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.write_engine_b_obj(address, val),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
       0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => {
         unsafe { *(&mut self.gpu.engine_a.oam[(address & 0x3ff) as usize] as *mut u8 as *mut T) = val };
