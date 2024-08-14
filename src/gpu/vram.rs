@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::cpu::bus::arm9::Number;
+use crate::number::Number;
 
 use super::{registers::vram_control_register::VramControlRegister, BANK_C};
 
@@ -97,12 +97,12 @@ impl VRam {
     vec
   }
 
-  pub fn write_lcdc_bank(&mut self, bank_enum: Bank, address: u32, value: u8) {
+  pub fn write_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32, value: T) {
     if self.lcdc.contains(&bank_enum) {
       let bank = &mut self.banks[bank_enum as usize];
       let bank_len = bank.len();
 
-      bank[(address as usize) & (bank_len - 1)] = value;
+      unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
     } else {
       println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
     }
@@ -138,7 +138,7 @@ impl VRam {
     value
   }
 
-  pub fn write_arm7_wram(&mut self, address: u32, val: u8) {
+  pub fn write_arm7_wram<T: Number>(&mut self, address: u32, val: T) {
     let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
     index = index as usize / BANK_SIZES[BANK_C as usize];
 
@@ -149,7 +149,7 @@ impl VRam {
     for bank_enum in region.into_iter() {
       let bank = &mut self.banks[*bank_enum as usize];
 
-      bank[address] = val;
+      unsafe { *(&mut bank[address] as *mut u8 as *mut T) = val };
     }
   }
 
@@ -169,19 +169,19 @@ impl VRam {
     }
   }
 
-  pub fn write_engine_a_obj(&mut self, address: u32, val: u8) {
+  pub fn write_engine_a_obj<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address, val);
   }
 
-  pub fn write_engine_b_obj(&mut self, address: u32, val: u8) {
+  pub fn write_engine_b_obj<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address, val);
   }
 
-  pub fn write_engine_a_bg(&mut self, address: u32, val: u8) {
+  pub fn write_engine_a_bg<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks,&mut self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address, val);
   }
 
-  fn write_mapping(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: u8) {
+  fn write_mapping<T: Number>(banks: &mut [Vec<u8>], region: &mut Vec<HashSet<Bank>>, mask: usize, address: u32, val: T) {
     let index = address as usize / BLOCK_SIZE;
 
     let bank_enums = &region[index & mask];
@@ -191,7 +191,7 @@ impl VRam {
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
-      bank[address] = val;
+      unsafe { *(&mut bank[address] as *mut u8 as *mut T) = val };
     }
   }
 
@@ -221,7 +221,7 @@ impl VRam {
     Self::read_mapping::<T>(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
   }
 
-  pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
+  pub fn write_engine_b_bg<T: Number>(&mut self, address: u32, val: T) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
   }
 

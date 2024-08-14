@@ -8,7 +8,9 @@ use crate::{
   gpu::registers::power_control_register2::PowerControlRegister2
 };
 
-use super::{arm9::Number, Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
+use crate::number::Number;
+
+use super::{Bus, MAIN_MEMORY_SIZE, WRAM_SIZE};
 
 impl Bus {
   pub fn arm7_mem_read_32(&mut self, address: u32) -> u32 {
@@ -227,38 +229,28 @@ impl Bus {
   }
 
   pub fn arm7_mem_write_32(&mut self, address: u32, val: u32) {
-    let upper = (val >> 16) as u16;
-    let lower = (val & 0xffff) as u16;
-
     match address {
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_32(address, val),
-      _ => {
-        self.arm7_mem_write_16(address, lower);
-        self.arm7_mem_write_16(address + 2, upper);
-      }
+      _ => self.arm7_mem_write::<u32>(address, val)
     }
   }
 
   pub fn arm7_mem_write_16(&mut self, address: u32, val: u16) {
-    let upper = (val >> 8) as u8;
-    let lower = (val & 0xff) as u8;
-
     match address {
       0x400_0000..=0x4ff_ffff => self.arm7_io_write_16(address, val),
-      _ => {
-        self.arm7_mem_write_8(address, lower);
-        self.arm7_mem_write_8(address + 1, upper);
-      }
+      _ => self.arm7_mem_write::<u16>(address, val)
     }
   }
 
-  pub fn arm7_mem_write_8(&mut self, address: u32, val: u8) {
+  pub fn arm7_mem_write<T: Number>(&mut self, address: u32, val: T) {
     if (0..self.arm7.bios7.len()).contains(&(address as usize)) {
       return;
     }
 
     match address {
-      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
+      0x200_0000..=0x2ff_ffff => {
+        unsafe { *(&mut self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] as *mut u8 as *mut T) = val }
+      }
       0x300_0000..=0x37f_ffff => {
         if self.wramcnt.arm7_size == 0 {
           panic!("accessing shared ram when bank is currently inaccessible");
@@ -266,16 +258,28 @@ impl Bus {
 
         let actual_addr = address & (self.wramcnt.arm7_size - 1) + self.wramcnt.arm7_offset;
 
-        self.shared_wram[actual_addr as usize] = val;
+        unsafe { *(&mut self.shared_wram[actual_addr as usize] as *mut u8 as *mut T) = val };
       }
-      0x380_0000..=0x3ff_ffff => self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] = val,
-      0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
-      0x500_0000..=0x5ff_ffff => self.arm7_mem_write_16(address & 0x3fe, (val as u16) * 0x101),
+      0x380_0000..=0x3ff_ffff => {
+        unsafe { *(&mut self.arm7.wram[(address & ((WRAM_SIZE as u32) - 1)) as usize] as *mut u8 as *mut T) = val }
+      }
       0x600_0000..=0x6ff_ffff => self.gpu.vram.write_arm7_wram(address, val),
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }
+    }
+  }
+
+
+  pub fn arm7_mem_write_8(&mut self, address: u32, val: u8) {
+    if (0..self.arm7.bios7.len()).contains(&(address as usize)) {
+      return;
+    }
+
+    match address {
+      0x400_0000..=0x4ff_ffff => self.arm7_io_write_8(address, val),
+      _ => self.arm7_mem_write::<u8>(address, val)
     }
   }
 

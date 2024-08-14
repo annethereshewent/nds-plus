@@ -1,7 +1,3 @@
-use std::ops::{BitOr, BitOrAssign};
-
-use num::{FromPrimitive, NumCast, PrimInt, Unsigned};
-
 use crate::{
   cpu::registers::{
     external_memory::AccessRights,
@@ -11,19 +7,8 @@ use crate::{
   gpu::registers::{
     display_3d_control_register::Display3dControlRegister,
     power_control_register1::PowerControlRegister1
-  }
+  }, number::Number
 };
-
-pub trait Number:
-  Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::LowerHex + BitOrAssign
-{
-
-}
-
-impl Number for u8 {}
-impl Number for u16 {}
-impl Number for u32 {}
-impl Number for u64 {}
 
 use super::{cp15::cp15_control_register::CP15ControlRegister, Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
@@ -262,52 +247,42 @@ impl Bus {
   }
 
   pub fn arm9_mem_write_32(&mut self, address: u32, val: u32) {
-    let upper = (val >> 16) as u16;
-    let lower = (val & 0xffff) as u16;
-
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_32(address, val),
-      _ => {
-        self.arm9_mem_write_16(address, lower);
-        self.arm9_mem_write_16(address + 2, upper);
-      }
+      _ => self.arm9_mem_write::<u32>(address, val)
     }
   }
 
   pub fn arm9_mem_write_16(&mut self, address: u32, val: u16) {
-    let upper = (val >> 8) as u8;
-    let lower = (val & 0xff) as u8;
-
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_write_16(address, val),
-      _ => {
-        self.arm9_mem_write_8(address, lower);
-        self.arm9_mem_write_8(address + 1, upper);
-      }
+      _ => self.arm9_mem_write::<u16>(address, val)
     }
   }
 
-  pub fn arm9_mem_write_8(&mut self, address: u32, val: u8) {
+  pub fn arm9_mem_write<T: Number>(&mut self, address: u32, val: T) {
     let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
     let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
 
     if itcm_ranges.contains(&address) {
       let actual_addr = (address + self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
 
-      self.itcm[actual_addr as usize] = val;
+      unsafe { *(&mut self.itcm[actual_addr as usize] as *mut u8 as *mut T) = val };
 
       return;
     }
     if dtcm_ranges.contains(&address) {
       let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
-      self.dtcm[actual_addr as usize] = val;
+      unsafe { *(&mut self.dtcm[actual_addr as usize] as *mut u8 as *mut T) = val };
 
       return;
     }
 
     match address {
-      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] = val,
+      0x200_0000..=0x2ff_ffff => {
+        unsafe { *(&mut self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] as *mut u8 as *mut T) = val }
+      }
       0x300_0000..=0x3ff_ffff => {
         if self.wramcnt.arm9_size == 0 {
           return;
@@ -315,9 +290,8 @@ impl Bus {
         let arm9_offset = self.wramcnt.arm9_offset;
         let arm9_mask = self.wramcnt.arm9_size - 1;
 
-        self.shared_wram[((address & arm9_mask) + arm9_offset) as usize] = val;
+        unsafe { *(&mut self.shared_wram[((address & arm9_mask) + arm9_offset) as usize] as *mut u8 as *mut T) = val };
       }
-      0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
       0x500_0000..=0x500_03ff => self.gpu.write_palette_a(address, val),
       0x500_0400..=0x500_07ff => self.gpu.write_palette_b(address, val),
       0x600_0000..=0x61f_ffff => self.gpu.vram.write_engine_a_bg(address, val),
@@ -325,12 +299,23 @@ impl Bus {
       0x640_0000..=0x65f_ffff => self.gpu.vram.write_engine_a_obj(address, val),
       0x660_0000..=0x67f_ffff => self.gpu.vram.write_engine_b_obj(address, val),
       0x680_0000..=0x6ff_ffff => self.gpu.write_lcdc(address, val),
-      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize] = val,
-      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize] = val,
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => {
+        unsafe { *(&mut self.gpu.engine_a.oam[(address & 0x3ff) as usize] as *mut u8 as *mut T) = val };
+      }
+      0x700_0000..=0x7ff_ffff => {
+        unsafe { *(&mut self.gpu.engine_b.oam[(address & 0x3ff) as usize] as *mut u8 as *mut T) = val };
+      }
       0x800_0000..=0x8ff_ffff => (),
       _ => {
         panic!("writing to unsupported address: {:X}", address);
       }
+    }
+  }
+
+  pub fn arm9_mem_write_8(&mut self, address: u32, val: u8) {
+    match address {
+      0x400_0000..=0x4ff_ffff => self.arm9_io_write_8(address, val),
+      _ => self.arm9_mem_write::<u8>(address, val)
     }
   }
 

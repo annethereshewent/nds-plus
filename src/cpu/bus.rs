@@ -8,7 +8,7 @@ use std::{
   }
 };
 
-use arm9::Number;
+use crate::number::Number;
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -510,8 +510,7 @@ impl Bus {
       };
 
       // for some reason this isn't working rn
-      // return num::cast::<u32, T>(value);
-      return num::zero();
+      return num::cast::<u32, T>(value).unwrap();
     }
 
     // return back 0 for the deselected cpu

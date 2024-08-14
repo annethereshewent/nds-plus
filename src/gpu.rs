@@ -1,5 +1,7 @@
 use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
 
+
+use crate::number::Number;
 use engine_2d::Engine2d;
 use engine_3d::Engine3d;
 use registers::{
@@ -21,7 +23,7 @@ use vram::{Bank, VRam};
 
 use crate::{
   cpu::{
-    bus::arm9::Number, dma::{
+    dma::{
       dma_channel::registers::dma_control_register::DmaTiming,
       dma_channels::DmaChannels
     }, registers::{
@@ -369,7 +371,7 @@ impl GPU {
     }
   }
 
-  pub fn write_palette_a(&mut self, address: u32, val: u8) {
+  pub fn write_palette_a<T: Number>(&mut self, address: u32, val: T) {
     self.engine_a.write_palette_ram(address, val);
   }
 
@@ -381,11 +383,11 @@ impl GPU {
     self.engine_b.read_palette_ram::<T>(address)
   }
 
-  pub fn write_palette_b(&mut self, address: u32, val: u8) {
+  pub fn write_palette_b<T: Number>(&mut self, address: u32, val: T) {
     self.engine_b.write_palette_ram(address, val);
   }
 
-  pub fn write_lcdc(&mut self, address: u32, val: u8) {
+  pub fn write_lcdc<T: Number>(&mut self, address: u32, val: T) {
     match address {
       0x680_0000..=0x681_ffff => self.vram.write_lcdc_bank(Bank::BankA, address, val),
       0x682_0000..=0x683_ffff => self.vram.write_lcdc_bank(Bank::BankB, address, val),

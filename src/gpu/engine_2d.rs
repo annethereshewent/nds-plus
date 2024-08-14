@@ -1,6 +1,6 @@
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 
-use crate::cpu::bus::arm9::Number;
+use crate::number::Number;
 
 use super::{
   color::Color, registers::{
@@ -131,10 +131,10 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  pub fn write_palette_ram(&mut self, address: u32, byte: u8) {
+  pub fn write_palette_ram<T: Number>(&mut self, address: u32, byte: T) {
     let index = (address as usize) & (self.palette_ram.len() - 1);
 
-    self.palette_ram[index as usize] = byte;
+    unsafe { *(&mut self.palette_ram[index as usize] as *mut u8 as *mut T) = byte };
   }
 
   pub fn read_palette_ram<T: Number>(&self, address: u32) -> T {
