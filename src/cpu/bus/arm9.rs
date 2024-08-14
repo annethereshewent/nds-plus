@@ -434,13 +434,6 @@ impl Bus {
   }
 
   pub fn arm9_io_write_16(&mut self, address: u32, value: u16) {
-    // not sure if this is needed for the ds....
-    // let address = if address & 0xfffe == 0x8000 {
-    //   0x400_0800
-    // } else {
-    //   address
-    // };
-
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000)),
       0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff)),
