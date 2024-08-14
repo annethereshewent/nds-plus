@@ -21,11 +21,10 @@ use vram::{Bank, VRam};
 
 use crate::{
   cpu::{
-    dma::{
+    bus::arm9::Number, dma::{
       dma_channel::registers::dma_control_register::DmaTiming,
       dma_channels::DmaChannels
-    },
-    registers::{
+    }, registers::{
       interrupt_request_register::InterruptRequestRegister,
       mosaic_register::MosaicRegister
     }
@@ -374,12 +373,12 @@ impl GPU {
     self.engine_a.write_palette_ram(address, val);
   }
 
-  pub fn read_palette_a(&self, address: u32) -> u8 {
-    self.engine_a.read_palette_ram(address)
+  pub fn read_palette_a<T: Number>(&self, address: u32) -> T {
+    self.engine_a.read_palette_ram::<T>(address)
   }
 
-  pub fn read_palette_b(&self, address: u32) -> u8 {
-    self.engine_b.read_palette_ram(address)
+  pub fn read_palette_b<T: Number>(&self, address: u32) -> T {
+    self.engine_b.read_palette_ram::<T>(address)
   }
 
   pub fn write_palette_b(&mut self, address: u32, val: u8) {
@@ -401,7 +400,7 @@ impl GPU {
     }
   }
 
-  pub fn read_lcdc(&mut self, address: u32) -> u8 {
+  pub fn read_lcdc<T: Number>(&mut self, address: u32) -> T {
     match address {
       0x680_0000..=0x681_ffff => self.vram.read_lcdc_bank(Bank::BankA, address),
       0x682_0000..=0x683_ffff => self.vram.read_lcdc_bank(Bank::BankB, address),
@@ -416,7 +415,7 @@ impl GPU {
     }
   }
 
-  pub fn read_arm7_wram(&self, address: u32) -> u8 {
+  pub fn read_arm7_wram<T: Number>(&self, address: u32) -> T {
     self.vram.read_arm7_wram(address)
   }
 

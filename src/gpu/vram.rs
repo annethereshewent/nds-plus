@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::cpu::bus::arm9::Number;
+
 use super::{registers::vram_control_register::VramControlRegister, BANK_C};
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -106,19 +108,19 @@ impl VRam {
     }
   }
 
-  pub fn read_lcdc_bank(&mut self, bank_enum: Bank, address: u32) -> u8 {
+  pub fn read_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32) -> T {
     if self.lcdc.contains(&bank_enum) {
       let bank = &mut self.banks[bank_enum as usize];
 
-      bank[(address as usize) & (bank.len() - 1)]
+      unsafe { *(&bank[(address as usize) & (bank.len() - 1)] as *const u8 as *const T) }
     } else {
       println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
-      0
+      num::zero()
     }
   }
 
-  pub fn read_arm7_wram(&self, address: u32) -> u8 {
-    let mut value: u8 = 0;
+  pub fn read_arm7_wram<T: Number>(&self, address: u32) -> T {
+    let mut value: T = num::zero();
 
     let mut index = address as usize & ((2 * BANK_SIZES[BANK_C as usize]) - 1);
     index = index as usize / BANK_SIZES[BANK_C as usize];
@@ -130,7 +132,7 @@ impl VRam {
     for bank_enum in region.into_iter() {
       let bank = &self.banks[*bank_enum as usize];
 
-      value |= bank[address];
+      value |= unsafe { *(&bank[address] as *const u8 as *const T) };
     }
 
     value
@@ -193,10 +195,10 @@ impl VRam {
     }
   }
 
-  fn read_mapping(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u8 {
+  fn read_mapping<T: Number>(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> T {
     let index = address as usize / BLOCK_SIZE;
 
-    let mut value = 0;
+    let mut value: T = num::zero();
 
     let bank_enums = &region[index & mask];
 
@@ -205,93 +207,54 @@ impl VRam {
 
       let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
 
-      value |= bank[address as usize];
+      value |= unsafe { *(&bank[address as usize] as *const u8 as *const T) }
     }
 
     value
   }
 
-  fn read_mapping_16(banks: &[Vec<u8>], region: &Vec<HashSet<Bank>>, mask: usize, address: u32) -> u16 {
-    let index = address as usize / BLOCK_SIZE;
-
-    let mut value = 0;
-
-    let bank_enums = &region[index & mask];
-
-    for bank_enum in bank_enums.iter() {
-      let bank = &banks[*bank_enum as usize];
-
-      let address = address as usize & (BANK_SIZES[*bank_enum as usize] - 1);
-
-      // value |= bank[address as usize] as u16 | (bank[(address + 1) as usize] as u16) << 8;
-      value |= unsafe { *(&bank[address as usize] as *const u8 as *const u16) }
-    }
-
-    value
+  pub fn read_engine_a_obj<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_obj(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn read_engine_b_obj(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn read_engine_a_obj_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_obj, ENGINE_A_OBJ_BLOCKS - 1, address)
-  }
-
-  pub fn read_engine_b_obj_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
+  pub fn read_engine_b_obj<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_b_obj, ENGINE_B_OBJ_BLOCKS - 1, address)
   }
 
   pub fn write_engine_b_bg(&mut self, address: u32, val: u8) {
     Self::write_mapping(&mut self.banks, &mut self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address, val);
   }
 
-  pub fn read_engine_a_bg(&self, address: u32) -> u8 {
+  pub fn read_engine_a_bg<T: Number>(&self, address: u32) -> T {
     Self::read_mapping(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_bg_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_bg, ENGINE_A_BG_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_obj_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_bg(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
+  pub fn read_engine_b_extended_obj_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_bg_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
+  pub fn read_engine_a_extended_bg_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_obj_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_obj_extended_palette, ENGINE_A_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_extended_bg_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_b_extended_obj_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_obj_extended_palette, ENGINE_B_EXTENDED_OBJ_PALETTE_BLOCKS - 1, address)
+  pub fn read_engine_b_bg<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_engine_a_extended_bg_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_a_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
+  pub fn read_texture_palette<T: Number>(&self, index: u32) -> T {
+    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
   }
 
-  pub fn read_engine_b_extended_bg_palette(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.engine_b_bg_extended_palette, EXTENDED_PALETTE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture(&self, address: u32) -> u8 {
-    Self::read_mapping(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture_16(&self, address: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
-  }
-
-  pub fn read_texture_palette(&self, index: u32) -> u16 {
-    Self::read_mapping_16(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
+  pub fn read_texture<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping::<T>(&self.banks, &self.textures, TEXTURE_BLOCKS - 1, address)
   }
 
   pub fn map_bank(&mut self, bank: Bank, vramcnt: &VramControlRegister) {

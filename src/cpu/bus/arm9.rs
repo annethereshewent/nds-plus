@@ -1,3 +1,7 @@
+use std::ops::{BitOr, BitOrAssign};
+
+use num::{FromPrimitive, NumCast, PrimInt, Unsigned};
+
 use crate::{
   cpu::registers::{
     external_memory::AccessRights,
@@ -10,13 +14,79 @@ use crate::{
   }
 };
 
+pub trait Number:
+  Unsigned + PrimInt + NumCast + FromPrimitive + std::fmt::LowerHex + BitOrAssign
+{
+
+}
+
+impl Number for u8 {}
+impl Number for u16 {}
+impl Number for u32 {}
+impl Number for u64 {}
+
 use super::{cp15::cp15_control_register::CP15ControlRegister, Bus, DTCM_SIZE, ITCM_SIZE, MAIN_MEMORY_SIZE};
 
 impl Bus {
   pub fn arm9_mem_read_32(&mut self, address: u32) -> u32 {
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_32(address),
-      _ => self.arm9_mem_read_16(address) as u32 | ((self.arm9_mem_read_16(address + 2) as u32) << 16)
+      _ => self.arm9_mem_read::<u32>(address)
+    }
+  }
+
+  pub fn arm9_mem_read<T: Number>(&mut self, address: u32) -> T {
+    let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
+    let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
+
+    if itcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::ITCM_LOAD_MODE) {
+      let actual_addr = (address + self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
+
+      return unsafe { *(&self.itcm[actual_addr as usize] as *const u8 as *const T) };
+    } else if dtcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::DTCM_LOAD_MODE) {
+      let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
+
+      // return self.dtcm[actual_addr as usize];
+      // unsafe { *(&bank[address as usize] as *const u8 as *const u16) }
+      return unsafe { *(&self.dtcm[actual_addr as usize] as *const u8 as *const T) }
+    }
+
+    if address >= 0xffff_0000 {
+      return unsafe { *(&self.arm9.bios9[(address - 0xffff_0000) as usize] as *const u8 as *const T) };
+    }
+
+    match address {
+      0x200_0000..=0x2ff_ffff => {
+        return unsafe { *(&self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize] as *const u8 as *const T) }
+      }
+      0x300_0000..=0x3ff_ffff => {
+        if self.wramcnt.arm9_size == 0 {
+          return num::zero();
+        }
+
+        let base = self.wramcnt.arm9_offset;
+
+        let mask = self.wramcnt.arm9_size - 1;
+
+        return unsafe { *(&self.shared_wram[((address & mask) + base) as usize] as *const u8 as *const T) };
+      }
+      0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
+      0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
+      0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
+      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
+      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
+      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
+      0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
+      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400 => {
+        unsafe { *(&self.gpu.engine_a.oam[(address & 0x3ff) as usize] as *const u8 as *const T) }
+      }
+      0x700_0000..=0x7ff_ffff => {
+        unsafe { *(&self.gpu.engine_b.oam[(address & 0x3ff) as usize] as *const u8 as *const T) }
+      }
+      0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
+      _ => {
+        panic!("reading from unsupported address: {:X}", address);
+      }
     }
   }
 
@@ -61,55 +131,14 @@ impl Bus {
   pub fn arm9_mem_read_16(&mut self, address: u32) -> u16 {
     match address {
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_16(address),
-      _ => self.arm9_mem_read_8(address) as u16 | ((self.arm9_mem_read_8(address + 1) as u16) << 8)
+      _ => self.arm9_mem_read::<u16>(address)
     }
   }
 
   pub fn arm9_mem_read_8(&mut self, address: u32) -> u8 {
-    let dtcm_ranges = self.arm9.cp15.dtcm_control.get_ranges();
-    let itcm_ranges = self.arm9.cp15.itcm_control.get_ranges();
-
-    if itcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::ITCM_LOAD_MODE) {
-      let actual_addr = (address + self.arm9.cp15.itcm_control.base_address()) & (ITCM_SIZE as u32 - 1);
-
-      return self.itcm[actual_addr as usize];
-    } else if dtcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::DTCM_LOAD_MODE) {
-      let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
-
-      return self.dtcm[actual_addr as usize];
-    }
-
-    if address >= 0xffff_0000 {
-      return self.arm9.bios9[(address - 0xffff_0000) as usize];
-    }
-
     match address {
-      0x200_0000..=0x2ff_ffff => self.main_memory[(address & ((MAIN_MEMORY_SIZE as u32) - 1)) as usize],
-      0x300_0000..=0x3ff_ffff => {
-        if self.wramcnt.arm9_size == 0 {
-          return 0;
-        }
-
-        let base = self.wramcnt.arm9_offset;
-
-        let mask = self.wramcnt.arm9_size - 1;
-
-        self.shared_wram[((address & mask) + base) as usize]
-      }
       0x400_0000..=0x4ff_ffff => self.arm9_io_read_8(address),
-      0x500_0000..=0x500_03ff => self.gpu.read_palette_a(address),
-      0x500_0400..=0x500_07ff => self.gpu.read_palette_b(address),
-      0x600_0000..=0x61f_ffff => self.gpu.vram.read_engine_a_bg(address),
-      0x620_0000..=0x63f_ffff => self.gpu.vram.read_engine_b_bg(address),
-      0x640_0000..=0x65f_ffff => self.gpu.vram.read_engine_a_obj(address),
-      0x660_0000..=0x67f_ffff => self.gpu.vram.read_engine_b_obj(address),
-      0x680_0000..=0x6ff_ffff => self.gpu.read_lcdc(address),
-      0x700_0000..=0x7ff_ffff if address & 0x7ff < 0x400  => self.gpu.engine_a.oam[(address & 0x3ff) as usize],
-      0x700_0000..=0x7ff_ffff => self.gpu.engine_b.oam[(address & 0x3ff) as usize],
-      0x800_0000..=0x9ff_ffff => self.read_gba_rom(address, true),
-      _ => {
-        panic!("reading from unsupported address: {:X}", address);
-      }
+      _ => self.arm9_mem_read::<u8>(address)
     }
   }
 

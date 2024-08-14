@@ -1,3 +1,7 @@
+use std::mem::{size_of, size_of_val};
+
+use crate::cpu::bus::arm9::Number;
+
 use super::{
   color::Color, registers::{
     alpha_blend_register::AlphaBlendRegister,
@@ -133,10 +137,18 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     self.palette_ram[index as usize] = byte;
   }
 
-  pub fn read_palette_ram(&self, address: u32) -> u8 {
+  pub fn read_palette_ram<T: Number>(&self, address: u32) -> T {
     let index = (address as usize) & (self.palette_ram.len() - 1);
 
-    self.palette_ram[index as usize]
+    // unsafe { *(&self.palette_ram[index as usize] as *const u8 as *const T) }
+
+    let mut value: T = num::zero();
+
+    for i in 0..size_of::<T>() {
+      value = num::cast::<u8, T>(self.palette_ram[(index + i) as usize] << (8 * i)).unwrap() | value;
+    }
+
+    value
   }
 
   pub fn clear_obj_lines(&mut self) {

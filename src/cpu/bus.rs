@@ -8,6 +8,7 @@ use std::{
   }
 };
 
+use arm9::Number;
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -483,7 +484,7 @@ impl Bus {
     0
   }
 
-  pub fn read_gba_rom(&self, address: u32, is_arm9: bool) -> u8 {
+  pub fn read_gba_rom<T: Number>(&self, address: u32, is_arm9: bool) -> T {
     let exmemcnt = if is_arm9 {
       &self.exmem.arm9_exmem
     } else {
@@ -500,17 +501,21 @@ impl Bus {
         _ => unreachable!()
       } & 0xffff;
 
-      return match address & 0x3 {
-        0 => value as u8,
-        1 => (value >> 8) as u8,
+      let value = match address & 0x3 {
+        0 => value,
+        1 => value >> 8,
         2 => 0,
         3 => 0,
         _ => unreachable!()
       };
+
+      // for some reason this isn't working rn
+      // return num::cast::<u32, T>(value);
+      return num::zero();
     }
 
     // return back 0 for the deselected cpu
-    0
+    num::zero()
   }
 
   pub fn step_audio(&mut self, channel_id: usize, cycles_left: usize) {
