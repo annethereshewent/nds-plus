@@ -174,7 +174,7 @@ impl VRam {
     self.updated.insert(Region::Arm7Wram);
   }
 
-  pub fn get_lcdc_bank(&mut self, block_num: u32) -> &Vec<u8> {
+  pub fn get_lcdc_bank(&self, block_num: u32) -> &Vec<u8> {
     &self.banks[block_num as usize]
   }
 

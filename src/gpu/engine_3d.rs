@@ -15,17 +15,10 @@ use viewport::Viewport;
 use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
 
 use super::{
-  color::Color, registers::{
-    clear_color_register::ClearColorRegister,
-    display_3d_control_register::Display3dControlRegister,
-    fog_color_register::FogColorRegister,
-    geometry_status_register::{
-      GeometryIrq,
-      GeometryStatusRegister
-    }
-  },
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH
+  color::Color,
+  registers::{
+    clear_color_register::ClearColorRegister, display_3d_control_register::Display3dControlRegister, fog_color_register::FogColorRegister, geometry_status_register::{GeometryIrq, GeometryStatusRegister}
+  }, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
 pub mod matrix;
@@ -40,7 +33,6 @@ pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
 pub mod box_test;
-pub mod renderer3d;
 
 pub const FIFO_CAPACITY: usize = 256;
 pub const POLYGON_BUFFER_SIZE: usize = 2048;
@@ -302,16 +294,16 @@ pub struct Engine3d {
   current_command: Command,
   params_processed: usize,
   num_params: usize,
-  pub gxstat: GeometryStatusRegister,
-  pub clear_color: ClearColorRegister,
-  pub clear_depth: u32,
+  gxstat: GeometryStatusRegister,
+  clear_color: ClearColorRegister,
+  clear_depth: u32,
   clear_offset_x: u16,
   clear_offset_y: u16,
   fog_color: FogColorRegister,
   fog_offset: u16,
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
-  pub toon_table: [Color; 32],
+  toon_table: [Color; 32],
   shininess_table: [u8; 128],
   matrix_mode: MatrixMode,
   current_position_matrix: Matrix,
@@ -333,6 +325,7 @@ pub struct Engine3d {
   palette_base: u32,
   transluscent_polygon_sort: bool,
   depth_buffering_with_w: bool,
+  polygons_ready: bool,
   viewport: Viewport,
   temp_matrix: Matrix,
   diffuse_reflection: DiffuseColor,
@@ -351,8 +344,8 @@ pub struct Engine3d {
   max_vertices: usize,
   clip_mtx_recalculate: bool,
   clip_matrix: Matrix,
-  pub vertices_buffer: Vec<Vertex>,
-  pub polygon_buffer: Vec<Polygon>,
+  vertices_buffer: Vec<Vertex>,
+  polygon_buffer: Vec<Polygon>,
   scale_vector: [i32; 3],
   pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
   alpha_ref: u8,
@@ -361,8 +354,7 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>,
-  pub polygons_ready: bool
+  pub found: HashSet<String>
 }
 
 impl Engine3d {
@@ -404,6 +396,7 @@ impl Engine3d {
       palette_base: 0,
       transluscent_polygon_sort: false,
       depth_buffering_with_w: false,
+      polygons_ready: false,
       viewport: Viewport::new(),
       temp_matrix: Matrix::new(),
       diffuse_reflection: DiffuseColor::new(),
@@ -432,8 +425,14 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new(),
-      polygons_ready: false
+      found: HashSet::new()
+    }
+  }
+
+  pub fn clear_frame_buffer(&mut self) {
+    for pixel in &mut self.frame_buffer {
+      *pixel = Pixel3d::new();
+      pixel.depth = self.clear_depth as u32;
     }
   }
 
@@ -523,15 +522,21 @@ impl Engine3d {
   }
 
   pub fn execute_commands(&mut self, interrupt_request: &mut InterruptRequestRegister) {
-    while let Some(entry) = self.fifo.pop_front() {
-      self.execute_command(entry);
+    if !self.polygons_ready {
+      while let Some(entry) = self.fifo.pop_front() {
+        self.execute_command(entry);
+
+        if self.polygons_ready {
+          break;
+        }
+      }
     }
 
     self.check_interrupts(interrupt_request);
   }
 
   pub fn should_run_dmas(&self) -> bool {
-    self.fifo.len() < FIFO_CAPACITY / 2
+    !self.polygons_ready && self.fifo.len() < FIFO_CAPACITY / 2
   }
 
   pub fn check_interrupts(&mut self, interrupt_request: &mut InterruptRequestRegister) {
@@ -547,7 +552,9 @@ impl Engine3d {
   }
 
   fn execute_command(&mut self, entry: GeometryCommandEntry) {
-    self.gxstat.geometry_engine_busy = true;
+    if self.fifo.len() < FIFO_CAPACITY {
+      self.gxstat.geometry_engine_busy = false;
+    }
 
     use Command::*;
     match entry.command {
@@ -642,6 +649,8 @@ impl Engine3d {
       SwapBuffers => {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
+
+        self.gxstat.geometry_engine_busy = true;
 
         self.polygons_ready = true;
       }
@@ -978,10 +987,6 @@ impl Engine3d {
         }
       }
       _ => panic!("command not iplemented yet: {:?}", entry.command)
-    }
-
-    if self.command_params != 0 || self.fifo.is_empty() {
-      self.gxstat.geometry_engine_busy = false;
     }
   }
 
@@ -1520,9 +1525,7 @@ impl Engine3d {
   pub fn push_command(&mut self, entry: GeometryCommandEntry, interrupt_request: &mut InterruptRequestRegister) {
     self.fifo.push_back(entry);
 
-    if !self.polygons_ready {
-      self.execute_commands(interrupt_request);
-    }
+    self.execute_commands(interrupt_request);
   }
 
   pub fn write_geometry_fifo(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {

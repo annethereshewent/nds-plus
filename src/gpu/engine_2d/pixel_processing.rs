@@ -1,7 +1,7 @@
 use std::cmp;
 
 use crate::gpu::{
-  engine_3d::{renderer3d::Renderer3d, Engine3d}, registers::{
+  engine_3d::Engine3d, registers::{
     color_effects_register::ColorEffect,
     display_control_register::DisplayControlRegisterFlags,
     window_in_register::WindowInRegister,
@@ -247,7 +247,7 @@ impl Renderer2d {
               if let Some(alpha) = color.alpha {
                 let eva = alpha + 1;
                 let evb = 32 - eva;
-                Renderer3d::blend_colors3d(color, color2, eva as u16, evb as u16)
+                Engine3d::blend_colors3d(color, color2, eva as u16, evb as u16)
               } else {
                 Self::blend_colors(color, color2, data.bldalpha.eva as u16, data.bldalpha.evb as u16)
               }

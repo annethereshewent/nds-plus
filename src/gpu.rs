@@ -10,12 +10,13 @@ use std::{
   }
 };
 
+use color::Color;
 use engine_2d::{
   renderer2d::Renderer2d,
   Engine2d,
   ObjectPixel
 };
-use engine_3d::{renderer3d::Renderer3d, Engine3d, Pixel3d};
+use engine_3d::{Engine3d, Pixel3d};
 
 use crate::number::Number;
 use registers::{
@@ -127,13 +128,11 @@ pub struct GPU {
   pub powcnt2: PowerControlRegister2,
   pub powcnt1: PowerControlRegister1,
   pub vramcnt: [VramControlRegister; 9],
-  pub vram: VRam,
   pub dispstat: [DisplayStatusRegister; 2],
   pub frame_finished: bool,
   pub mosaic: MosaicRegister,
   previous_time: u128,
   rendering2d_thread: Option<JoinHandle<()>>,
-  rendering3d_thread: Option<JoinHandle<()>>,
   pub thread_data: Arc<ThreadData>,
   pub dispcapcnt: DisplayCaptureControlRegister,
 }
@@ -173,21 +172,13 @@ impl GPU {
       mosaic: MosaicRegister::new(),
       previous_time: 0,
       rendering2d_thread: None,
-      rendering3d_thread: None,
       thread_data: thread_data.clone(),
-      dispcapcnt: DisplayCaptureControlRegister::new(),
-      vram: VRam::new()
+      dispcapcnt: DisplayCaptureControlRegister::new()
     };
 
     let mut renderer2d = Renderer2d {
       thread_data: thread_data.clone()
     };
-
-    let mut renderer3d = Renderer3d {
-      thread_data: thread_data.clone()
-    };
-
-    let thread_data_3d = thread_data.clone();
 
     gpu.rendering2d_thread = Some(
       thread::spawn(move || {
@@ -208,6 +199,8 @@ impl GPU {
           let mut vram = thread_data.vram.lock().unwrap();
           let frame_buffer = thread_data.frame_buffer.lock().unwrap();
 
+          let existing: Vec<&Pixel3d> = frame_buffer.iter().filter(|pixel| pixel.color.is_some()).collect();
+
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, false);
 
@@ -225,27 +218,6 @@ impl GPU {
           drop(powcnt1);
           drop(vram);
           drop(frame_buffer);
-        }
-      })
-    );
-
-    gpu.rendering3d_thread = Some(
-      thread::spawn(move || {
-        loop {
-          let vram = thread_data_3d.vram.lock().unwrap();
-          let mut data = thread_data_3d.rendering_data3d.lock().unwrap();
-          let mut frame_buffer = thread_data_3d.frame_buffer.lock().unwrap();
-
-          renderer3d.start_rendering(
-            &vram,
-            &mut data,
-            &mut frame_buffer,
-          );
-
-          drop(data);
-          drop(frame_buffer);
-          drop(vram);
-          thread::park();
         }
       })
     );
@@ -308,14 +280,21 @@ impl GPU {
     }
   }
 
+  fn flush_frame_buffer(&mut self) {
+    let mut frame_buffer = self.thread_data.frame_buffer.lock().unwrap();
+
+    frame_buffer.copy_from_slice(&self.engine3d.frame_buffer);
+  }
+
   fn flush_rendering_data(&mut self) {
-    let mut rendering_data_a = self.thread_data.rendering_data[0].lock().unwrap();
-    let mut rendering_data_b = self.thread_data.rendering_data[1].lock().unwrap();
+    let data = &mut self.thread_data;
+    let mut rendering_data_a = data.rendering_data[0].lock().unwrap();
+    let mut rendering_data_b = data.rendering_data[1].lock().unwrap();
 
     self.engine_a.pixels = rendering_data_a.pixels;
     self.engine_b.pixels = rendering_data_b.pixels;
 
-    let mut powcnt1 = self.thread_data.powcnt1.lock().unwrap();
+    let mut powcnt1 = data.powcnt1.lock().unwrap();
 
     *powcnt1 = self.powcnt1;
 
@@ -346,24 +325,7 @@ impl GPU {
 
     *rendering_data_a = set_rendering_data!(engine_a);
     *rendering_data_b = set_rendering_data!(engine_b);
-  }
 
-  fn flush_rendering_data3d(&mut self) {
-    self.engine3d.polygons_ready = false;
-
-    let mut rendering_data3d = self.thread_data.rendering_data3d.lock().unwrap();
-
-    rendering_data3d.clear_color = self.engine3d.clear_color;
-    rendering_data3d.clear_depth = self.engine3d.clear_depth;
-    rendering_data3d.disp3dcnt = self.engine3d.disp3dcnt;
-    rendering_data3d.gxstat = self.engine3d.gxstat;
-    // rendering_data3d.polygon_buffer.copy_from_slice(&self.engine3d.polygon_buffer);
-    // rendering_data3d.vertices_buffer.copy_from_slice(&self.engine3d.vertices_buffer);
-
-    rendering_data3d.polygon_buffer = self.engine3d.polygon_buffer.clone();
-    rendering_data3d.vertices_buffer = self.engine3d.vertices_buffer.clone();
-
-    rendering_data3d.toon_table = self.engine3d.toon_table;
   }
 
   pub fn start_next_line(
@@ -418,8 +380,18 @@ impl GPU {
         dma.notify_gpu_event(DmaTiming::Vblank);
       }
 
-      if self.engine3d.polygons_ready {
-        self.flush_rendering_data3d();
+      self.frame_finished = true;
+
+      Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
+    } else if vcount == NUM_LINES - 48 {
+      // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
+      let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
+
+      if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
+        drop(powcnt1);
+        self.engine3d.start_rendering(&self.thread_data.vram.lock().unwrap());
+
+        self.flush_frame_buffer();
 
         self.engine3d.execute_commands(&mut interrupt_requests[1]);
 
@@ -428,23 +400,6 @@ impl GPU {
             dma.notify_geometry_fifo_event();
           }
         }
-      }
-
-      self.frame_finished = true;
-
-      Self::check_interrupts(&mut self.dispstat, DispStatFlags::VBLANK_IRQ_ENABLE, InterruptRequestRegister::VBLANK, interrupt_requests);
-    } else if vcount == SCREEN_HEIGHT {
-
-    } else if vcount == NUM_LINES - 48 {
-      // per martin korth, "Rendering starts 48 lines in advance (while still in the Vblank period)"
-      // self.engine3d.clear_frame_buffer();
-
-      let powcnt1 = self.thread_data.powcnt1.lock().unwrap();
-
-      if powcnt1.contains(PowerControlRegister1::ENGINE_3D_ENABLE) {
-        drop(powcnt1);
-
-        self.rendering3d_thread.as_ref().unwrap().thread().unpark();
       }
     }
 

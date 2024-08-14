@@ -793,7 +793,7 @@ impl Renderer2d {
     }
   }
 
-  pub fn render_line(&mut self, y: u16, vram: &mut VRam, frame_buffer: &[Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize], is_engine_b: bool) {
+  pub fn render_line(&mut self, y: u16, vram: &VRam, frame_buffer: &[Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize], is_engine_b: bool) {
     let data = &mut self.thread_data.rendering_data[is_engine_b as usize].lock().unwrap();
     match data.dispcnt.display_mode {
       DisplayMode::Mode0 => {
