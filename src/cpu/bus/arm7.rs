@@ -36,7 +36,7 @@ impl Bus {
         self.arm7_io_write_16(address + 2, (val >> 16) as u16);
       }
       0x400_01b0..=0x400_01ba => println!("ignoring writes to key2 encryption seeds"),
-      0x400_0208 => self.arm7.interrupt_master_enable = val != 0,
+      0x400_0208 => self.arm7.interrupt_master_enable = val & 0b1 != 0,
       0x400_0210 => self.arm7.interrupt_enable = InterruptEnableRegister::from_bits_retain(val),
       0x400_0214 => self.arm7.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm7.interrupt_request.bits() & !val),
       0x400_0308 => (), // ignore writes to biosprot IO
@@ -355,7 +355,7 @@ impl Bus {
       0x400_01c2 => self.write_spi_data(value as u8), // upper 8 bits are always ignored, even in bugged spi 16 bit mode. per the docs
       0x400_0204 => self.exmem.write(false, value),
       0x400_0206 => (),
-      0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm7.interrupt_master_enable = value & 0b1 != 0,
       0x400_0210 => {
         let mut val = self.arm7.interrupt_enable.bits() & 0xffff0000;
 
@@ -404,7 +404,7 @@ impl Bus {
     // };
 
     match address {
-      0x400_0208 => self.arm7.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm7.interrupt_master_enable = value & 0b1 != 0,
       0x400_0138 => self.arm7.rtc.write(value as u16),
       0x400_01a0 => self.cartridge.spicnt.write(value as u16, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff00)),
       0x400_01a1 => self.cartridge.spicnt.write((value as u16) << 8, self.exmem.nds_access_rights == AccessRights::Arm7, Some(0xff)),

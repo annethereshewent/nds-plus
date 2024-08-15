@@ -352,7 +352,7 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0188 => self.send_to_fifo(true, value),
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => {
         self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
@@ -499,7 +499,7 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0204 => self.exmem.write(true, value),
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0240..=0x400_0249 => {
         self.arm9_io_write_8(address, value as u8);
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
@@ -547,7 +547,7 @@ impl Bus {
 
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm9);
       }
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 
