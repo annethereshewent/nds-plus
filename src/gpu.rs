@@ -257,14 +257,6 @@ impl GPU {
     }
   }
 
-  fn get_pixel(&self, address: usize) -> u16 {
-    let r = self.engine_a.pixels[3 * address] >> 3;
-    let g = self.engine_a.pixels[3 * address + 1] >> 3;
-    let b = self.engine_a.pixels[3 * address + 2] >> 3;
-
-    (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
-  }
-
   fn start_capture_image(&mut self) {
     let width = self.dispcapcnt.get_capture_width() as usize;
     let start_address = self.vcount as usize * SCREEN_WIDTH as usize;
