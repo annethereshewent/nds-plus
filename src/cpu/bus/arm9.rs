@@ -529,15 +529,6 @@ impl Bus {
   }
 
   pub fn arm9_io_write_8(&mut self, address: u32, value: u8) {
-    // not sure if needed and so on
-    // let address = if address & 0xffff == 0x8000 {
-    //   0x400_0800
-    // } else {
-    //   address
-    // };
-
-    // println!("im being called with address {:X}", address);
-
     match address {
       0x400_004c => self.gpu.mosaic.write(value as u16, 0xff00),
       0x400_004d => self.gpu.mosaic.write((value as u16) << 8, 0xff),
