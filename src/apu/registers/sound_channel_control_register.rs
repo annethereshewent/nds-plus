@@ -103,6 +103,7 @@ impl SoundChannelControlRegister {
     (self.panning as u32) << 16 |
     self.wave_duty << 24 |
     (self.repeat_mode as u32) << 27 |
-    (self.format as u32) << 29
+    (self.format as u32) << 29 |
+    (self.is_started as u32) << 31
   }
 }

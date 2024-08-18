@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub enum OutputSource {
   Mixer = 0,
   Ch1 = 1,
@@ -29,7 +30,14 @@ impl SoundControlRegister {
   }
 
   pub fn read(&self) -> u16 {
-    self.val
+    // self.val
+
+    self.master_volume |
+    (self.left_output_source as u16) << 8 |
+    (self.right_output_source as u16) << 10 |
+    (self.output_ch1_to_mixer as u16) << 12 |
+    (self.output_ch3_to_mixer as u16) << 13 |
+    (self.master_enable as u16) << 15
   }
   pub fn master_volume(&self) -> i32 {
     if self.master_volume == 127 {

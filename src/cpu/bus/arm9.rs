@@ -226,6 +226,7 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_0604 => self.gpu.engine3d.read_ram_count(),
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1000 => self.gpu.engine_b.dispcnt.read() as u16,
       0x400_1002 => (self.gpu.engine_b.dispcnt.read() >> 16) as u16,
@@ -518,6 +519,7 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
+      0x400_0610 => (),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000)),
       0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff)),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
