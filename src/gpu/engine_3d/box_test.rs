@@ -1,4 +1,4 @@
-use super::matrix::Matrix;
+use super::{matrix::Matrix, vertex::Vertex, Engine3d};
 
 pub struct BoxTest {
   pub x: i16,
@@ -22,6 +22,8 @@ impl BoxTest {
   }
 
   pub fn do_test(&mut self, clip_matrix: Matrix) -> bool {
+    let mut vertices_arr: [Vertex; 8] = [Vertex::new(); 8];
+
     for x_factor in 0..2 {
       for y_factor in 0..2 {
         for z_factor in 0..2 {
@@ -34,19 +36,42 @@ impl BoxTest {
 
           let transformed = clip_matrix.multiply_row(&coordinates, 12);
 
-          let w = transformed[3];
-          let mut inside = true;
-          for i in 0..3 {
-            if !(-w..=w).contains(&transformed[i]) {
-               inside = false;
-               break;
-            }
-          }
+          let mut vertex = Vertex::new();
 
-          if inside {
-            return true;
-          }
+          vertex.transformed = transformed;
+
+          vertices_arr[x_factor << 2 | y_factor << 1 | z_factor] = vertex;
         }
+      }
+    }
+
+    for x in 0..2 {
+      let mut vertices = [vertices_arr[x << 2], vertices_arr[x << 2 | 1], vertices_arr[x << 2 | 3], vertices_arr[x << 2 | 2]].to_vec();
+
+      Engine3d::clip_plane(0, &mut vertices);
+
+      if !vertices.is_empty() {
+        return true;
+      }
+    }
+
+    for y in 0..2 {
+      let mut vertices = [vertices_arr[y << 1], vertices_arr[y << 1 | 1], vertices_arr[y << 1 | 5], vertices_arr[y << 1 | 4]].to_vec();
+
+      Engine3d::clip_plane(1, &mut vertices);
+
+      if !vertices.is_empty() {
+        return true;
+      }
+    }
+
+    for z in 0..2 {
+      let mut vertices = [vertices_arr[z], vertices_arr[z | 2], vertices_arr[z | 6], vertices_arr[z | 4]].to_vec();
+
+      Engine3d::clip_plane(2, &mut vertices);
+
+      if !vertices.is_empty() {
+        return true;
       }
     }
 

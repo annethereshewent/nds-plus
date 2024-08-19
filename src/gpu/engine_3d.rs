@@ -1230,7 +1230,7 @@ impl Engine3d {
     }
 
     for i in (0..3).rev() {
-      self.clip_plane(i);
+      Self::clip_plane(i, &mut self.current_vertices);
     }
 
     if self.current_vertices.is_empty() {
@@ -1326,34 +1326,34 @@ impl Engine3d {
     self.polygon_buffer.push(polygon);
   }
 
-  fn clip_plane(&mut self, index: usize) {
+  fn clip_plane(index: usize, vertices: &mut Vec<Vertex>) {
     let mut temp: Vec<Vertex> = Vec::with_capacity(10);
 
-    for i in 0..self.current_vertices.len() {
-      let current = self.current_vertices[i];
+    for i in 0..vertices.len() {
+      let current = vertices[i];
       let previous_index = if i == 0 {
-        self.current_vertices.len() - 1
+        vertices.len() - 1
       } else {
         i - 1
       };
 
-      let previous = self.current_vertices[previous_index];
+      let previous = vertices[previous_index];
 
       // current is inside the positive part of plane
       if current.transformed[index] <= current.transformed[3] {
 
         // previous point is outside
         if previous.transformed[index] > previous.transformed[3] {
-          temp.push(self.find_plane_intersection(index, current, previous, true));
+          temp.push(Self::find_plane_intersection(index, current, previous, true));
         }
         temp.push(current.clone());
 
       } else if previous.transformed[index] <= previous.transformed[3] {
-        temp.push(self.find_plane_intersection(index, previous, current, true));
+        temp.push(Self::find_plane_intersection(index, previous, current, true));
       }
     }
 
-    self.current_vertices.clear();
+    vertices.clear();
 
     for i in 0..temp.len() {
       let current = temp[i];
@@ -1365,20 +1365,20 @@ impl Engine3d {
       if current.transformed[index] >= -current.transformed[3] {
         if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
-          let vertex = self.find_plane_intersection(index, current, previous, false);
-          self.current_vertices.push(vertex);
+          let vertex = Self::find_plane_intersection(index, current, previous, false);
+          vertices.push(vertex);
         }
-        self.current_vertices.push(current.clone());
+        vertices.push(current.clone());
       } else if previous.transformed[index] >= -previous.transformed[3] {
 
-        let vertex = self.find_plane_intersection(index, previous, current, false);
-        self.current_vertices.push(vertex);
+        let vertex = Self::find_plane_intersection(index, previous, current, false);
+        vertices.push(vertex);
       }
     }
 
   }
 
-  fn find_plane_intersection(&mut self, index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
+  fn find_plane_intersection(index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
     let sign = if positive_plane { 1 } else { -1 };
 
     let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
