@@ -26,6 +26,7 @@ pub enum ScreenSourceB {
   MainMemoryDisplayFifo
 }
 
+#[derive(Copy, Clone)]
 pub struct DisplayCaptureControlRegister {
   pub eva: u32,
   pub evb: u32,

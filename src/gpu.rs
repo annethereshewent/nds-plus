@@ -302,6 +302,9 @@ impl GPU {
     let mut rendering_data_a = data.rendering_data[0].lock().unwrap();
     let mut rendering_data_b = data.rendering_data[1].lock().unwrap();
     let mut vram = data.vram.lock().unwrap();
+    let mut dispcapcnt = data.dispcapcnt.lock().unwrap();
+
+    *dispcapcnt = self.dispcapcnt;
 
     if self.vram.updated.len() > 0 {
       *vram = self.vram.clone();
@@ -312,6 +315,18 @@ impl GPU {
     self.engine_b.pixels = rendering_data_b.pixels;
     self.engine_a.pixel_alphas = rendering_data_a.pixel_alphas;
     self.engine_b.pixel_alphas = rendering_data_b.pixel_alphas;
+
+    self.engine_a.bg_props[0].internal_x = rendering_data_a.bg_props[0].internal_x;
+    self.engine_a.bg_props[0].internal_y = rendering_data_a.bg_props[0].internal_y;
+
+    self.engine_a.bg_props[1].internal_x = rendering_data_a.bg_props[1].internal_x;
+    self.engine_a.bg_props[1].internal_y = rendering_data_a.bg_props[1].internal_y;
+
+    self.engine_b.bg_props[0].internal_x = rendering_data_a.bg_props[0].internal_x;
+    self.engine_b.bg_props[0].internal_y = rendering_data_a.bg_props[0].internal_y;
+
+    self.engine_b.bg_props[1].internal_x = rendering_data_a.bg_props[1].internal_x;
+    self.engine_b.bg_props[1].internal_y = rendering_data_a.bg_props[1].internal_y;
 
     let mut powcnt1 = data.powcnt1.lock().unwrap();
 
