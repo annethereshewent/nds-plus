@@ -210,9 +210,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
   pub fn skip_bios(&mut self) {
     let pc = if IS_ARM9 {
-      self.bus.borrow_mut().cartridge.header.arm9_entry_address
+      self.bus.borrow().cartridge.header.arm9_entry_address
     } else {
-      self.bus.borrow_mut().cartridge.header.arm7_entry_address
+      self.bus.borrow().cartridge.header.arm7_entry_address
     };
 
     self.pc = pc;
@@ -254,10 +254,11 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let condition = (instruction >> 28) as u8;
 
+    let instruction_pc = self.pc - 8;
     {
       if self.bus.borrow().debug_on {
-        if !self.found.contains_key(&self.pc.wrapping_sub(8)) {
-          println!("attempting to execute instruction {:032b} at address {:X}", instruction, pc.wrapping_sub(8));
+        if !self.found.contains_key(&instruction_pc) {
+          println!("attempting to execute instruction {:032b} at address {:X}", instruction, instruction_pc);
           self.found.insert(self.pc.wrapping_sub(8), true);
         }
       }
@@ -456,7 +457,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   pub fn trigger_irq(&mut self) {
-    let use_irq_disable = IS_ARM9 || !self.bus.borrow_mut().is_halted(false);
+    let use_irq_disable = IS_ARM9 || !self.bus.borrow().is_halted(false);
 
     if !use_irq_disable || !self.cpsr.contains(PSRRegister::IRQ_DISABLE)  {
       let lr = self.get_irq_return_address();

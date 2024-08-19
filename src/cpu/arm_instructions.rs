@@ -1157,10 +1157,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // MCR
       let ref mut bus = *self.bus.borrow_mut();
 
-      bus.arm9.cp15.write(cn, cm, cp, self.r[rd as usize]);
+      bus.arm9.cp15.write(cn, cm, cp, self.r[rd as usize], self.cpsr.contains(PSRRegister::IRQ_DISABLE));
     } else {
       // MRC
-      self.r[rd as usize] = self.bus.borrow_mut().arm9.cp15.read(cn, cm, cp);
+      self.r[rd as usize] = self.bus.borrow().arm9.cp15.read(cn, cm, cp);
     }
 
     self.pc = self.pc.wrapping_add(4);
