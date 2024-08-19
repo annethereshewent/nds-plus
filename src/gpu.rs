@@ -1,8 +1,12 @@
 use std::{
   hint, sync::{
-    atomic::{AtomicBool, AtomicU16, Ordering}, Arc, Mutex, MutexGuard
+    atomic::{AtomicBool, AtomicU16, Ordering},
+    Arc,
+    Mutex,
   }, thread::{
-    self, sleep, JoinHandle
+    self,
+    sleep,
+    JoinHandle
   }, time::{
     Duration,
     SystemTime,
@@ -204,16 +208,19 @@ impl GPU {
           let mut vram = thread_data.vram.lock().unwrap();
           let frame_buffer = thread_data.frame_buffer.lock().unwrap();
           let mut dispcapcnt = thread_data.dispcapcnt.lock().unwrap();
-          let rendering_data_a = thread_data.rendering_data[0].lock().unwrap();
 
           if powcnt1.contains(PowerControlRegister1::ENGINE_A_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, false);
+
+            let rendering_data_a = thread_data.rendering_data[0].lock().unwrap();
 
             // capture image if needed
             if thread_data.is_capturing.load(Ordering::Relaxed) && vcount < dispcapcnt.get_capture_height() {
               dispcapcnt.capture_enable = false;
               Self::start_capture_image(&mut dispcapcnt, &rendering_data_a, &frame_buffer, vcount, &mut vram);
             }
+
+            drop(rendering_data_a);
           }
           if powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
             renderer2d.render_line(vcount, &mut vram, &frame_buffer, true);
@@ -223,7 +230,6 @@ impl GPU {
           drop(powcnt1);
           drop(vram);
           drop(frame_buffer);
-          drop(rendering_data_a);
           drop(dispcapcnt);
         }
       })
@@ -358,7 +364,6 @@ impl GPU {
       while self.thread_data.finished_line.load(Ordering::Acquire) {
         hint::spin_loop();
       }
-
       self.flush_rendering_data();
     }
 
