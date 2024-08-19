@@ -17,6 +17,7 @@ pub struct RenderingData {
   pub bg_props: [BgProps; 2],
   pub bg_lines: [[Option<Color>; SCREEN_WIDTH as usize]; 4],
   pub obj_lines: [ObjectPixel; SCREEN_WIDTH as usize],
+  pub pixel_alphas: [bool; SCREEN_WIDTH as usize],
   pub master_brightness: MasterBrightnessRegister,
   pub palette_ram: [u8; 0x400],
 }
@@ -42,6 +43,7 @@ impl RenderingData {
       master_brightness: MasterBrightnessRegister::new(),
       palette_ram: [0; 0x400],
       obj_lines: [ObjectPixel::new(); SCREEN_WIDTH as usize],
+      pixel_alphas: [false; SCREEN_WIDTH as usize]
     }
   }
 }

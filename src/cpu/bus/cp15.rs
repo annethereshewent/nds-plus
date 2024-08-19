@@ -38,7 +38,7 @@ impl CP15 {
     }
   }
 
-  pub fn write(&mut self, cn: u32, cm: u32, cp: u32, val: u32) {
+  pub fn write(&mut self, cn: u32, cm: u32, cp: u32, val: u32, irq_disable: bool) {
     match (cn, cm, cp) {
       // control write
       (1, 0, 0) => {
@@ -51,7 +51,7 @@ impl CP15 {
         };
       }
       // write cache commands
-      (7, 0, 4) if val == 0 => self.arm9_halted = true,
+      (7, 0, 4) if val == 0 => self.arm9_halted = !irq_disable,
       // write to tcm control registers
       (9, 1, 0) => self.dtcm_control.write(val),
       (9, 1, 1) => self.itcm_control.write(val),

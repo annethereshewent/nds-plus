@@ -1,7 +1,7 @@
 #[derive(Copy, Clone, PartialEq)]
 pub enum AccessRights {
-  Arm7 = 0,
-  Arm9 = 1
+  Arm9 = 0,
+  Arm7 = 1
 }
 
 #[derive(Copy, Clone, PartialEq)]

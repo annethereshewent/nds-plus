@@ -212,8 +212,10 @@ impl Renderer2d {
       // lastly apply master brightness
       top_layer_color = data.master_brightness.apply_effect(top_layer_color);
 
+      data.pixel_alphas[x as usize] = true;
       Self::set_pixel(x as usize, y as usize, top_layer_color.convert(), data);
     } else {
+      data.pixel_alphas[x as  usize] = false;
       Self::set_pixel(x as usize, y as usize, default_color, data);
     }
 

@@ -1,10 +1,10 @@
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SoundFormat {
-  PCM8,
-  PCM16,
-  IMAADPCM,
-  PSG
+  PCM8 = 0,
+  PCM16 = 1,
+  IMAADPCM = 2,
+  PSG = 3
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -96,6 +96,14 @@ impl SoundChannelControlRegister {
   }
 
   pub fn read(&self) -> u32 {
-    self.val
+    // self.val
+    self.volume_mul |
+    (self.volume_div) << 8 |
+    (self.hold_sample as u32) << 15 |
+    (self.panning as u32) << 16 |
+    self.wave_duty << 24 |
+    (self.repeat_mode as u32) << 27 |
+    (self.format as u32) << 29 |
+    (self.is_started as u32) << 31
   }
 }

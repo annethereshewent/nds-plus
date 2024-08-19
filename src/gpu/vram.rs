@@ -108,7 +108,6 @@ impl VRam {
 
   pub fn create_vec(size: usize) -> Vec<HashSet<Bank>> {
     let mut vec = Vec::with_capacity(size);
-
     for _ in 0..size {
       vec.push(HashSet::new());
     }
@@ -117,14 +116,10 @@ impl VRam {
   }
 
   pub fn write_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32, value: T) {
-    if self.lcdc.contains(&bank_enum) {
-      let bank = &mut self.banks[bank_enum as usize];
-      let bank_len = bank.len();
+    let bank = &mut self.banks[bank_enum as usize];
+    let bank_len = bank.len();
 
-      unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
-    } else {
-      println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
-    }
+    unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
   }
 
   pub fn read_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32) -> T {
@@ -133,7 +128,7 @@ impl VRam {
 
       unsafe { *(&bank[(address as usize) & (bank.len() - 1)] as *const u8 as *const T) }
     } else {
-      println!("[WARN] bank {:?} not enabled for lcdc", bank_enum);
+      println!("[WARN] read from bank {:?} not enabled for lcdc", bank_enum);
       num::zero()
     }
   }

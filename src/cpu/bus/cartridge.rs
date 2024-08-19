@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::VecDeque, fs::{self, File}, ops::Range, path::{Path, PathBuf}};
+use std::{collections::VecDeque, fs, ops::Range, path::{Path, PathBuf}};
 
 use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;

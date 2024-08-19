@@ -436,6 +436,10 @@ impl Engine3d {
     }
   }
 
+  pub fn read_ram_count(&self) -> u16 {
+    self.polygon_buffer.len() as u16 | (self.vertices_buffer.len() << 16) as u16
+  }
+
   pub fn read_clip_matrix(&mut self, address: u32) -> u32 {
     if self.clip_mtx_recalculate {
       self.recalculate_clip_matrix();

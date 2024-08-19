@@ -228,6 +228,7 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
+      0x400_0604 => self.gpu.engine3d.read_ram_count(),
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1000 => self.gpu.engine_b.dispcnt.read() as u16,
       0x400_1002 => (self.gpu.engine_b.dispcnt.read() >> 16) as u16,
@@ -354,7 +355,7 @@ impl Bus {
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
       0x400_0188 => self.send_to_fifo(true, value),
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0210 => self.arm9.interrupt_enable = InterruptEnableRegister::from_bits_retain(value),
       0x400_0214 => {
         self.arm9.interrupt_request = InterruptRequestRegister::from_bits_retain(self.arm9.interrupt_request.bits() & !value);
@@ -436,13 +437,6 @@ impl Bus {
   }
 
   pub fn arm9_io_write_16(&mut self, address: u32, value: u16) {
-    // not sure if this is needed for the ds....
-    // let address = if address & 0xfffe == 0x8000 {
-    //   0x400_0800
-    // } else {
-    //   address
-    // };
-
     match address {
       0x400_0000 => self.gpu.engine_a.dispcnt.write(value as u32, Some(0xffff0000), false),
       0x400_0002 => self.gpu.engine_a.dispcnt.write((value as u32) << 16, Some(0xffff), false),
@@ -508,7 +502,7 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0204 => self.exmem.write(true, value),
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0240..=0x400_0249 => {
         self.arm9_io_write_8(address, value as u8);
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
@@ -527,6 +521,7 @@ impl Bus {
         self.arm9_io_write_8(address + 1, (value >> 8) as u8);
       }
       0x400_0380..=0x400_03bf => self.gpu.engine3d.write_toon_table(address, value),
+      0x400_0610 => (),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value as u32, Some(0xffff0000), true),
       0x400_1002 => self.gpu.engine_b.dispcnt.write((value as u32) << 16, Some(0xffff), true),
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
@@ -538,15 +533,6 @@ impl Bus {
   }
 
   pub fn arm9_io_write_8(&mut self, address: u32, value: u8) {
-    // not sure if needed and so on
-    // let address = if address & 0xffff == 0x8000 {
-    //   0x400_0800
-    // } else {
-    //   address
-    // };
-
-    // println!("im being called with address {:X}", address);
-
     match address {
       0x400_004c => self.gpu.mosaic.write(value as u16, 0xff00),
       0x400_004d => self.gpu.mosaic.write((value as u16) << 8, 0xff),
@@ -556,7 +542,7 @@ impl Bus {
 
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm9);
       }
-      0x400_0208 => self.arm9.interrupt_master_enable = value != 0,
+      0x400_0208 => self.arm9.interrupt_master_enable = value & 0b1 != 0,
       0x400_0240..=0x400_0246 => {
         let offset = address - 0x400_0240;
 

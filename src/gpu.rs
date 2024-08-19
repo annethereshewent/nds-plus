@@ -10,19 +10,22 @@ use std::{
   }
 };
 
-use color::Color;
 use engine_2d::{
   renderer2d::Renderer2d,
   Engine2d,
   ObjectPixel
 };
-use engine_3d::{Engine3d, Pixel3d};
+use engine_3d::{
+  Engine3d,
+  Pixel3d
+};
 
 use crate::number::Number;
 use registers::{
-    display_capture_control_register::{
+  display_capture_control_register::{
     CaptureSource,
     DisplayCaptureControlRegister,
+    ScreenSourceA,
     ScreenSourceB
   },
   display_control_register::DisplayMode,
@@ -209,7 +212,7 @@ impl GPU {
             // capture image if needed
             if thread_data.is_capturing.load(Ordering::Relaxed) && vcount < dispcapcnt.get_capture_height() {
               dispcapcnt.capture_enable = false;
-              Self::start_capture_image(&mut dispcapcnt, &rendering_data_a, vcount, &mut vram);
+              Self::start_capture_image(&mut dispcapcnt, &rendering_data_a, &frame_buffer, vcount, &mut vram);
             }
           }
           if powcnt1.contains(PowerControlRegister1::ENGINE_B_ENABLE) {
@@ -239,8 +242,6 @@ impl GPU {
 
     if self.previous_time != 0 {
       let diff = current_time - self.previous_time;
-
-      println!("fps = {}", 1000 / diff);
 
       if diff < FPS_INTERVAL {
         sleep(Duration::from_millis((FPS_INTERVAL - diff) as u64));
@@ -303,6 +304,8 @@ impl GPU {
 
     self.engine_a.pixels = rendering_data_a.pixels;
     self.engine_b.pixels = rendering_data_b.pixels;
+    self.engine_a.pixel_alphas = rendering_data_a.pixel_alphas;
+    self.engine_b.pixel_alphas = rendering_data_b.pixel_alphas;
 
     let mut powcnt1 = data.powcnt1.lock().unwrap();
 
@@ -329,6 +332,7 @@ impl GPU {
           master_brightness: self.$engine.master_brightness,
           palette_ram: self.$engine.palette_ram,
           obj_lines: [ObjectPixel::new(); SCREEN_WIDTH as usize],
+          pixel_alphas: self.$engine.pixel_alphas
         }
       }};
     }
@@ -424,17 +428,10 @@ impl GPU {
     self.thread_data.vcount.store(vcount, Ordering::Release);
   }
 
-  fn get_capture_pixel(pixels: &[u8], address: usize) -> u16 {
-    let r = pixels[3 * address] >> 3;
-    let g = pixels[3 * address + 1] >> 3;
-    let b = pixels[3 * address + 2] >> 3;
-
-    (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
-  }
-
   fn start_capture_image(
-    dispcapcnt: &mut MutexGuard<DisplayCaptureControlRegister>,
+    dispcapcnt: &DisplayCaptureControlRegister,
     data: &RenderingData,
+    frame_buffer: &[Pixel3d; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
     vcount: u16,
     vram: &mut VRam
   ) {
@@ -445,6 +442,45 @@ impl GPU {
     if dispcapcnt.source_b == ScreenSourceB::MainMemoryDisplayFifo {
       todo!("main memory display fifo not implemented");
     }
+
+    fn get_3d_pixel(address: usize, _: &RenderingData, frame_buffer: &[Pixel3d]) -> u16 {
+      if let Some(color) = frame_buffer[address].color {
+        return (color.r & 0x1f) as u16 | (color.g as u16 & 0x1f) << 5 | (color.b as u16 & 0x1f) << 10
+      }
+      0
+    }
+
+    fn get_pixel(address: usize, data: &RenderingData, _: &[Pixel3d]) -> u16 {
+      let r = data.pixels[3 * address] >> 3;
+      let g = data.pixels[3 * address + 1] >> 3;
+      let b = data.pixels[3 * address + 2] >> 3;
+
+      (r & 0x1f) as u16 | (g as u16 & 0x1f) << 5 | (b as u16 & 0x1f) << 10
+    }
+
+    fn get_alpha_3d(address: usize, _: &RenderingData, frame_buffer: &[Pixel3d]) -> u8 {
+      if let Some(color) = frame_buffer[address].color {
+        if let Some(alpha) = color.alpha {
+          if alpha == 0 {
+            return 0;
+          }
+        }
+        return 1;
+      }
+      0
+    }
+
+    fn get_alpha(address: usize, data: &RenderingData, _: &[Pixel3d]) -> u8 {
+      data.pixel_alphas[address] as u8
+    }
+
+    let (source_a, alpha_source):
+      (fn(usize, &RenderingData, &[Pixel3d]) -> u16, fn(usize, &RenderingData, &[Pixel3d]) -> u8) =
+        if dispcapcnt.source_a == ScreenSourceA::Screen3d || data.dispcnt.display_mode != DisplayMode::Mode0 {
+          (get_3d_pixel, get_alpha_3d)
+        } else {
+          (get_pixel, get_alpha)
+        };
 
     let read_offset = if data.dispcnt.display_mode != DisplayMode::Mode2 {
       2 * start_address + dispcapcnt.vram_read_offset as usize
@@ -472,7 +508,7 @@ impl GPU {
       CaptureSource::SourceA => {
         let mut index = 0;
         for address in start_address..start_address+width {
-          let pixel = Self::get_capture_pixel(&data.pixels, address);
+          let pixel = source_a(address, data, frame_buffer);
 
           vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
           vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
@@ -486,16 +522,23 @@ impl GPU {
       CaptureSource::Blended => {
         let mut index: usize = 0;
         for address_a in start_address..start_address+width {
-          let r_a = data.pixels[3 * address_a] >> 3;
-          let g_a = data.pixels[3 * address_a + 1] >> 3;
-          let b_a = data.pixels[3 * address_a + 2] >> 3;
+          let pixel_a = source_a(address_a, data, frame_buffer);
+
+          let alpha_address = if dispcapcnt.source_a == ScreenSourceA::Screen3d || data.dispcnt.display_mode != DisplayMode::Mode0 {
+            address_a
+          } else {
+            index
+          };
+
+          let alpha_a = alpha_source(alpha_address, data, frame_buffer);
 
           let pixel_b = source_b[index] as u16 | (source_b[index] as u16) << 8;
 
-          // TODO: colors are converted from rgb15 to rgb24 and lose the alpha bit. need to find
-          // a way around that
-          let alpha_a = 1 as u8;
           let alpha_b = (pixel_b >> 15 & 0b1) as u8;
+
+          let r_a = (pixel_a & 0x1f) as u8;
+          let g_a = ((pixel_a >> 5) & 0x1f) as u8;
+          let b_a = ((pixel_a >> 10) & 0x1f) as u8;
 
           let r_b = (pixel_b & 0x1f) as u8;
           let g_b = ((pixel_b >> 5) & 0x1f) as u8;
@@ -545,11 +588,11 @@ impl GPU {
   }
 
   pub fn read_palette_a<T: Number>(&self, address: u32) -> T {
-    self.engine_a.read_palette_ram::<T>(address)
+    self.engine_a.read_palette_ram(address)
   }
 
   pub fn read_palette_b<T: Number>(&self, address: u32) -> T {
-    self.engine_b.read_palette_ram::<T>(address)
+    self.engine_b.read_palette_ram(address)
   }
 
   pub fn write_palette_b<T: Number>(&mut self, address: u32, val: T) {
