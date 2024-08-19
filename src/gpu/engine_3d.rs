@@ -985,8 +985,11 @@ impl Engine3d {
         self.command_params -= 1;
 
         if self.command_params == 0 {
-          self.gxstat.box_test_result = self.box_test.do_test(self.clip_matrix);
+          if self.clip_mtx_recalculate {
+            self.recalculate_clip_matrix();
+          }
 
+          self.gxstat.box_test_result = self.box_test.do_test(self.clip_matrix);
           self.command_started = false;
         }
       }

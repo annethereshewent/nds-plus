@@ -248,22 +248,6 @@ impl Engine3d {
       }
     }
 
-    if max_x > SCREEN_WIDTH as u32 || min_x > SCREEN_WIDTH as u32 {
-      return;
-    }
-
-    if max_y > SCREEN_HEIGHT as u32 || min_y > SCREEN_HEIGHT as u32 {
-      return;
-    }
-
-    if (max_x - min_x) > SCREEN_WIDTH as u32 {
-      return;
-    }
-
-    if (max_y - min_y) > SCREEN_HEIGHT as u32 {
-      return;
-    }
-
     let mut left_start_index = start_index;
     let mut right_start_index = start_index;
 
@@ -326,7 +310,6 @@ impl Engine3d {
 
     let mut boundary1 = left_start.screen_x as f32;
     let mut boundary2 = right_start.screen_x as f32;
-
 
     while y < max_y {
       while y >= left_end.screen_y {
@@ -488,7 +471,6 @@ impl Engine3d {
             if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
               pixel.depth = z as u32;
             }
-
           } else if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
             color.to_rgb5();
             pixel.color = Some(color);
