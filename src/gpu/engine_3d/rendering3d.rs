@@ -168,10 +168,28 @@ impl Engine3d {
         self.clear_frame_buffer();
       }
 
-      for polygon in self.polygon_buffer.drain(..) {
-        let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-        Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+      if self.disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) {
+        let (opaque, transluscent): (Vec<Polygon>, Vec<Polygon>) =
+          self.polygon_buffer.drain(..).partition(|polygon| polygon.attributes.alpha() == 0x1f);
+
+        for polygon in opaque {
+          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
+          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+        }
+
+        for polygon in transluscent {
+          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
+          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+        }
+
+
+      } else {
+        for polygon in self.polygon_buffer.drain(..) {
+          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
+          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+        }
       }
+
 
       self.vertices_buffer.clear();
       self.polygons_ready = false;
