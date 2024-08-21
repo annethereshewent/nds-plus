@@ -198,6 +198,9 @@ impl GPU {
     cycles_left: usize)
   {
     scheduler.schedule(EventType::HBlank, HBLANK_CYCLES - cycles_left);
+    for dispstat in &mut self.dispstat {
+      dispstat.flags.remove(DispStatFlags::HBLANK);
+    }
 
     self.engine_a.clear_obj_lines();
     self.engine_b.clear_obj_lines();

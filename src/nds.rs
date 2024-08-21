@@ -59,7 +59,6 @@ impl Nds {
   }
 
   pub fn step(&mut self) -> bool {
-    // Rust forcing me to do weird shit haha
     let (cycles, scheduler_cycles) = {
       let ref mut bus = *self.bus.borrow_mut();
       let cycles = bus.scheduler.get_cycles_to_next_event();

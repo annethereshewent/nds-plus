@@ -122,11 +122,7 @@ impl DmaChannel {
 
       if timing == DmaTiming::Immediately || timing == DmaTiming::GeometryCommandFifo {
         if timing == DmaTiming::Immediately {
-          if self.is_arm9 {
-            scheduler.schedule(EventType::DMA9(self.id), 3);
-          } else {
-            scheduler.schedule(EventType::DMA7(self.id), 3);
-          }
+          self.pending = true;
         } else {
           scheduler.schedule(EventType::CheckGeometryFifo, 1);
         }
