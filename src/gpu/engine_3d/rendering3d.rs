@@ -266,6 +266,10 @@ impl Engine3d {
       }
     }
 
+    if max_x >= SCREEN_WIDTH as u32 || max_y >= SCREEN_HEIGHT as u32 {
+      return;
+    }
+
     let mut left_start_index = start_index;
     let mut right_start_index = start_index;
 

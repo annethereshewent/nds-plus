@@ -246,8 +246,8 @@ impl VRam {
     Self::read_mapping::<T>(&self.banks, &self.engine_b_bg, ENGINE_B_BG_BLOCKS - 1, address)
   }
 
-  pub fn read_texture_palette<T: Number>(&self, index: u32) -> T {
-    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, index)
+  pub fn read_texture_palette<T: Number>(&self, address: u32) -> T {
+    Self::read_mapping(&self.banks, &self.texture_palette, TEXTURE_PALETTE_BLOCKS - 1, address)
   }
 
   pub fn read_texture<T: Number>(&self, address: u32) -> T {
