@@ -59,6 +59,13 @@ fn main() {
     bus.gpu.frame_finished = false;
     bus.gpu.cap_fps();
 
+    if bus.scheduler.cycles >= 0xffff_ffff_fff0_0000 {
+      let to_subtract = bus.scheduler.rebase_cycles();
+
+      nds.arm7_cpu.cycles -= to_subtract;
+      nds.arm9_cpu.cycles -= to_subtract * 2;
+    }
+
     frame_finished = false;
 
     // render stuff

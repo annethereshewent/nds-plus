@@ -83,8 +83,6 @@ impl Nds {
       match event_type {
         EventType::HBlank => bus.gpu.handle_hblank(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels, cycles_left),
         EventType::HDraw => bus.gpu.start_next_line(&mut bus.scheduler, &mut interrupt_requests, &mut dma_channels, cycles_left),
-        EventType::DMA7(channel_id) => bus.arm7.dma.channels[channel_id].pending = true,
-        EventType::DMA9(channel_id) => bus.arm9.dma.channels[channel_id].pending = true,
         EventType::Timer7(timer_id) => {
           let timers = &mut bus.arm7.timers;
 

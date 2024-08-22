@@ -6,8 +6,6 @@ use priority_queue::PriorityQueue;
 pub enum EventType {
   HBlank,
   HDraw,
-  DMA7(usize),
-  DMA9(usize),
   Timer7(usize),
   Timer9(usize),
   BlockFinished(bool),
@@ -53,6 +51,26 @@ impl Scheduler {
     }
 
     None
+  }
+
+  pub fn rebase_cycles(&mut self) -> usize {
+    let to_subtract = self.cycles;
+
+    self.cycles = 0;
+
+    let mut vec: Vec<(EventType, usize)> = Vec::new();
+
+    while let Some((event_type, Reverse(cycles)))= self.queue.pop() {
+      let new_cycles = cycles - to_subtract;
+
+      vec.push((event_type, new_cycles));
+    }
+
+    for (event_type, cycles) in vec {
+      self.queue.push(event_type, Reverse(cycles));
+    }
+
+    to_subtract
   }
 
   pub fn get_cycles_to_next_event(&mut self) -> usize {

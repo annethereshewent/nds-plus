@@ -56,7 +56,7 @@ pub struct CPU<const IS_ARM9: bool> {
   arm_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u32) -> Option<MemoryAccess>>,
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
-  cycles: usize,
+  pub cycles: usize,
   pub bus: Rc<RefCell<Bus>>,
   pub found: HashMap<u32, bool>
 }
