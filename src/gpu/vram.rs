@@ -97,10 +97,12 @@ impl VRam {
   }
 
   pub fn write_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32, value: T) {
-    let bank = &mut self.banks[bank_enum as usize];
-    let bank_len = bank.len();
+    if self.lcdc.contains(&bank_enum) {
+      let bank = &mut self.banks[bank_enum as usize];
+      let bank_len = bank.len();
 
-    unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
+      unsafe { *(&mut bank[(address as usize) & (bank_len - 1)] as *mut u8 as *mut T) = value };
+    }
   }
 
   pub fn read_lcdc_bank<T: Number>(&mut self, bank_enum: Bank, address: u32) -> T {
