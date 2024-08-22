@@ -649,7 +649,7 @@ impl Engine3d {
       }
       PolygonAttr => self.polygon_attributes = PolygonAttributes::from_bits_retain(entry.param),
       TexImageParam => self.texture_params.write(entry.param),
-      PlttBase => self.palette_base = (entry.param & 0xfff) << 4,
+      PlttBase => self.palette_base = (entry.param & 0x1fff) << 4,
       SwapBuffers => {
         self.transluscent_polygon_sort = entry.param & 0b1 == 1;
         self.depth_buffering_with_w = entry.param >> 1 & 0b1 == 1;
