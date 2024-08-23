@@ -44,3 +44,8 @@ Joypad (tested on PS5 controller, should be similar on Xbox/other similar contro
 <img width="250" alt="Screenshot 2024-08-22 at 7 20 54 PM" src="https://github.com/user-attachments/assets/8c2875df-d052-4d08-b1de-dd4126a1412e">
 <img width="250" alt="Screenshot 2024-08-22 at 7 23 10 PM" src="https://github.com/user-attachments/assets/a5d50262-2383-4c5f-97a3-b46531fcfd9a">
 <img width="250" alt="Screenshot 2024-08-22 at 7 24 06 PM" src="https://github.com/user-attachments/assets/db0f3eb3-02fd-46d3-b491-f22c575ab077">
+<img width="250" alt="Screenshot 2024-08-22 at 7 43 05 PM" src="https://github.com/user-attachments/assets/1d41de7b-1089-4daa-943e-e5d79b6f9c6e">
+<img width="250" alt="Screenshot 2024-08-22 at 7 39 35 PM" src="https://github.com/user-attachments/assets/43fb5b61-2037-4915-9cc6-5dfeacb3a62d">
+
+
+
