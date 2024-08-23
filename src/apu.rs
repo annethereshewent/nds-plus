@@ -15,10 +15,10 @@ use registers::{
   }
 };
 
-use crate::scheduler::{
+use crate::{cpu::bus::Bus, scheduler::{
   EventType,
   Scheduler
-};
+}};
 
 pub mod registers;
 pub mod channel;
@@ -58,6 +58,12 @@ pub struct Sample<T> {
 }
 
 impl Sample<f32> {
+  pub fn new() -> Self {
+    Self {
+      left: 0.0,
+      right: 0.0
+    }
+  }
   pub fn from(left: i16, right: i16) -> Self {
     Self {
       left: Self::to_f32(left),
@@ -97,7 +103,8 @@ pub struct APU {
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
-  pub debug_on: bool
+  pub debug_on: bool,
+  pub mixer: Sample<f32>,
 }
 
 impl APU {
@@ -106,10 +113,11 @@ impl APU {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
-      sndcapcnt: [SoundCaptureControlRegister::new(); 2],
+      sndcapcnt: [SoundCaptureControlRegister::new(0), SoundCaptureControlRegister::new(1)],
       audio_buffer,
       phase: 0.0,
-      debug_on: false
+      debug_on: false,
+      mixer: Sample::new()
     };
 
     scheduler.schedule(
@@ -129,30 +137,33 @@ impl APU {
     self.phase -= 1.0;
   }
 
-  fn generate_mixer(&mut self, mixer: &mut Sample<f32>) {
+  pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
+    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
+
+    self.mixer = Sample { left: 0.0, right: 0.0 };
+    let mut ch1 = Sample { left: 0.0, right: 0.0 };
+    let mut ch3 = Sample { left: 0.0, right: 0.0 };
+
+    let mut ch0 = Sample { left: 0.0, right: 0.0 };
+    let mut ch2 = Sample { left: 0.0, right: 0.0 };
+
     if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
-      self.channels[0].generate_samples(mixer);
+      self.channels[0].generate_samples(&mut ch0);
+      self.mixer.left += ch0.left;
+      self.mixer.right += ch0.right;
     }
 
     if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
-      self.channels[2].generate_samples(mixer);
+      self.channels[2].generate_samples(&mut ch2);
+      self.mixer.left += ch2.left;
+      self.mixer.right += ch2.right;
     }
 
     for i in 4..self.channels.len() {
       if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
-        self.channels[i].generate_samples(mixer);
+        self.channels[i].generate_samples(&mut self.mixer);
       }
     }
-  }
-
-  pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
-    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
-
-    let mut mixer = Sample { left: 0.0, right: 0.0 };
-    let mut ch1 = Sample { left: 0.0, right: 0.0 };
-    let mut ch3 = Sample { left: 0.0, right: 0.0 };
-
-    self.generate_mixer(&mut mixer);
 
     if self.channels[1].soundcnt.is_started || self.channels[1].soundcnt.hold_sample {
       self.channels[1].generate_samples(&mut ch1);
@@ -162,17 +173,17 @@ impl APU {
     }
 
     if self.soundcnt.output_ch1_to_mixer {
-      mixer.left += ch1.left;
-      mixer.right += ch1.right;
+      self.mixer.left += ch1.left;
+      self.mixer.right += ch1.right;
     }
     if self.soundcnt.output_ch3_to_mixer {
-      mixer.left += ch3.left;
-      mixer.right += ch3.right;
+      self.mixer.left += ch3.left;
+      self.mixer.right += ch3.right;
     }
 
     let left_sample = match self.soundcnt.left_output_source {
       OutputSource::Ch1 => ch1.left,
-      OutputSource::Mixer => mixer.left,
+      OutputSource::Mixer => self.mixer.left,
       OutputSource::Ch3 => ch3.left,
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
@@ -181,7 +192,7 @@ impl APU {
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
-      OutputSource::Mixer => mixer.right,
+      OutputSource::Mixer => self.mixer.right,
       OutputSource::Ch3 => ch3.right,
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right
@@ -217,20 +228,6 @@ impl APU {
     }
 
     vec.try_into().unwrap_or_else(|vec: Vec<Channel>| panic!("expected a vec of length 16 but got a vec of length {}", vec.len()))
-  }
-
-  pub fn capture_data(&mut self, capture_index: usize) -> i16 {
-    let mut mixer = Sample { left: 0.0, right: 0.0 };
-
-    self.generate_mixer(&mut mixer);
-
-    let sample_16bit = mixer.to_i16();
-
-    if capture_index == 0 {
-      sample_16bit.left
-    } else {
-      sample_16bit.right
-    }
   }
 
   pub fn write_sound_bias(&mut self, value: u16, mask: Option<u16>) {
@@ -337,6 +334,11 @@ impl APU {
       }
       0x8 => {
         self.channels[channel_id as usize].write_timer(value as u16, scheduler);
+        if channel_id == 1 {
+          self.sndcapcnt[0].write_timer(value as u16, scheduler);
+        } else if channel_id == 3 {
+          self.sndcapcnt[1].write_timer(value as u16, scheduler);
+        }
 
         if bit_length == BitLength::Bit32 {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;
