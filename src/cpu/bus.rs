@@ -632,12 +632,9 @@ impl Bus {
       } else {
         self.arm7.apu.sndcapcnt[capture_id].bytes_left = self.arm7.apu.sndcapcnt[capture_id].capture_length * 4;
 
-        println!("current address = {:x} destination address = {:x}", self.arm7.apu.sndcapcnt[capture_id].current_address, self.arm7.apu.sndcapcnt[capture_id].destination_address);
-
         self.arm7.apu.sndcapcnt[capture_id].current_address = self.arm7.apu.sndcapcnt[capture_id].destination_address;
 
         self.arm7.apu.sndcapcnt[capture_id].read_half = false;
-        self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
 
         let time = (0x10000 - self.arm7.apu.sndcapcnt[capture_id].timer_value as usize) << 1;
 
@@ -645,8 +642,6 @@ impl Bus {
       }
     } else if (fifo_pos - offset) & 0x1f >= 16 {
       self.flush_fifo(capture_id);
-
-      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
 
       let time = (0x10000 - self.arm7.apu.sndcapcnt[capture_id].timer_value as usize) << 1;
 
@@ -680,6 +675,7 @@ impl Bus {
       }
     }
 
+    self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
     self.arm7.apu.sndcapcnt[capture_id].read_half ^= true;
   }
 
