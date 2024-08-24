@@ -4,7 +4,6 @@ This is a DS emulator written in Rust! It currently plays some games, though it'
 
 Things on to-do list:
 
-- Audio capture
 - WASM Emulator
 - Texture/rendering issues
 - CPU bugs
