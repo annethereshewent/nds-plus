@@ -320,10 +320,8 @@
             const saveJson = JSON.parse(localStorage.getItem(gameName))
 
             if (saveEntry != null) {
-              console.log('retrieved save')
               emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
             } else if (saveJson != null) {
-              console.log('shit :-(')
               bytes = new Uint8Array(saveJson)
 
               await setSave(gameName, bytes)
