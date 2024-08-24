@@ -595,18 +595,18 @@ impl Bus {
 
     // rust once again not letting me do something simple like let sndcapcnt = &mut self.arm7.apu.sndcapcnt so i have to type that out every single time
     let (capture_sample, add_sample, mixer_out) = match capture_id {
-      0 => (self.arm7.apu.channels[0].current_i16_sample, self.arm7.apu.channels[1].current_i16_sample, mixer.to_i16().left),
-      1 => (self.arm7.apu.channels[2].current_i16_sample, self.arm7.apu.channels[3].current_i16_sample, mixer.to_i16().right),
+      0 => (self.arm7.apu.channels[0].apply_volume(), self.arm7.apu.channels[1].apply_volume(), mixer.to_i16().left),
+      1 => (self.arm7.apu.channels[2].apply_volume(), self.arm7.apu.channels[3].apply_volume(), mixer.to_i16().right),
       _ => unreachable!()
     };
 
     let mut sample = if self.arm7.apu.sndcapcnt[capture_id].use_channel {
       if self.arm7.apu.sndcapcnt[capture_id].add {
-        capture_sample + add_sample
-      } else if capture_sample < 0 && add_sample < 0 {
+        Sample::to_i16_single(capture_sample + add_sample)
+      } else if capture_sample < 0.0 && add_sample < 0.0 {
         -0x8000
       } else {
-        capture_sample
+        Sample::to_i16_single(capture_sample)
       }
     } else {
       mixer_out

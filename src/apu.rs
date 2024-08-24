@@ -71,7 +71,7 @@ impl Sample<f32> {
     }
   }
 
-  fn to_i16_internal(sample: f32) -> i16 {
+  pub fn to_i16_single(sample: f32) -> i16 {
     if sample >= 0.0 {
       (sample * i16::MAX as f32) as i16
     } else {
@@ -81,8 +81,8 @@ impl Sample<f32> {
 
   pub fn to_i16(&self) -> Sample<i16> {
     Sample {
-      left: Self::to_i16_internal(self.left),
-      right: Self::to_i16_internal(self.right)
+      left: Self::to_i16_single(self.left),
+      right: Self::to_i16_single(self.right)
     }
   }
 

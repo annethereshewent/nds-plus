@@ -29,7 +29,6 @@ pub struct Channel {
   pub bytes_left: u32,
   pub current_address: u32,
   pub current_sample: f32,
-  pub current_i16_sample: i16,
   pub initial_adpcm_value: i16,
   pub initial_table_index: i32,
   pub adpcm_value: i16,
@@ -52,7 +51,6 @@ impl Channel {
       bytes_left: 0,
       current_address: 0,
       current_sample: 0.0,
-      current_i16_sample: 0,
       initial_adpcm_value: 0,
       initial_table_index: 0,
       adpcm_index: 0,
@@ -64,7 +62,7 @@ impl Channel {
     }
   }
 
-  pub fn generate_samples(&mut self, sample: &mut Sample<f32>) {
+  pub fn generate_samples(&self, sample: &mut Sample<f32>) {
     let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
     let panning = self.soundcnt.panning_factor() as f32 / 128.0;
 
@@ -72,17 +70,10 @@ impl Channel {
     sample.right += self.current_sample * volume * panning;
   }
 
-  pub fn generate_i32_samples(&mut self, sample: &mut Sample<i32>) {
-    // let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
-    // let panning = self.soundcnt.panning_factor() as f32 / 128.0;
+  pub fn apply_volume(&self) -> f32 {
+    let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
 
-    // sample.left += self.current_sample * volume * (1.0 - panning);
-    // sample.right += self.current_sample * volume * panning;
-    let volume = self.soundcnt.volume_mul() as i32 / self.soundcnt.volume_div() as i32;
-
-    sample.left += self.current_i16_sample as i32 * volume * (128 - self.soundcnt.panning_factor() as i32);
-    sample.right += self.current_i16_sample as i32 * volume * self.soundcnt.panning_factor() as i32;
-
+    self.current_sample * volume
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {
@@ -94,7 +85,6 @@ impl Channel {
 
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
   }
-
 
   pub fn schedule(&self, scheduler: &mut Scheduler, should_reset: bool, cycles_left: usize) {
     if self.timer_value != 0 && self.sound_length + self.loop_start as u32 > 0 {
@@ -164,8 +154,6 @@ impl Channel {
   }
 
   pub fn step_sample_8(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
-    // self.current_sample = (sample as i16) << 8;
-    self.current_i16_sample = (self.sample_fifo as i8 as i16) << 8;
     self.current_sample = (self.sample_fifo as i8 as f32) / i8::MAX as f32;
     self.sample_fifo >>= 8;
     self.pcm_samples_left -= 1;
@@ -182,7 +170,6 @@ impl Channel {
   }
 
   pub fn step_sample_16(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
-    self.current_i16_sample = self.sample_fifo as i16;
     self.current_sample = (self.sample_fifo as i16 as f32) / i16::MAX as f32;
 
     self.sample_fifo >>= 16;
@@ -243,7 +230,6 @@ impl Channel {
 
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
 
-    self.current_i16_sample = self.adpcm_value;
     self.current_sample = self.adpcm_value as f32 / i16::MAX as f32;
 
     if self.bytes_left == 0 && self.pcm_samples_left == 0 {
