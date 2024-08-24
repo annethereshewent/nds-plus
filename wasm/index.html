@@ -261,6 +261,39 @@
         }
       }
 
+      let mouseDown = false
+
+      function getCursorPosition(canvas, event) {
+        const rect = canvas.getBoundingClientRect()
+        const x = event.clientX - rect.left
+        const y = event.clientY - rect.top
+
+        console.log(`${x},${y}`)
+        emulator.touch_screen(x / 2, y / 2)
+      }
+
+      bottomCanvas.addEventListener('mousedown', (e) => {
+        mouseDown = true
+        getCursorPosition(bottomCanvas, e)
+      })
+
+      bottomCanvas.addEventListener('mouseup', (e) => {
+        emulator.release_screen()
+        mouseDown = false
+      })
+
+      bottomCanvas.addEventListener('mousemove', (e) => {
+        if (mouseDown) {
+          getCursorPosition(bottomCanvas, e)
+        }
+      })
+
+      bottomCanvas.addEventListener('mouseout', (e) => {
+        emulator.release_scren()
+        mouseDown = false
+      })
+
+
       async function handleGameChange(e) {
         const game = await getBinaryData(e)
 
@@ -277,10 +310,7 @@
 
           const entry = gameDbJson.filter((entry) => entry.game_code == gameCode)[0]
 
-
-
           if (entry != null) {
-            console.log(entry)
             let bytes = new Uint8Array()
 
             let gameName = fileName.split('/').pop()

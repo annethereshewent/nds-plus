@@ -33,7 +33,7 @@ impl BackupFile {
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
 
-      let buffer = if bytes.len() > 0 {
+      let buffer = if bytes.len() == capacity {
         bytes
       } else {
         let mut buf = Vec::with_capacity(capacity);

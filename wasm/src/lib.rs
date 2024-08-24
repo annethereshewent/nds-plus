@@ -1,9 +1,24 @@
 extern crate ds_emulator;
 extern crate console_error_panic_hook;
 
-use ds_emulator::{apu::Sample, cpu::bus::cartridge::BackupType, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds};
+use ds_emulator::{
+  apu::Sample,
+  cpu::{
+    bus::cartridge::BackupType,
+    registers::external_key_input_register::ExternalKeyInputRegister
+  },
+  gpu::registers::power_control_register1::PowerControlRegister1,
+  nds::Nds
+};
 use wasm_bindgen::prelude::*;
-use std::{collections::VecDeque, panic, sync::{Arc, Mutex}};
+use std::{
+  collections::VecDeque,
+  panic,
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
 #[derive(PartialEq, Eq, Hash)]
 #[wasm_bindgen]
@@ -63,6 +78,21 @@ impl WasmEmulator {
         audio_buffer
       )
     }
+  }
+
+  pub fn touch_screen(&mut self, x: u16, y: u16) {
+    console_log!("touching screen at {x},{y}");
+
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.touchscreen.touch_screen(x, y);
+    bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+  pub fn release_screen(&mut self) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
   }
 
   pub fn get_game_code(&self) -> u32 {
@@ -165,7 +195,7 @@ impl WasmEmulator {
 
     let ref mut bus = *self.nds.bus.borrow_mut();
 
-    if bus.scheduler.cycles >= 0xfff0_0000  {
+    if bus.scheduler.cycles * 2 >= 0xfff0_0000  {
       let to_subtract = bus.scheduler.rebase_cycles();
       self.nds.arm9_cpu.cycles -= to_subtract * 2;
       self.nds.arm7_cpu.cycles -= to_subtract;
