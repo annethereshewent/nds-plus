@@ -49,10 +49,13 @@
     </div>
   </nav>
   <div id="emulator">
-    <input type="file" id="bios-input" class="file-input">
+    <input type="file" id="bios7-input" class="file-input">
+    <input type="file" id="bios9-input" class="file-input">
+    <input type="file" id="firmware-input" class="file-input">
     <input type="file" id="game-input" class="file-input">
     <p id="fps-counter"></p>
-    <canvas width="640" height="480" id="canvas" />
+    <canvas width="256" height="192" id="top-canvas" />
+    <canvas width="256" height="192" id="bottom-canvas" />
   </div>
   <div id="help-modal" class="modal hide">
     <div class="modal-background"></div>
@@ -107,7 +110,7 @@
     </div>
   </div>
   <div id="bios-notification" class="notification is-primary">
-    BIOS successfully loaded
+    Loaded file successfully
   </div>
   <script src="jszip.min.js"></script>
   <script>
@@ -126,82 +129,116 @@
     const FPS_INTERVAL = 1000 / 60
     const SAMPLE_RATE = 44100
     const BUFFER_SIZE = 2048
+    const SCREEN_WIDTH = 256
+    const SCREEN_HEIGHT = 192
 
-    import init, { WasmEmulator, ButtonEvent } from "./pkg/rsx_wasm.js"
+    import init, { WasmEmulator, ButtonEvent } from "./pkg/ds_emulator_wasm.js"
 
     async function main() {
 
       let emulator = null
-      let biosData = null
+      let biosData7 = null
+      let biosData9 = null
+      let firmware = null
       let fileName = ""
       let gameData = null
 
       const keyboardButtons = []
 
-      let biosJson = JSON.parse(localStorage.getItem("bios"))
+      // let biosJson = JSON.parse(localStorage.getItem("bios"))
 
-      if (biosJson != null) {
-        biosData = new Uint8Array(biosJson)
-        document.getElementById("game-button").removeAttribute("disabled")
-        document.getElementById("bios-button").setAttribute("disabled", "true")
+      // if (biosJson != null) {
+      //   biosData = new Uint8Array(biosJson)
+      //   document.getElementById("game-button").removeAttribute("disabled")
+      //   document.getElementById("bios-button").setAttribute("disabled", "true")
 
-        const biosNotification = document.getElementById("bios-notification")
+      //   const biosNotification = document.getElementById("bios-notification")
 
-        biosNotification.style.display = "block"
+      //   biosNotification.style.display = "block"
 
-        let opacity = 1.0
+      //   let opacity = 1.0
 
-        let interval = setInterval(() => {
-          opacity -= 0.1
+      //   let interval = setInterval(() => {
+      //     opacity -= 0.1
 
-          biosNotification.style.opacity = opacity
+      //     biosNotification.style.opacity = opacity
 
-          if (opacity <= 0) {
-            clearInterval(interval)
-          }
-        }, 100)
-      }
+      //     if (opacity <= 0) {
+      //       clearInterval(interval)
+      //     }
+      //   }, 100)
+      // }
 
-      document.getElementById("bios-button").addEventListener("click", () => document.getElementById("bios-input").click())
+      document.getElementById("bios7-button").addEventListener("click", () => document.getElementById("bios7-input").click())
+      document.getElementById("bios9-button").addEventListener("click", () => document.getElementById("bios9-input").click())
+      document.getElementById("firmware-button").addEventListener("click", () => document.getElementById("firmware-input").click())
       document.getElementById("game-button").addEventListener("click", () => document.getElementById("game-input").click())
 
-      document.getElementById("bios-input").addEventListener("change", handleBiosChange)
+      document.getElementById("bios7-input").addEventListener("change", handleBios7Change)
+      document.getElementById("bios9-input").addEventListener("change", handleBios9Change)
+      document.getElementById("firmware-input").addEventListener("change", handleFirmwareChange)
       document.getElementById("game-input").addEventListener("change", handleGameChange)
 
-      const path = "pkg/rsx_wasm_bg.wasm"
+      const path = "pkg/ds_emulator_wasm_bg.wasm"
 
       const wasm = await init(path)
 
-      const canvas = document.getElementById("canvas")
-      const context = canvas.getContext("2d")
+      const topCanvas = document.getElementById("top-canvas")
+      const topContext = topCanvas.getContext("2d")
+
+      const bottomCanvas = document.getElementById("bottom-canvas")
+      const bottomContext = bottomCanvas.getContext("2d")
 
       const analogModeStatus = document.getElementById("analog-mode-status")
       const analogIcon = document.getElementById("analog-mode-status-icon")
 
-      async function handleBiosChange(e) {
-        const bios = await getBinaryData(e)
+      async function handleFileChange(e) {
+        let fileData = null
+        const data = await getBinaryData(e)
 
-        if (bios != null) {
-          biosData = new Uint8Array(bios)
+        if (data != null) {
+          fileData = new Uint8Array(data)
 
-          localStorage.setItem("bios", JSON.stringify(Array.from(biosData)))
+          const fileNotification = document.getElementById("bios-notification")
 
-          const biosNotification = document.getElementById("bios-notification")
-
-          biosNotification.style.display = "block"
+          fileNotification.style.display = "block"
 
           let opacity = 1.0
 
           let interval = setInterval(() => {
             opacity -= 0.1
 
-            biosNotification.style.opacity = opacity
+            fileNotification.style.opacity = opacity
 
             if (opacity <= 0) {
               clearInterval(interval)
             }
           }, 100)
+        }
 
+        return fileData
+      }
+
+      async function handleBios7Change(e) {
+        biosData7 = await handleFileChange(e)
+
+        if (biosData7 != null && biosData9 != null && firmware != null) {
+          document.getElementById("game-button").removeAttribute("disabled")
+        }
+      }
+
+      async function handleBios9Change(e) {
+        biosData9 = await handleFileChange(e)
+
+        if (biosData7 != null && biosData9 != null && firmware != null) {
+          document.getElementById("game-button").removeAttribute("disabled")
+        }
+      }
+
+      async function handleFirmwareChange(e) {
+        firmware = await handleFileChange(e)
+
+        if (biosData7 != null && biosData9 != null && firmware != null) {
           document.getElementById("game-button").removeAttribute("disabled")
         }
       }
@@ -212,13 +249,7 @@
         if (game != null) {
           gameData = new Uint8Array(game)
 
-          emulator = new WasmEmulator(biosData, gameData)
-
-          const memoryCardJson = JSON.parse(localStorage.getItem("memory-card"))
-
-          if (memoryCardJson != null) {
-            emulator.load_card(new Uint8Array(memoryCardJson))
-          }
+          emulator = new WasmEmulator(biosData7, biosData9, firmware, gameData)
 
           startAudio()
 
@@ -275,17 +306,13 @@
         emulator.update_input(Buttonevent.ButtonSquare, gamepad?.buttons[SQUARE_BUTTON].pressed == true || keyboardButtons[SQUARE_BUTTON], true)
       }
 
-      function updatePicture() {
-        const framebuffer = new Uint8Array(wasm.memory.buffer, emulator.get_framebuffer(), emulator.framebuffer_size())
+      function updatePicture(pointer, currentContext) {
+        const engineABuffer = new Uint8Array(wasm.memory.buffer, pointer)
 
-        const [width, height] = emulator.get_dimensions()
-        const imageData = context.getImageData(0, 0, width, height)
+        const imageData = currentContext.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        canvas.width = width
-        canvas.height = height
-
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
+        for (let y = 0; y < SCREEN_HEIGHT; y++) {
+          for (let x = 0; x < SCREEN_WIDTH; x++) {
             const rustIndex = x * 3 + y * 3 * width
             const imageIndex = x * 4 + y * 4 * width
 
@@ -296,7 +323,7 @@
           }
         }
 
-        context.putImageData(imageData, 0, 0)
+        currentContext.putImageData(imageData, 0, 0)
       }
 
       let previousTime = 0
@@ -320,18 +347,22 @@
           previousTime = time - (diff % FPS_INTERVAL)
 
           handleJoypadInput()
-          updatePicture()
-          checkSave()
+
+          let topPointer = null
+          let bottomPointer = null
+
+          if (emulator.is_top_a()) {
+            topPointer = emulator.get_engine_a_picture_pointer()
+            bottomPointer = emulator.get_engine_b_picture_pointer()
+          } else {
+            topPointer = emulator.get_engine_b_picture_pointer()
+            bottomPointer = emulator.get_engine_a_picture_pointer()
+          }
+          updatePicture(topContext, topPointer)
+          updatePicture(bottomContext, bottomPointer)
         }
 
         requestAnimationFrame((time) => run(time))
-      }
-
-      function checkSave() {
-        if (emulator.has_saved()) {
-          const memoryCard = new Uint8Array(wasm.memory.buffer, emulator.get_memory_card(), emulator.memory_card_size())
-          localStorage.setItem("memory-card", JSON.stringify(Array.from(memoryCard)))
-        }
       }
 
       async function getBinaryData(e, setFilename) {

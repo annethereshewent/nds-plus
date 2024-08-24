@@ -1,7 +1,7 @@
 extern crate ds_emulator;
 extern crate console_error_panic_hook;
 
-use ds_emulator::{apu::Sample, nds::Nds};
+use ds_emulator::{apu::Sample, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds};
 use wasm_bindgen::prelude::*;
 use std::{collections::VecDeque, panic, sync::{Arc, Mutex}};
 
@@ -44,8 +44,8 @@ impl WasmEmulator {
   pub fn new(
     bios7_bytes: &[u8],
     bios9_bytes: &[u8],
-    game_data: &[u8],
     firmware_bytes: &[u8],
+    game_data: &[u8],
   ) -> Self {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 
@@ -100,6 +100,12 @@ impl WasmEmulator {
 
   pub fn get_engine_b_picture_pointer(&self) -> *const u8 {
     self.nds.bus.borrow().gpu.engine_b.pixels.as_ptr()
+  }
+
+  pub fn is_top_a(&self) -> bool {
+    let ref bus = *self.nds.bus.borrow();
+
+    bus.gpu.powcnt1.contains(PowerControlRegister1::TOP_A)
   }
 
   pub fn step_frame(&mut self) {
