@@ -58,6 +58,12 @@ pub struct Sample<T> {
 }
 
 impl Sample<f32> {
+  pub fn new() -> Self {
+    Self {
+      left: 0.0,
+      right: 0.0
+    }
+  }
   pub fn from(left: i16, right: i16) -> Self {
     Self {
       left: Self::to_f32(left),
@@ -65,7 +71,7 @@ impl Sample<f32> {
     }
   }
 
-  fn to_i16_internal(sample: f32) -> i16 {
+  pub fn to_i16_single(sample: f32) -> i16 {
     if sample >= 0.0 {
       (sample * i16::MAX as f32) as i16
     } else {
@@ -75,8 +81,8 @@ impl Sample<f32> {
 
   pub fn to_i16(&self) -> Sample<i16> {
     Sample {
-      left: Self::to_i16_internal(self.left),
-      right: Self::to_i16_internal(self.right)
+      left: Self::to_i16_single(self.left),
+      right: Self::to_i16_single(self.right)
     }
   }
 
@@ -89,6 +95,15 @@ impl Sample<f32> {
   }
 }
 
+impl Sample<i32> {
+  pub fn new() -> Self {
+    Self {
+      left: 0,
+      right: 0
+    }
+  }
+}
+
 
 pub struct APU {
   pub soundcnt: SoundControlRegister,
@@ -97,7 +112,7 @@ pub struct APU {
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
-  pub debug_on: bool
+  pub debug_on: bool,
 }
 
 impl APU {
@@ -106,7 +121,7 @@ impl APU {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
-      sndcapcnt: [SoundCaptureControlRegister::new(); 2],
+      sndcapcnt: [SoundCaptureControlRegister::new(), SoundCaptureControlRegister::new()],
       audio_buffer,
       phase: 0.0,
       debug_on: false
@@ -129,7 +144,7 @@ impl APU {
     self.phase -= 1.0;
   }
 
-  fn generate_mixer(&mut self, mixer: &mut Sample<f32>) {
+  pub fn generate_mixer(&mut self, mixer: &mut Sample<f32>) {
     if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
       self.channels[0].generate_samples(mixer);
     }
@@ -217,20 +232,6 @@ impl APU {
     }
 
     vec.try_into().unwrap_or_else(|vec: Vec<Channel>| panic!("expected a vec of length 16 but got a vec of length {}", vec.len()))
-  }
-
-  pub fn capture_data(&mut self, capture_index: usize) -> i16 {
-    let mut mixer = Sample { left: 0.0, right: 0.0 };
-
-    self.generate_mixer(&mut mixer);
-
-    let sample_16bit = mixer.to_i16();
-
-    if capture_index == 0 {
-      sample_16bit.left
-    } else {
-      sample_16bit.right
-    }
   }
 
   pub fn write_sound_bias(&mut self, value: u16, mask: Option<u16>) {

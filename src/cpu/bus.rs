@@ -8,7 +8,7 @@ use std::{
   }
 };
 
-use crate::number::Number;
+use crate::{apu::Sample, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -577,32 +577,111 @@ impl Bus {
       }
     }
 
-    if [1, 3].contains(&channel_id) {
-      // capture audio
-      let capture_index = if channel_id == 1 {
-        0
-      } else {
-        1
-      };
-
-      if self.arm7.apu.sndcapcnt[capture_index].is_running && self.arm7.apu.sndcapcnt[capture_index].bytes_left > 0 {
-        let _address = if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
-          self.arm7.apu.sndcapcnt[capture_index].get_capture_address(1)
-        } else {
-          self.arm7.apu.sndcapcnt[capture_index].get_capture_address(2)
-        };
-
-        // let _data = self.arm7.apu.capture_data(capture_index) as u16;
-
-        // todo, not working quite right
-        // if self.arm7.apu.sndcapcnt[capture_index].is_pcm8 {
-        //   self.arm7_mem_write_8(address, (data >> 8) as u8);
-        // } else {
-        //   self.arm7_mem_write_16(address, data);
-        // }
-      }
+    match channel_id {
+      1 => self.capture_audio(0),
+      3 => self.capture_audio(1),
+      _ => ()
     }
   }
+
+  pub fn capture_audio(&mut self, capture_id: usize) {
+    if !self.arm7.apu.sndcapcnt[capture_id].is_running {
+      return;
+    }
+    let mut mixer = Sample::<f32>::new();
+    if !self.arm7.apu.sndcapcnt[capture_id].use_channel {
+      self.arm7.apu.generate_mixer(&mut mixer);
+    }
+
+    // rust once again not letting me do something simple like let sndcapcnt = &mut self.arm7.apu.sndcapcnt so i have to type that out every single time
+    let (capture_sample, add_sample, mixer_out) = match capture_id {
+      0 => (self.arm7.apu.channels[0].apply_volume(), self.arm7.apu.channels[1].apply_volume(), mixer.to_i16().left),
+      1 => (self.arm7.apu.channels[2].apply_volume(), self.arm7.apu.channels[3].apply_volume(), mixer.to_i16().right),
+      _ => unreachable!()
+    };
+
+    let mut sample = if self.arm7.apu.sndcapcnt[capture_id].use_channel {
+      if self.arm7.apu.sndcapcnt[capture_id].add {
+        Sample::to_i16_single(capture_sample + add_sample)
+      } else if capture_sample < 0.0 && add_sample < 0.0 {
+        -0x8000
+      } else {
+        Sample::to_i16_single(capture_sample)
+      }
+    } else {
+      mixer_out
+    };
+
+    if self.arm7.apu.sndcapcnt[capture_id].is_pcm8 {
+      sample >>= 8;
+
+      self.arm7.apu.sndcapcnt[capture_id].fifo[self.arm7.apu.sndcapcnt[capture_id].fifo_pos as usize] = sample as u8;
+
+      self.arm7.apu.sndcapcnt[capture_id].bytes_left -= 1;
+
+      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = (self.arm7.apu.sndcapcnt[capture_id].fifo_pos + 1) & 0x1f;
+    } else {
+      let fifo_pos = self.arm7.apu.sndcapcnt[capture_id].fifo_pos & !0b1;
+      unsafe { *(&mut self.arm7.apu.sndcapcnt[capture_id].fifo[fifo_pos as usize] as *mut u8 as *mut i16) = sample };
+
+      self.arm7.apu.sndcapcnt[capture_id].bytes_left -= 2;
+
+      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = (self.arm7.apu.sndcapcnt[capture_id].fifo_pos + 2) & 0x1e;
+    }
+
+    let offset = if self.arm7.apu.sndcapcnt[capture_id].read_half {
+      16
+    } else {
+      0
+    };
+
+    let fifo_pos = self.arm7.apu.sndcapcnt[capture_id].fifo_pos;
+
+    if self.arm7.apu.sndcapcnt[capture_id].bytes_left == 0 {
+      self.flush_fifo(capture_id);
+
+      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
+
+      if self.arm7.apu.sndcapcnt[capture_id].one_shot {
+        self.arm7.apu.sndcapcnt[capture_id].is_running = false;
+        self.arm7.apu.sndcapcnt[capture_id].add = false;
+      } else {
+        self.arm7.apu.sndcapcnt[capture_id].bytes_left = self.arm7.apu.sndcapcnt[capture_id].capture_length * 4;
+
+        self.arm7.apu.sndcapcnt[capture_id].current_address = self.arm7.apu.sndcapcnt[capture_id].destination_address;
+
+        self.arm7.apu.sndcapcnt[capture_id].read_half = false;
+      }
+    } else if (fifo_pos - offset) & 0x1f >= 16 {
+      self.flush_fifo(capture_id);
+    }
+  }
+
+  fn flush_fifo(&mut self, capture_id: usize) {
+    let base = if self.arm7.apu.sndcapcnt[capture_id].read_half {
+      16
+    } else {
+      0
+    };
+
+    for i in (base..base + 16).step_by(4) {
+      let value = unsafe { *(&self.arm7.apu.sndcapcnt[capture_id].fifo[i] as *const u8 as *const u32) };
+
+      self.arm7_mem_write(self.arm7.apu.sndcapcnt[capture_id].current_address, value);
+
+      self.arm7.apu.sndcapcnt[capture_id].current_address += 4;
+
+      let destination_address = self.arm7.apu.sndcapcnt[capture_id].destination_address;
+      let destination_end = destination_address + self.arm7.apu.sndcapcnt[capture_id].capture_length as u32 * 4;
+
+      if self.arm7.apu.sndcapcnt[capture_id].current_address >= destination_end {
+        break;
+      }
+    }
+
+    self.arm7.apu.sndcapcnt[capture_id].read_half = !self.arm7.apu.sndcapcnt[capture_id].read_half;
+  }
+
 
   fn write_spicnt(&mut self, value: u16) {
     let previous_enable = self.arm7.spicnt.spi_bus_enabled;

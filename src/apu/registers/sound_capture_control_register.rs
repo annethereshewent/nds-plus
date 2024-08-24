@@ -1,4 +1,3 @@
-#[derive(Copy, Clone)]
 pub struct SoundCaptureControlRegister {
   val: u8,
   pub add: bool,
@@ -9,7 +8,10 @@ pub struct SoundCaptureControlRegister {
   pub destination_address: u32,
   pub current_address: u32,
   pub capture_length: u16,
-  pub bytes_left: u16
+  pub bytes_left: u16,
+  pub fifo: [u8; 32],
+  pub fifo_pos: u8,
+  pub read_half: bool
 }
 
 impl SoundCaptureControlRegister {
@@ -24,7 +26,10 @@ impl SoundCaptureControlRegister {
       destination_address: 0,
       current_address: 0,
       capture_length: 0,
-      bytes_left: 0
+      bytes_left: 0,
+      fifo: [0; 32],
+      fifo_pos: 0,
+      read_half: false
     }
   }
 
@@ -59,16 +64,8 @@ impl SoundCaptureControlRegister {
     self.bytes_left = self.capture_length * 4;
   }
 
-  pub fn get_capture_address(&mut self, bit_length: u16) -> u32 {
-    let return_address = self.current_address;
-
-    self.bytes_left -= bit_length;
-    self.current_address += bit_length as u32;
-
-    return_address
-  }
-
   pub fn write(&mut self, val: u8) {
+    let previous_running = self.is_running;
     self.val = val;
 
     self.add = val & 0b1 == 1;
@@ -76,5 +73,9 @@ impl SoundCaptureControlRegister {
     self.one_shot = (val >> 2) & 0b1 == 1;
     self.is_pcm8 = (val >> 3) & 0b1 == 1;
     self.is_running = (val >> 7) & 0b1 == 1;
+
+    if !previous_running && self.is_running {
+      self.read_half = false;
+    }
   }
 }

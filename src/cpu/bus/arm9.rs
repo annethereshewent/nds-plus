@@ -420,7 +420,7 @@ impl Bus {
           self.arm7.dma.notify_geometry_fifo_event();
         }
       }
-      0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request),
+      0x400_0600 => self.gpu.engine3d.write_geometry_status(value, &mut self.arm9.interrupt_request, None),
       0x400_1000 => self.gpu.engine_b.dispcnt.write(value, None),
       0x400_1004 => (),
       0x400_1008..=0x400_105f => {
@@ -550,6 +550,10 @@ impl Bus {
       0x400_0248 => self.gpu.write_vramcnt(7, value),
       0x400_0249 => self.gpu.write_vramcnt(8, value),
       0x400_0360..=0x400_037f => self.gpu.engine3d.write_fog_table(address, value),
+      0x400_0600 => self.gpu.engine3d.write_geometry_status(value as u32, &mut self.arm9.interrupt_request, Some(0xffffff00)),
+      0x400_0601 => self.gpu.engine3d.write_geometry_status((value as u32) << 8, &mut self.arm9.interrupt_request, Some(0xffff00ff)),
+      0x400_0602 => self.gpu.engine3d.write_geometry_status((value as u32) << 16, &mut self.arm9.interrupt_request, Some(0xff00ffff)),
+      0x400_0603 => self.gpu.engine3d.write_geometry_status((value as u32) << 24, &mut self.arm9.interrupt_request, Some(0x00ffffff)),
       0x400_1008..=0x400_105f => {
         let actual_address = address & !(0b1);
 

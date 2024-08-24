@@ -62,12 +62,18 @@ impl Channel {
     }
   }
 
-  pub fn generate_samples(&mut self, sample: &mut Sample<f32>) {
+  pub fn generate_samples(&self, sample: &mut Sample<f32>) {
     let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
     let panning = self.soundcnt.panning_factor() as f32 / 128.0;
 
     sample.left += self.current_sample * volume * (1.0 - panning);
     sample.right += self.current_sample * volume * panning;
+  }
+
+  pub fn apply_volume(&self) -> f32 {
+    let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
+
+    self.current_sample * volume
   }
 
   pub fn set_adpcm_header(&mut self, header: u32) {
@@ -148,7 +154,6 @@ impl Channel {
   }
 
   pub fn step_sample_8(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
-    // self.current_sample = (sample as i16) << 8;
     self.current_sample = (self.sample_fifo as i8 as f32) / i8::MAX as f32;
     self.sample_fifo >>= 8;
     self.pcm_samples_left -= 1;
