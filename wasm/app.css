@@ -1,0 +1,90 @@
+.logo {
+  font-size: 38px;
+  margin-right: 20px;
+}
+.fa-solid {
+  font-size: 20px;
+}
+.file-input {
+  display: none;
+}
+
+.show {
+  display: block;
+}
+
+.hide {
+  display: none;
+}
+#canvas {
+  width: 640px;
+  height: 480px;
+  image-rendering: pixelated;
+}
+#emulator {
+  width: 640px;
+  margin: 50px auto;
+  text-align: center;
+}
+#bios-notification {
+  position: fixed;
+  top: 100px;
+  left: 25%;
+  display: none;
+  width: 40%;
+}
+label {
+  font-weight: 600;
+}
+#analog-mode {
+  float: right;
+  width: 325px;
+  margin-right: 40px;
+  margin-top: 40px;
+}
+#analog-mode-status-icon {
+  vertical-align: middle;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: #D70040;
+  border-radius: 20px;
+}
+.modal-content {
+  margin-top: 40px;
+}
+@media all and (display-mode: fullscreen)  {
+  body {
+    top: 0;
+    left: 0;
+    background: #000000;
+    height: 100vh;
+  }
+  .navbar {
+    height: 0;
+    width: 0;
+    display: none;
+  }
+  .navbar-brand {
+    display: none;
+  }
+  #navbar-main {
+    display: none;
+  }
+  #analog-mode {
+    display: none;
+  }
+  #emulator {
+    margin-top: 0px;
+    margin-left: auto;
+    width: 100%;
+  }
+  #canvas {
+    margin-left: 8%;
+    height: 100vh;
+    width: auto;
+  }
+  #fps-counter {
+    display: none;
+  }
+}

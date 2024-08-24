@@ -90,12 +90,11 @@ pub struct Cartridge {
   pub key1_encryption: Key1Encryption,
   pub spidata: u8,
   backup: BackupType,
-  file_path: String,
   main_area_load: bool
 }
 
 impl Cartridge {
-  pub fn new(rom: Vec<u8>, bios7: &[u8], file_path: String) -> Self {
+  pub fn new(rom: Vec<u8>, bios7: &[u8], file_path: Option<String>) -> Self {
     let mut cartridge = Self {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
@@ -108,13 +107,15 @@ impl Cartridge {
       spidata: 0,
       current_word: 0,
       backup: BackupType::None,
-      file_path,
       main_area_load: false
     };
 
-    let path = Path::new(&cartridge.file_path).with_extension("sav");
+    if file_path.is_some() {
+      let file_path = file_path.as_ref().unwrap();
+      let path = Path::new(file_path).with_extension("sav");
 
-    cartridge.detect_backup_type(path);
+      cartridge.detect_backup_type(path);
+    }
 
     cartridge
   }
@@ -124,7 +125,7 @@ impl Cartridge {
     let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
 
     if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
-      let backup_file = BackupFile::new(save_filename, entry.ram_capacity);
+      let backup_file = BackupFile::new(Some(save_filename), None, entry.ram_capacity);
 
       println!("detected backup type {}", entry.save_type);
 
