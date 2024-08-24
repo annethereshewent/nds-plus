@@ -16,9 +16,9 @@
 .hide {
   display: none;
 }
-#canvas {
-  width: 640px;
-  height: 480px;
+#canvas-top, #canvas-bottom {
+  width: 512px;
+  height: 384px;
   image-rendering: pixelated;
 }
 #emulator {

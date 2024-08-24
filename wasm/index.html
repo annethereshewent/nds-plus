@@ -128,7 +128,7 @@
   <script type="module">
     const FPS_INTERVAL = 1000 / 60
     const SAMPLE_RATE = 44100
-    const BUFFER_SIZE = 2048
+    const BUFFER_SIZE = 8192
     const SCREEN_WIDTH = 256
     const SCREEN_HEIGHT = 192
 
@@ -307,18 +307,18 @@
       }
 
       function updatePicture(pointer, currentContext) {
-        const engineABuffer = new Uint8Array(wasm.memory.buffer, pointer)
+        const engineBuffer = new Uint8Array(wasm.memory.buffer, pointer)
 
         const imageData = currentContext.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
         for (let y = 0; y < SCREEN_HEIGHT; y++) {
           for (let x = 0; x < SCREEN_WIDTH; x++) {
-            const rustIndex = x * 3 + y * 3 * width
-            const imageIndex = x * 4 + y * 4 * width
+            const rustIndex = x * 3 + y * 3 * SCREEN_WIDTH
+            const imageIndex = x * 4 + y * 4 * SCREEN_WIDTH
 
-            imageData.data[imageIndex] = framebuffer[rustIndex]
-            imageData.data[imageIndex+1] = framebuffer[rustIndex+1]
-            imageData.data[imageIndex+2] = framebuffer[rustIndex+2]
+            imageData.data[imageIndex] = engineBuffer[rustIndex]
+            imageData.data[imageIndex+1] = engineBuffer[rustIndex+1]
+            imageData.data[imageIndex+2] = engineBuffer[rustIndex+2]
             imageData.data[imageIndex+3] = 255
           }
         }
@@ -341,12 +341,12 @@
         realPreviousTime = time
 
         if (diff >= FPS_INTERVAL || previousTime == 0) {
-          emulator.run_frame()
+          emulator.step_frame()
 
           frames++
           previousTime = time - (diff % FPS_INTERVAL)
 
-          handleJoypadInput()
+          // handleJoypadInput()
 
           let topPointer = null
           let bottomPointer = null
@@ -358,8 +358,8 @@
             topPointer = emulator.get_engine_b_picture_pointer()
             bottomPointer = emulator.get_engine_a_picture_pointer()
           }
-          updatePicture(topContext, topPointer)
-          updatePicture(bottomContext, bottomPointer)
+          updatePicture(topPointer, topContext)
+          updatePicture(bottomPointer, bottomContext)
         }
 
         requestAnimationFrame((time) => run(time))

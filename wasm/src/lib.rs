@@ -65,7 +65,7 @@ impl WasmEmulator {
     }
   }
 
-  pub fn update_buffer(&mut self, left_buffer: &mut [f32], right_buffer: &mut [f32]) {
+  pub fn update_audio_buffers(&mut self, left_buffer: &mut [f32], right_buffer: &mut [f32]) {
     let ref mut bus = *self.nds.bus.borrow_mut();
     let mut audio_samples = bus.arm7.apu.audio_buffer.lock().unwrap();
     let len = audio_samples.len();

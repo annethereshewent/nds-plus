@@ -155,7 +155,7 @@ impl Engine3d {
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
       if self.clear_color.alpha != 0 {
-        for pixel in &mut self.frame_buffer {
+        for pixel in self.frame_buffer.iter_mut() {
           pixel.color = Some(Color {
             r: self.clear_color.r,
             g: self.clear_color.g,

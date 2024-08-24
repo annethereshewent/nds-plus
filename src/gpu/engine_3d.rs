@@ -347,7 +347,7 @@ pub struct Engine3d {
   vertices_buffer: Vec<Vertex>,
   polygon_buffer: Vec<Polygon>,
   scale_vector: [i32; 3],
-  pub frame_buffer: [Pixel3d; SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
+  pub frame_buffer: Box<[Pixel3d]>,
   alpha_ref: u8,
   max_params: usize,
   swap_vertices: bool,
@@ -418,7 +418,7 @@ impl Engine3d {
       clip_matrix: Matrix::new(),
       vertices_buffer: Vec::new(),
       polygon_buffer: Vec::new(),
-      frame_buffer: [Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize],
+      frame_buffer: vec![Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
       alpha_ref: 0,
       max_params: 0,
       swap_vertices: false,
@@ -430,7 +430,7 @@ impl Engine3d {
   }
 
   pub fn clear_frame_buffer(&mut self) {
-    for pixel in &mut self.frame_buffer {
+    for pixel in self.frame_buffer.iter_mut() {
       *pixel = Pixel3d::new();
       pixel.depth = self.clear_depth as u32;
     }
