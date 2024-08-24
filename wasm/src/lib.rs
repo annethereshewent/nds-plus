@@ -161,6 +161,8 @@ impl WasmEmulator {
   pub fn set_saved(&mut self, val: bool) {
     let ref mut bus = *self.nds.bus.borrow_mut();
 
+    console_log!("setting has written to {}", val);
+
     match &mut bus.cartridge.backup {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.has_written = val,

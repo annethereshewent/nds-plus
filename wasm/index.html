@@ -117,6 +117,7 @@
     Loaded file successfully
   </div>
   <script src="jszip.min.js"></script>
+  <script src="game_db.js"></script>
   <script>
     function enterFullscreen() {
       document.documentElement.requestFullscreen()
@@ -315,13 +316,24 @@
             let gameName = fileName.split('/').pop()
             gameName = gameName.substring(0, gameName.lastIndexOf('.'))
 
+            const saveEntry = await getSave(gameName)
             const saveJson = JSON.parse(localStorage.getItem(gameName))
 
-            if (saveJson != null) {
+            if (saveEntry != null) {
+              console.log('retrieved save')
+              emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
+            } else if (saveJson != null) {
+              console.log('shit :-(')
               bytes = new Uint8Array(saveJson)
-            }
 
-            emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+              await setSave(gameName, bytes)
+
+              localStorage.removeItem(gameName)
+
+              emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+            } else {
+              emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+            }
           } else {
             alert("Couldn't find game in DB, resorting to no save")
           }
@@ -401,16 +413,15 @@
         currentContext.putImageData(imageData, 0, 0)
       }
 
-      function checkSaves() {
+      async function checkSaves() {
         if (emulator.has_saved()) {
+          emulator.set_saved(false)
           let saveData = new Uint8Array(wasm.memory.buffer, emulator.backup_pointer(), emulator.backup_length())
 
           let gameName = fileName.split('/').pop()
           gameName = gameName.substring(0, gameName.lastIndexOf('.'))
 
-          localStorage.setItem(gameName, JSON.stringify(Array.from(saveData)))
-
-          emulator.set_saved(false)
+          await setSave(gameName, saveData)
         }
       }
 
