@@ -26,7 +26,7 @@ pub struct GameInfo {
 
 pub struct Header {
   game_title: String,
-  game_code: u32,
+  pub game_code: u32,
   maker_code: String,
   unit_code: u8,
   encryption_seed_select: u8,
@@ -89,7 +89,7 @@ pub struct Cartridge {
   pub current_word: u32,
   pub key1_encryption: Key1Encryption,
   pub spidata: u8,
-  backup: BackupType,
+  pub backup: BackupType,
   main_area_load: bool
 }
 
@@ -151,6 +151,30 @@ impl Cartridge {
       }
     } else {
       println!("warning: game not found in database, resorting to no save");
+    }
+  }
+
+  pub fn set_backup_wasm(&mut self, bytes: &[u8], save_type: String, ram_capacity: usize) {
+    let backup_file = BackupFile::new(None, Some(bytes.to_vec()), ram_capacity);
+    match save_type.as_str() {
+      "eeprom_small" => {
+        self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 1));
+      }
+      "eeprom" => {
+        self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 2));
+      }
+      "eeprom_large" => {
+        let address_width = if ram_capacity > 0x1_0000 {
+          3
+        } else {
+          2
+        };
+        self.backup = BackupType::Eeprom(Eeprom::new(backup_file, address_width));
+      }
+      "flash" => {
+        self.backup = BackupType::Flash(Flash::new(backup_file));
+      }
+      _ => panic!("backup type not supported: {}", save_type)
     }
   }
 

@@ -50,7 +50,7 @@ impl Command {
 
 pub struct Eeprom {
   address_width: usize,
-  backup_file: BackupFile,
+  pub backup_file: BackupFile,
   mode: CommandMode,
   current_address: usize,
   command: Command,

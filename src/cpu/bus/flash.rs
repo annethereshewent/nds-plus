@@ -42,7 +42,7 @@ impl Command {
   }
 }
 pub struct Flash {
-  backup_file: BackupFile,
+  pub backup_file: BackupFile,
   write_enable: bool,
   mode: CommandMode,
   address_bytes_left: usize,

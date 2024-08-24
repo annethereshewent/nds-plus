@@ -1,7 +1,7 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
 pub struct BackupFile {
-  buffer: Vec<u8>,
+  pub buffer: Vec<u8>,
   file: Option<File>,
   pub has_written: bool
 }
@@ -31,9 +31,22 @@ impl BackupFile {
         has_written: false
       }
     } else if bytes.is_some() {
+      let bytes = bytes.unwrap();
+
+      let buffer = if bytes.len() > 0 {
+        bytes
+      } else {
+        let mut buf = Vec::with_capacity(capacity);
+        for _ in 0..capacity {
+          buf.push(0xff);
+        }
+
+        buf
+      };
+
       Self {
         file: None,
-        buffer: bytes.unwrap(),
+        buffer,
         has_written: false
       }
     } else {

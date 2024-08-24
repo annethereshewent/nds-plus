@@ -1,7 +1,7 @@
 extern crate ds_emulator;
 extern crate console_error_panic_hook;
 
-use ds_emulator::{apu::Sample, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds};
+use ds_emulator::{apu::Sample, cpu::bus::cartridge::BackupType, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds};
 use wasm_bindgen::prelude::*;
 use std::{collections::VecDeque, panic, sync::{Arc, Mutex}};
 
@@ -63,6 +63,54 @@ impl WasmEmulator {
         audio_buffer
       )
     }
+  }
+
+  pub fn get_game_code(&self) -> u32 {
+    self.nds.bus.borrow().cartridge.header.game_code
+  }
+
+  pub fn has_saved(&self) -> bool {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => false,
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.has_written,
+      BackupType::Flash(flash) => flash.backup_file.has_written,
+    }
+  }
+
+  pub fn backup_pointer(&self) -> *const u8 {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.as_ptr(),
+      BackupType::Flash(flash) => flash.backup_file.buffer.as_ptr(),
+    }
+  }
+
+  pub fn backup_length(&self) -> usize {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
+      BackupType::Flash(flash) => flash.backup_file.buffer.len(),
+    }
+  }
+
+  pub fn set_saved(&mut self, val: bool) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    match &mut bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.has_written = val,
+      BackupType::Flash(flash) => flash.backup_file.has_written = val,
+    }
+  }
+
+  pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {
+    self.nds.bus.borrow_mut().cartridge.set_backup_wasm(bytes, save_type, ram_capacity);
   }
 
   pub fn update_audio_buffers(&mut self, left_buffer: &mut [f32], right_buffer: &mut [f32]) {

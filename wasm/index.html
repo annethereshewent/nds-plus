@@ -149,30 +149,6 @@
 
       const keyboardButtons = []
 
-      // let biosJson = JSON.parse(localStorage.getItem("bios"))
-
-      // if (biosJson != null) {
-      //   biosData = new Uint8Array(biosJson)
-      //   document.getElementById("game-button").removeAttribute("disabled")
-      //   document.getElementById("bios-button").setAttribute("disabled", "true")
-
-      //   const biosNotification = document.getElementById("bios-notification")
-
-      //   biosNotification.style.display = "block"
-
-      //   let opacity = 1.0
-
-      //   let interval = setInterval(() => {
-      //     opacity -= 0.1
-
-      //     biosNotification.style.opacity = opacity
-
-      //     if (opacity <= 0) {
-      //       clearInterval(interval)
-      //     }
-      //   }, 100)
-      // }
-
       const bios7Json = JSON.parse(localStorage.getItem("ds_bios7"))
       const bios9Json = JSON.parse(localStorage.getItem("ds_bios9"))
       const firmwareJson = JSON.parse(localStorage.getItem("ds_firmware"))
@@ -188,10 +164,6 @@
       if (firmwareJson != null) {
         firmware = new Uint8Array(firmwareJson)
       }
-
-      console.log(bios7Json)
-      console.log(bios9Json)
-      console.log(firmware)
 
       if (biosData7 != null && biosData9 != null && firmware != null) {
         document.getElementById("game-button").removeAttribute("disabled")
@@ -295,7 +267,35 @@
         if (game != null) {
           gameData = new Uint8Array(game)
 
+          const response = await fetch("./game_db.json")
+
+          const gameDbJson = await response.json()
+
           emulator = new WasmEmulator(biosData7, biosData9, firmware, gameData)
+
+          const gameCode = emulator.get_game_code()
+
+          const entry = gameDbJson.filter((entry) => entry.game_code == gameCode)[0]
+
+
+
+          if (entry != null) {
+            console.log(entry)
+            let bytes = new Uint8Array()
+
+            let gameName = fileName.split('/').pop()
+            gameName = gameName.substring(0, gameName.lastIndexOf('.'))
+
+            const saveJson = JSON.parse(localStorage.getItem(gameName))
+
+            if (saveJson != null) {
+              bytes = new Uint8Array(saveJson)
+            }
+
+            emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+          } else {
+            alert("Couldn't find game in DB, resorting to no save")
+          }
 
           startAudio()
 
@@ -372,6 +372,19 @@
         currentContext.putImageData(imageData, 0, 0)
       }
 
+      function checkSaves() {
+        if (emulator.has_saved()) {
+          let saveData = new Uint8Array(wasm.memory.buffer, emulator.backup_pointer(), emulator.backup_length())
+
+          let gameName = fileName.split('/').pop()
+          gameName = gameName.substring(0, gameName.lastIndexOf('.'))
+
+          localStorage.setItem(gameName, JSON.stringify(Array.from(saveData)))
+
+          emulator.set_saved(false)
+        }
+      }
+
       let previousTime = 0
       let realPreviousTime = 0
       let frames = 0
@@ -393,6 +406,7 @@
           previousTime = time - (diff % FPS_INTERVAL)
 
           // handleJoypadInput()
+          checkSaves()
 
           let topPointer = null
           let bottomPointer = null
