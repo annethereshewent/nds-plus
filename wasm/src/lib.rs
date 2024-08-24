@@ -5,14 +5,14 @@ use ds_emulator::{
   apu::Sample,
   cpu::{
     bus::cartridge::BackupType,
-    registers::external_key_input_register::ExternalKeyInputRegister
+    registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}
   },
   gpu::registers::power_control_register1::PowerControlRegister1,
   nds::Nds
 };
 use wasm_bindgen::prelude::*;
 use std::{
-  collections::VecDeque,
+  collections::{HashMap, VecDeque},
   panic,
   sync::{
     Arc,
@@ -50,7 +50,9 @@ macro_rules! console_log {
 
 #[wasm_bindgen]
 pub struct WasmEmulator {
-  nds: Nds
+  nds: Nds,
+  key_map: HashMap<ButtonEvent, KeyInputRegister>,
+  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>
 }
 
 #[wasm_bindgen]
@@ -66,6 +68,24 @@ impl WasmEmulator {
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
 
+    let mut key_map = HashMap::new();
+
+    key_map.insert(ButtonEvent::ButtonA, KeyInputRegister::ButtonA);
+    key_map.insert(ButtonEvent::ButtonB, KeyInputRegister::ButtonB);
+    key_map.insert(ButtonEvent::ButtonL, KeyInputRegister::ButtonL);
+    key_map.insert(ButtonEvent::ButtonR, KeyInputRegister::ButtonR);
+    key_map.insert(ButtonEvent::Select, KeyInputRegister::Select);
+    key_map.insert(ButtonEvent::Start, KeyInputRegister::Start);
+    key_map.insert(ButtonEvent::Up, KeyInputRegister::Up);
+    key_map.insert(ButtonEvent::Down, KeyInputRegister::Down);
+    key_map.insert(ButtonEvent::Left, KeyInputRegister::Left);
+    key_map.insert(ButtonEvent::Right, KeyInputRegister::Right);
+
+    let mut extkey_map = HashMap::new();
+
+    extkey_map.insert(ButtonEvent::ButtonY, ExternalKeyInputRegister::BUTTON_Y);
+    extkey_map.insert(ButtonEvent::ButtonX, ExternalKeyInputRegister::BUTTON_X);
+
     Self {
       nds: Nds::new(
         None,
@@ -75,8 +95,10 @@ impl WasmEmulator {
         bios9_bytes.to_vec(),
         game_data.to_vec(),
         true,
-        audio_buffer
-      )
+        audio_buffer,
+      ),
+      key_map,
+      extkey_map
     }
   }
 
@@ -124,6 +146,15 @@ impl WasmEmulator {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
       BackupType::Flash(flash) => flash.backup_file.buffer.len(),
+    }
+  }
+
+  pub fn update_input(&mut self, button_event: ButtonEvent, value: bool) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    if let Some(button) = self.key_map.get(&button_event) {
+      bus.key_input_register.set(*button, !value);
+    } else if let Some(button) = self.extkey_map.get(&button_event) {
+      bus.arm7.extkeyin.set(*button, !value)
     }
   }
 
