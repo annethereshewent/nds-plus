@@ -1,9 +1,4 @@
-use std::collections::VecDeque;
-
-use crate::scheduler::{EventType, Scheduler};
-
 pub struct SoundCaptureControlRegister {
-  id: usize,
   val: u8,
   pub add: bool,
   pub use_channel: bool,
@@ -21,10 +16,9 @@ pub struct SoundCaptureControlRegister {
 }
 
 impl SoundCaptureControlRegister {
-  pub fn new(id: usize) -> Self {
+  pub fn new() -> Self {
     Self {
       val: 0,
-      id,
       add: false,
       use_channel: false,
       one_shot: false,
@@ -72,11 +66,7 @@ impl SoundCaptureControlRegister {
     self.bytes_left = self.capture_length * 4;
   }
 
-  pub fn write_timer(&mut self, value: u16, scheduler: &mut Scheduler) {
-    self.timer_value = value;
-  }
-
-  pub fn write(&mut self, val: u8, scheduler: &mut Scheduler) {
+  pub fn write(&mut self, val: u8) {
     let previous_running = self.is_running;
     self.val = val;
 

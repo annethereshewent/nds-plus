@@ -113,7 +113,6 @@ pub struct APU {
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
   pub debug_on: bool,
-  pub captured_mixer: Sample<i32>,
 }
 
 impl APU {
@@ -122,11 +121,10 @@ impl APU {
       soundcnt: SoundControlRegister::new(),
       sound_bias: 0,
       channels: Self::create_channels(),
-      sndcapcnt: [SoundCaptureControlRegister::new(0), SoundCaptureControlRegister::new(1)],
+      sndcapcnt: [SoundCaptureControlRegister::new(), SoundCaptureControlRegister::new()],
       audio_buffer,
       phase: 0.0,
-      debug_on: false,
-      captured_mixer: Sample::<i32>::new()
+      debug_on: false
     };
 
     scheduler.schedule(
@@ -158,23 +156,6 @@ impl APU {
     for i in 4..self.channels.len() {
       if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
         self.channels[i].generate_samples(mixer);
-      }
-    }
-  }
-
-  pub fn capture_mixer(&mut self) {
-    self.captured_mixer = Sample::<i32>::new();
-    if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
-      self.channels[0].generate_i32_samples(&mut self.captured_mixer);
-    }
-
-    if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
-      self.channels[2].generate_i32_samples(&mut self.captured_mixer);
-    }
-
-    for i in 4..self.channels.len() {
-      if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
-        self.channels[i].generate_i32_samples(&mut self.captured_mixer);
       }
     }
   }
@@ -357,11 +338,6 @@ impl APU {
       }
       0x8 => {
         self.channels[channel_id as usize].write_timer(value as u16, scheduler);
-        if channel_id == 1 {
-          self.sndcapcnt[0].write_timer(value as u16, scheduler);
-        } else if channel_id == 3 {
-          self.sndcapcnt[1].write_timer(value as u16, scheduler);
-        }
 
         if bit_length == BitLength::Bit32 {
           self.channels[channel_id as usize].loop_start = (value >> 16) as u16;

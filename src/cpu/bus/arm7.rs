@@ -420,8 +420,8 @@ impl Bus {
       0x400_0501 => self.arm7.apu.soundcnt.write((value as u16) << 8, Some(0xff)),
       0x400_0504 => self.arm7.apu.write_sound_bias(value as u16, Some(0xff00)),
       0x400_0505 => self.arm7.apu.write_sound_bias(((value & 0x3) as u16) << 8, Some(0xff)),
-      0x400_0508 => self.arm7.apu.sndcapcnt[0].write(value, &mut self.scheduler),
-      0x400_0509 => self.arm7.apu.sndcapcnt[1].write(value, &mut self.scheduler),
+      0x400_0508 => self.arm7.apu.sndcapcnt[0].write(value),
+      0x400_0509 => self.arm7.apu.sndcapcnt[1].write(value),
       _ => panic!("8-bit write to unsupported io address: {:x}", address)
     }
   }

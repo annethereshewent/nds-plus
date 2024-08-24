@@ -8,7 +8,7 @@ use std::{
   }
 };
 
-use crate::{number::Number, scheduler::EventType};
+use crate::{apu::Sample, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -588,15 +588,15 @@ impl Bus {
     if !self.arm7.apu.sndcapcnt[capture_id].is_running {
       return;
     }
-
+    let mut mixer = Sample::<f32>::new();
     if !self.arm7.apu.sndcapcnt[capture_id].use_channel {
-      self.arm7.apu.capture_mixer();
+      self.arm7.apu.generate_mixer(&mut mixer);
     }
 
     // rust once again not letting me do something simple like let sndcapcnt = &mut self.arm7.apu.sndcapcnt so i have to type that out every single time
     let (capture_sample, add_sample, mixer_out) = match capture_id {
-      0 => (self.arm7.apu.channels[0].current_i16_sample, self.arm7.apu.channels[1].current_i16_sample, self.arm7.apu.captured_mixer.left),
-      1 => (self.arm7.apu.channels[2].current_i16_sample, self.arm7.apu.channels[3].current_i16_sample, self.arm7.apu.captured_mixer.right),
+      0 => (self.arm7.apu.channels[0].current_i16_sample, self.arm7.apu.channels[1].current_i16_sample, mixer.to_i16().left),
+      1 => (self.arm7.apu.channels[2].current_i16_sample, self.arm7.apu.channels[3].current_i16_sample, mixer.to_i16().right),
       _ => unreachable!()
     };
 
@@ -609,7 +609,7 @@ impl Bus {
         capture_sample
       }
     } else {
-      (mixer_out >> 16) as i16
+      mixer_out
     };
 
     if self.arm7.apu.sndcapcnt[capture_id].is_pcm8 {
