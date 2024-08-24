@@ -513,8 +513,22 @@ impl Engine3d {
     self.clear_offset_y = (value >> 8) & 0xff;
   }
 
-  pub fn write_geometry_status(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister) {
-    self.gxstat.write(value);
+  pub fn write_geometry_status(&mut self, value: u32, interrupt_request: &mut InterruptRequestRegister, mask: Option<u32>) {
+    let mut val = 0;
+
+    if let Some(mask) = mask {
+      val = self
+        .gxstat
+        .read(
+          self.position_vector_sp as u32,
+          self.projection_sp as u32,
+          &self.fifo
+        ) & mask;
+    }
+
+    val |= value;
+
+    self.gxstat.write(val);
 
     self.check_interrupts(interrupt_request);
   }
