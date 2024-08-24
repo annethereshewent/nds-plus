@@ -367,27 +367,18 @@
       function handleJoypadInput() {
         const gamepad = navigator.getGamepads()[0]
 
-        if (gamepad != null) {
-          for (let i = 0; i < gamepad.buttons.length; i++) {
-            if (gamepad.buttons[i].pressed) {
-              console.log(`button ${i} is pressed`)
-            }
-          }
-        }
-
-
-        emulator.update_input(ButtonEvent.Select, gamepad?.buttons[SELECT].pressed == true || keyboardButtons[SELECT], false)
-        emulator.update_input(ButtonEvent.Start, gamepad?.buttons[START].pressed == true || keyboardButtons[START], false)
-        emulator.update_input(ButtonEvent.Up, gamepad?.buttons[UP].pressed == true || keyboardButtons[UP], false)
-        emulator.update_input(ButtonEvent.Right, gamepad?.buttons[RIGHT].pressed == true || keyboardButtons[RIGHT], false)
-        emulator.update_input(ButtonEvent.Down, gamepad?.buttons[DOWN].pressed == true || keyboardButtons[DOWN], false)
-        emulator.update_input(ButtonEvent.Left, gamepad?.buttons[LEFT].pressed == true || keyboardButtons[LEFT], false)
-        emulator.update_input(ButtonEvent.ButtonL, gamepad?.buttons[L1_BUTTON].pressed == true || keyboardButtons[L1_BUTTON], true)
-        emulator.update_input(ButtonEvent.ButtonR, gamepad?.buttons[R1_BUTTON].pressed == true || keyboardButtons[R1_BUTTON], true)
-        emulator.update_input(ButtonEvent.ButtonX, gamepad?.buttons[TRIANGLE_BUTTON].pressed == true || keyboardButtons[TRIANGLE_BUTTON], true)
-        emulator.update_input(ButtonEvent.ButtonA, gamepad?.buttons[CIRCLE_BUTTON].pressed == true || keyboardButtons[CIRCLE_BUTTON], true)
-        emulator.update_input(ButtonEvent.ButtonB, gamepad?.buttons[CROSS_BUTTON].pressed == true || keyboardButtons[CROSS_BUTTON], true)
-        emulator.update_input(ButtonEvent.ButtonY, gamepad?.buttons[SQUARE_BUTTON].pressed == true || keyboardButtons[SQUARE_BUTTON], true)
+        emulator.update_input(ButtonEvent.Select, gamepad?.buttons[SELECT].pressed == true || keyboardButtons[SELECT])
+        emulator.update_input(ButtonEvent.Start, gamepad?.buttons[START].pressed == true || keyboardButtons[START])
+        emulator.update_input(ButtonEvent.Up, gamepad?.buttons[UP].pressed == true || keyboardButtons[UP])
+        emulator.update_input(ButtonEvent.Right, gamepad?.buttons[RIGHT].pressed == true || keyboardButtons[RIGHT])
+        emulator.update_input(ButtonEvent.Down, gamepad?.buttons[DOWN].pressed == true || keyboardButtons[DOWN])
+        emulator.update_input(ButtonEvent.Left, gamepad?.buttons[LEFT].pressed == true || keyboardButtons[LEFT])
+        emulator.update_input(ButtonEvent.ButtonL, gamepad?.buttons[L1_BUTTON].pressed == true || keyboardButtons[L1_BUTTON])
+        emulator.update_input(ButtonEvent.ButtonR, gamepad?.buttons[R1_BUTTON].pressed == true || keyboardButtons[R1_BUTTON])
+        emulator.update_input(ButtonEvent.ButtonX, gamepad?.buttons[TRIANGLE_BUTTON].pressed == true || keyboardButtons[TRIANGLE_BUTTON])
+        emulator.update_input(ButtonEvent.ButtonA, gamepad?.buttons[CIRCLE_BUTTON].pressed == true || keyboardButtons[CIRCLE_BUTTON])
+        emulator.update_input(ButtonEvent.ButtonB, gamepad?.buttons[CROSS_BUTTON].pressed == true || keyboardButtons[CROSS_BUTTON])
+        emulator.update_input(ButtonEvent.ButtonY, gamepad?.buttons[SQUARE_BUTTON].pressed == true || keyboardButtons[SQUARE_BUTTON])
       }
 
       function updatePicture(pointer, currentContext) {
