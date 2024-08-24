@@ -268,7 +268,6 @@
         const x = event.clientX - rect.left
         const y = event.clientY - rect.top
 
-        console.log(`${x},${y}`)
         emulator.touch_screen(x / 2, y / 2)
       }
 
@@ -289,13 +288,13 @@
       })
 
       bottomCanvas.addEventListener('mouseout', (e) => {
-        emulator.release_scren()
+        emulator.release_screen()
         mouseDown = false
       })
 
 
       async function handleGameChange(e) {
-        const game = await getBinaryData(e)
+        const game = await getBinaryData(e, true)
 
         if (game != null) {
           gameData = new Uint8Array(game)

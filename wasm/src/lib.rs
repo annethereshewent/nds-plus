@@ -81,8 +81,6 @@ impl WasmEmulator {
   }
 
   pub fn touch_screen(&mut self, x: u16, y: u16) {
-    console_log!("touching screen at {x},{y}");
-
     let ref mut bus = *self.nds.bus.borrow_mut();
 
     bus.touchscreen.touch_screen(x, y);
