@@ -176,6 +176,11 @@ impl Eeprom {
     }
 
     if !hold {
+      match self.command {
+        Command::WRLO | Command::WRHI | Command::WR => self.backup_file.has_written = true,
+        _ => ()
+      }
+
       self.mode = CommandMode::AwaitingCommand;
       self.command = Command::None;
     }

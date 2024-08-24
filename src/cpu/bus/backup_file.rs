@@ -62,14 +62,11 @@ impl BackupFile {
   pub fn write(&mut self, address: usize, value: u8) {
     self.buffer[address] = value;
 
-    self.has_written = true;
-
     if self.file.is_some() {
       self.file.as_ref().unwrap().seek(SeekFrom::Start(address as u64)).unwrap();
 
       self.file.as_ref().unwrap().write_all(&[value]).unwrap();
     }
-
   }
 
   pub fn flush(&mut self) {

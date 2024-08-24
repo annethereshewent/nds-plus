@@ -6,6 +6,7 @@ enum CommandMode {
   ReadingRegister
 }
 
+#[derive(PartialEq)]
 enum Command {
   WREN,
   WRDI,
@@ -122,6 +123,9 @@ impl Flash {
     }
 
     if !hold {
+      if self.command == Command::PW {
+        self.backup_file.has_written = true;
+      }
        self.mode = CommandMode::AwaitingCommand;
     }
   }

@@ -411,16 +411,25 @@
         currentContext.putImageData(imageData, 0, 0)
       }
 
+      let timeout
+
       async function checkSaves() {
         if (emulator.has_saved()) {
           emulator.set_saved(false)
-          let saveData = new Uint8Array(wasm.memory.buffer, emulator.backup_pointer(), emulator.backup_length())
-
-          let gameName = fileName.split('/').pop()
-          gameName = gameName.substring(0, gameName.lastIndexOf('.'))
-
-          await setSave(gameName, saveData)
+          clearTimeout(timeout)
+          timeout = setTimeout(saveGame, 1000)
         }
+      }
+
+      async function saveGame() {
+        console.log('saving game')
+
+        let saveData = new Uint8Array(wasm.memory.buffer, emulator.backup_pointer(), emulator.backup_length())
+
+        let gameName = fileName.split('/').pop()
+        gameName = gameName.substring(0, gameName.lastIndexOf('.'))
+
+        setSave(gameName, saveData)
       }
 
       let previousTime = 0
