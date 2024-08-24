@@ -16,7 +16,7 @@
 .hide {
   display: none;
 }
-#canvas-top, #canvas-bottom {
+#top-canvas, #bottom-canvas {
   width: 512px;
   height: 384px;
   image-rendering: pixelated;
