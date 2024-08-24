@@ -72,6 +72,19 @@ impl Channel {
     sample.right += self.current_sample * volume * panning;
   }
 
+  pub fn generate_i32_samples(&mut self, sample: &mut Sample<i32>) {
+    // let volume = (self.soundcnt.volume_mul() as f32 / 128.0) / self.soundcnt.volume_div();
+    // let panning = self.soundcnt.panning_factor() as f32 / 128.0;
+
+    // sample.left += self.current_sample * volume * (1.0 - panning);
+    // sample.right += self.current_sample * volume * panning;
+    let volume = self.soundcnt.volume_mul() as i32 / self.soundcnt.volume_div() as i32;
+
+    sample.left += self.current_i16_sample as i32 * volume * (128 - self.soundcnt.panning_factor() as i32);
+    sample.right += self.current_i16_sample as i32 * volume * self.soundcnt.panning_factor() as i32;
+
+  }
+
   pub fn set_adpcm_header(&mut self, header: u32) {
     self.initial_adpcm_value = header as u16 as i16;
     self.initial_table_index = ((header >> 16) & 0x7f) as i16 as i32;
@@ -81,6 +94,7 @@ impl Channel {
 
     self.adpcm_index = self.adpcm_index.clamp(0, 88);
   }
+
 
   pub fn schedule(&self, scheduler: &mut Scheduler, should_reset: bool, cycles_left: usize) {
     if self.timer_value != 0 && self.sound_length + self.loop_start as u32 > 0 {

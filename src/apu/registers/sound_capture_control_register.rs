@@ -16,7 +16,7 @@ pub struct SoundCaptureControlRegister {
   pub bytes_left: u16,
   pub timer_value: u16,
   pub fifo: [u8; 32],
-  pub fifo_pos: usize,
+  pub fifo_pos: u8,
   pub read_half: bool
 }
 
@@ -72,24 +72,8 @@ impl SoundCaptureControlRegister {
     self.bytes_left = self.capture_length * 4;
   }
 
-  pub fn get_capture_address(&mut self, bit_length: u16) -> u32 {
-    let return_address = self.current_address;
-
-    self.bytes_left -= bit_length;
-    self.current_address += bit_length as u32;
-
-    return_address
-  }
-
   pub fn write_timer(&mut self, value: u16, scheduler: &mut Scheduler) {
     self.timer_value = value;
-
-    if self.timer_value != 0 && self.is_running {
-      let time = (0x10000 - self.timer_value as usize) << 1;
-      scheduler.schedule(EventType::RunCapture(self.id), time);
-    } else {
-      scheduler.remove(EventType::RunCapture(self.id));
-    }
   }
 
   pub fn write(&mut self, val: u8, scheduler: &mut Scheduler) {
@@ -104,12 +88,6 @@ impl SoundCaptureControlRegister {
 
     if !previous_running && self.is_running {
       self.read_half = false;
-      if self.timer_value != 0 && self.is_running {
-        let time = (0x10000 - self.timer_value as usize) << 1;
-        scheduler.schedule(EventType::RunCapture(self.id), time);
-      }
-    } else {
-      scheduler.remove(EventType::RunCapture(self.id));
     }
   }
 }

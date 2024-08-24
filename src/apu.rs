@@ -15,10 +15,10 @@ use registers::{
   }
 };
 
-use crate::{cpu::bus::Bus, scheduler::{
+use crate::scheduler::{
   EventType,
   Scheduler
-}};
+};
 
 pub mod registers;
 pub mod channel;
@@ -95,6 +95,15 @@ impl Sample<f32> {
   }
 }
 
+impl Sample<i32> {
+  pub fn new() -> Self {
+    Self {
+      left: 0,
+      right: 0
+    }
+  }
+}
+
 
 pub struct APU {
   pub soundcnt: SoundControlRegister,
@@ -104,7 +113,7 @@ pub struct APU {
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
   pub debug_on: bool,
-  pub mixer: Sample<f32>,
+  pub captured_mixer: Sample<i32>,
 }
 
 impl APU {
@@ -117,7 +126,7 @@ impl APU {
       audio_buffer,
       phase: 0.0,
       debug_on: false,
-      mixer: Sample::new()
+      captured_mixer: Sample::<i32>::new()
     };
 
     scheduler.schedule(
@@ -137,33 +146,47 @@ impl APU {
     self.phase -= 1.0;
   }
 
-  pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
-    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
-
-    self.mixer = Sample { left: 0.0, right: 0.0 };
-    let mut ch1 = Sample { left: 0.0, right: 0.0 };
-    let mut ch3 = Sample { left: 0.0, right: 0.0 };
-
-    let mut ch0 = Sample { left: 0.0, right: 0.0 };
-    let mut ch2 = Sample { left: 0.0, right: 0.0 };
-
+  pub fn generate_mixer(&mut self, mixer: &mut Sample<f32>) {
     if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
-      self.channels[0].generate_samples(&mut ch0);
-      self.mixer.left += ch0.left;
-      self.mixer.right += ch0.right;
+      self.channels[0].generate_samples(mixer);
     }
 
     if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
-      self.channels[2].generate_samples(&mut ch2);
-      self.mixer.left += ch2.left;
-      self.mixer.right += ch2.right;
+      self.channels[2].generate_samples(mixer);
     }
 
     for i in 4..self.channels.len() {
       if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
-        self.channels[i].generate_samples(&mut self.mixer);
+        self.channels[i].generate_samples(mixer);
       }
     }
+  }
+
+  pub fn capture_mixer(&mut self) {
+    self.captured_mixer = Sample::<i32>::new();
+    if self.channels[0].soundcnt.is_started || self.channels[0].soundcnt.hold_sample {
+      self.channels[0].generate_i32_samples(&mut self.captured_mixer);
+    }
+
+    if self.channels[2].soundcnt.is_started || self.channels[2].soundcnt.hold_sample {
+      self.channels[2].generate_i32_samples(&mut self.captured_mixer);
+    }
+
+    for i in 4..self.channels.len() {
+      if self.channels[i].soundcnt.is_started || self.channels[i].soundcnt.hold_sample {
+        self.channels[i].generate_i32_samples(&mut self.captured_mixer);
+      }
+    }
+  }
+
+  pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
+    scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
+
+    let mut mixer = Sample { left: 0.0, right: 0.0 };
+    let mut ch1 = Sample { left: 0.0, right: 0.0 };
+    let mut ch3 = Sample { left: 0.0, right: 0.0 };
+
+    self.generate_mixer(&mut mixer);
 
     if self.channels[1].soundcnt.is_started || self.channels[1].soundcnt.hold_sample {
       self.channels[1].generate_samples(&mut ch1);
@@ -173,17 +196,17 @@ impl APU {
     }
 
     if self.soundcnt.output_ch1_to_mixer {
-      self.mixer.left += ch1.left;
-      self.mixer.right += ch1.right;
+      mixer.left += ch1.left;
+      mixer.right += ch1.right;
     }
     if self.soundcnt.output_ch3_to_mixer {
-      self.mixer.left += ch3.left;
-      self.mixer.right += ch3.right;
+      mixer.left += ch3.left;
+      mixer.right += ch3.right;
     }
 
     let left_sample = match self.soundcnt.left_output_source {
       OutputSource::Ch1 => ch1.left,
-      OutputSource::Mixer => self.mixer.left,
+      OutputSource::Mixer => mixer.left,
       OutputSource::Ch3 => ch3.left,
       OutputSource::Ch1and3 => {
         ch1.left + ch3.left
@@ -192,7 +215,7 @@ impl APU {
 
     let right_sample = match self.soundcnt.right_output_source {
       OutputSource::Ch1 => ch1.right,
-      OutputSource::Mixer => self.mixer.right,
+      OutputSource::Mixer => mixer.right,
       OutputSource::Ch3 => ch3.right,
       OutputSource::Ch1and3 => {
         ch1.right + ch3.right

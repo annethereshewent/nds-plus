@@ -14,7 +14,7 @@ pub enum EventType {
   ResetAudio(usize),
   GenerateSample,
   CheckGeometryFifo,
-  RunCapture(usize)
+  // RunCapture(usize)
 }
 
 pub struct Scheduler {

@@ -108,7 +108,7 @@ impl Nds {
             bus.arm7.dma.notify_geometry_fifo_event();
           }
         }
-        EventType::RunCapture(capture_id) => bus.capture_audio(capture_id),
+        // EventType::RunCapture(capture_id) => bus.capture_audio(capture_id),
       }
     }
 

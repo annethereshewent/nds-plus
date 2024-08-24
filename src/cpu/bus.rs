@@ -576,13 +576,27 @@ impl Bus {
         }
       }
     }
+
+    match channel_id {
+      1 => self.capture_audio(0),
+      3 => self.capture_audio(1),
+      _ => ()
+    }
   }
 
   pub fn capture_audio(&mut self, capture_id: usize) {
+    if !self.arm7.apu.sndcapcnt[capture_id].is_running {
+      return;
+    }
+
+    if !self.arm7.apu.sndcapcnt[capture_id].use_channel {
+      self.arm7.apu.capture_mixer();
+    }
+
     // rust once again not letting me do something simple like let sndcapcnt = &mut self.arm7.apu.sndcapcnt so i have to type that out every single time
     let (capture_sample, add_sample, mixer_out) = match capture_id {
-      0 => (self.arm7.apu.channels[0].current_i16_sample, self.arm7.apu.channels[1].current_i16_sample, self.arm7.apu.mixer.to_i16().left),
-      1 => (self.arm7.apu.channels[2].current_i16_sample, self.arm7.apu.channels[3].current_i16_sample, self.arm7.apu.mixer.to_i16().right),
+      0 => (self.arm7.apu.channels[0].current_i16_sample, self.arm7.apu.channels[1].current_i16_sample, self.arm7.apu.captured_mixer.left),
+      1 => (self.arm7.apu.channels[2].current_i16_sample, self.arm7.apu.channels[3].current_i16_sample, self.arm7.apu.captured_mixer.right),
       _ => unreachable!()
     };
 
@@ -595,24 +609,24 @@ impl Bus {
         capture_sample
       }
     } else {
-      mixer_out.clamp(-0x8000, 0x7fff)
+      (mixer_out >> 16) as i16
     };
 
     if self.arm7.apu.sndcapcnt[capture_id].is_pcm8 {
       sample >>= 8;
 
-      self.arm7.apu.sndcapcnt[capture_id].fifo[self.arm7.apu.sndcapcnt[capture_id].fifo_pos] = sample as u8;
+      self.arm7.apu.sndcapcnt[capture_id].fifo[self.arm7.apu.sndcapcnt[capture_id].fifo_pos as usize] = sample as u8;
 
       self.arm7.apu.sndcapcnt[capture_id].bytes_left -= 1;
 
       self.arm7.apu.sndcapcnt[capture_id].fifo_pos = (self.arm7.apu.sndcapcnt[capture_id].fifo_pos + 1) & 0x1f;
     } else {
       let fifo_pos = self.arm7.apu.sndcapcnt[capture_id].fifo_pos & !0b1;
-      unsafe { *(&mut self.arm7.apu.sndcapcnt[capture_id].fifo[fifo_pos] as *mut u8 as *mut u16) = sample as u16 };
+      unsafe { *(&mut self.arm7.apu.sndcapcnt[capture_id].fifo[fifo_pos as usize] as *mut u8 as *mut i16) = sample };
 
       self.arm7.apu.sndcapcnt[capture_id].bytes_left -= 2;
 
-      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = (self.arm7.apu.sndcapcnt[capture_id].fifo_pos + 2) & 0x1f;
+      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = (self.arm7.apu.sndcapcnt[capture_id].fifo_pos + 2) & 0x1e;
     }
 
     let offset = if self.arm7.apu.sndcapcnt[capture_id].read_half {
@@ -626,6 +640,8 @@ impl Bus {
     if self.arm7.apu.sndcapcnt[capture_id].bytes_left == 0 {
       self.flush_fifo(capture_id);
 
+      self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
+
       if self.arm7.apu.sndcapcnt[capture_id].one_shot {
         self.arm7.apu.sndcapcnt[capture_id].is_running = false;
         self.arm7.apu.sndcapcnt[capture_id].add = false;
@@ -635,21 +651,9 @@ impl Bus {
         self.arm7.apu.sndcapcnt[capture_id].current_address = self.arm7.apu.sndcapcnt[capture_id].destination_address;
 
         self.arm7.apu.sndcapcnt[capture_id].read_half = false;
-
-        let time = (0x10000 - self.arm7.apu.sndcapcnt[capture_id].timer_value as usize) << 1;
-
-        self.scheduler.schedule(EventType::RunCapture(capture_id), time);
       }
     } else if (fifo_pos - offset) & 0x1f >= 16 {
       self.flush_fifo(capture_id);
-
-      let time = (0x10000 - self.arm7.apu.sndcapcnt[capture_id].timer_value as usize) << 1;
-
-      self.scheduler.schedule(EventType::RunCapture(capture_id), time);
-    } else {
-      let time = (0x10000 - self.arm7.apu.sndcapcnt[capture_id].timer_value as usize) << 1;
-
-      self.scheduler.schedule(EventType::RunCapture(capture_id), time);
     }
   }
 
@@ -670,13 +674,12 @@ impl Bus {
       let destination_address = self.arm7.apu.sndcapcnt[capture_id].destination_address;
       let destination_end = destination_address + self.arm7.apu.sndcapcnt[capture_id].capture_length as u32 * 4;
 
-      if self.arm7.apu.sndcapcnt[capture_id].current_address == destination_end {
+      if self.arm7.apu.sndcapcnt[capture_id].current_address >= destination_end {
         break;
       }
     }
 
-    self.arm7.apu.sndcapcnt[capture_id].fifo_pos = 0;
-    self.arm7.apu.sndcapcnt[capture_id].read_half ^= true;
+    self.arm7.apu.sndcapcnt[capture_id].read_half = !self.arm7.apu.sndcapcnt[capture_id].read_half;
   }
 
 
