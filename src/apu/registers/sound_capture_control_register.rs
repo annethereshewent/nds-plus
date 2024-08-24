@@ -9,7 +9,6 @@ pub struct SoundCaptureControlRegister {
   pub current_address: u32,
   pub capture_length: u16,
   pub bytes_left: u16,
-  pub timer_value: u16,
   pub fifo: [u8; 32],
   pub fifo_pos: u8,
   pub read_half: bool
@@ -28,7 +27,6 @@ impl SoundCaptureControlRegister {
       current_address: 0,
       capture_length: 0,
       bytes_left: 0,
-      timer_value: 0,
       fifo: [0; 32],
       fifo_pos: 0,
       read_half: false
