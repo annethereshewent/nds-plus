@@ -30,7 +30,59 @@ function getSave(gameName) {
       }
     }
   })
+}
 
+function deleteDbSave(gameName) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ds_saves")
+
+    request.onsuccess = (event) => {
+      const db = event.target.result
+
+      const transaction = db.transaction(["saves"], "readwrite")
+
+      const objectStore = transaction.objectStore("saves")
+
+      const request = objectStore.delete(gameName)
+
+      request.onsuccess = (event) => {
+        resolve(true)
+      }
+
+      request.onerror = (event) => {
+        resolve(false)
+      }
+    }
+  })
+
+}
+
+function updateSave(gameName) {
+
+}
+
+function getUserSaves() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ds_saves")
+
+    request.onsuccess = (event) => {
+      const db = event.target.result
+
+      const transaction = db.transaction(["saves"], "readwrite")
+
+      const objectStore = transaction.objectStore("saves")
+
+      const request = objectStore.getAll()
+
+      request.onsuccess = (event) => {
+        resolve(request.result)
+      }
+
+      request.onerror = (event) => {
+        resolve(null)
+      }
+    }
+  })
 }
 
 function setSave(gameName, data) {
