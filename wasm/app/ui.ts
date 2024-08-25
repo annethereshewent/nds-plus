@@ -1,8 +1,8 @@
 import init, { WasmEmulator, ButtonEvent, InitOutput } from "../pkg/ds_emulator_wasm.js"
 import JSZip from 'jszip'
 import { DsDatabase } from "./ds_database"
-import { Audio } from "./audio.js"
-import { Renderer } from "./renderer.js"
+import { Audio } from "./audio"
+import { Renderer } from "./renderer"
 
 interface GameDBEntry {
   save_type: string,
@@ -45,7 +45,7 @@ export class UI {
   audio: Audio|null = null
   renderer: Renderer|null = null
 
-  timeout = 0
+  timeout: any|null = null
 
   keyboardButtons: boolean[] = []
   constructor() {
@@ -71,10 +71,6 @@ export class UI {
       document.getElementById("bios7-button")?.setAttribute("disabled", "true")
       document.getElementById("firmware-button")?.setAttribute("disabled", "true")
     }
-
-    this.addEventListeners()
-    this.addKeyboardEventListeners()
-    this.setWasm()
   }
 
   async setWasm() {
@@ -178,19 +174,21 @@ export class UI {
     document.getElementById("firmware-button")?.addEventListener("click", () => document.getElementById("firmware-input")?.click())
     document.getElementById("game-button")?.addEventListener("click", () => document.getElementById("game-input")?.click())
 
-    document.getElementById("bios7-input")?.addEventListener("change", this.handleBios7Change)
-    document.getElementById("bios9-input")?.addEventListener("change", this.handleBios9Change)
-    document.getElementById("firmware-input")?.addEventListener("change", this.handleFirmwareChange)
-    document.getElementById("game-input")?.addEventListener("change", this.handleGameChange)
-    document.getElementById("save-input")?.addEventListener("change", this.handleSaveChange)
+    document.getElementById("bios7-input")?.addEventListener("change", (e) => this.handleBios7Change(e))
+    document.getElementById("bios9-input")?.addEventListener("change", (e) => this.handleBios9Change(e))
+    document.getElementById("firmware-input")?.addEventListener("change", (e) => this.handleFirmwareChange(e))
+    document.getElementById("game-input")?.addEventListener("change", (e) => this.handleGameChange(e))
+    document.getElementById("save-input")?.addEventListener("change", (e) => this.handleSaveChange(e))
 
-    document.getElementById("manage-saves-button")?.addEventListener("click", this.displaySavesModal)
+    document.getElementById("manage-saves-button")?.addEventListener("click", () => this.displaySavesModal())
   }
 
   async displaySavesModal() {
     const saves = await this.db.getSaves()
     const savesModal = document.getElementById("saves-modal")
     const savesList = document.getElementById("saves-list")
+
+    console.log(saves)
 
     if (saves != null && savesModal != null && savesList != null) {
       savesModal.className = "modal show"
@@ -225,7 +223,7 @@ export class UI {
         // updateSaveEl.style = "float: right; color: green; font-size: 14px; cursor: pointer"
 
         updateSaveEl.style.float = "right"
-        updateSaveEl.style.color = "red"
+        updateSaveEl.style.color = "green"
         updateSaveEl.style.fontSize = "14px"
         updateSaveEl.style.cursor = "pointer"
         updateSaveEl.addEventListener("click", () => this.updateSave(save.gameName))
@@ -291,6 +289,8 @@ export class UI {
 
   async handleGameChange(e: Event) {
     const game = await this.getBinaryData(e, true)
+
+    console.log('loading game')
 
     if (game != null) {
       this.gameData = new Uint8Array(game as ArrayBuffer)
