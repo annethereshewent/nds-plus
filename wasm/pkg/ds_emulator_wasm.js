@@ -294,11 +294,6 @@ export class WasmEmulator {
     }
     /**
     */
-    drain_audio_buffer() {
-        wasm.wasmemulator_drain_audio_buffer(this.__wbg_ptr);
-    }
-    /**
-    */
     step_frame() {
         wasm.wasmemulator_step_frame(this.__wbg_ptr);
     }

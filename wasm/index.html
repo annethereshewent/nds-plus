@@ -360,7 +360,6 @@
 
           const audioBuffer = new Float32Array(wasm.memory.buffer, emulator.get_audio_buffer(), NUM_SAMPLES * 2)
           node.updateBuffer(audioBuffer)
-          emulator.drain_audio_buffer()
 
           node.connect(audioContext.destination)
         })
@@ -427,7 +426,6 @@
 
         const audioBuffer = new Float32Array(wasm.memory.buffer, emulator.get_audio_buffer(), bufferLength)
         node?.updateBuffer(audioBuffer)
-        emulator.drain_audio_buffer()
       }
 
       let timeout

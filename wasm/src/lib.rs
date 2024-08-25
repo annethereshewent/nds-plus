@@ -52,7 +52,8 @@ macro_rules! console_log {
 pub struct WasmEmulator {
   nds: Nds,
   key_map: HashMap<ButtonEvent, KeyInputRegister>,
-  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>
+  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>,
+  internal_audio_buffer: Vec<f32>
 }
 
 #[wasm_bindgen]
@@ -98,7 +99,8 @@ impl WasmEmulator {
         audio_buffer,
       ),
       key_map,
-      extkey_map
+      extkey_map,
+      internal_audio_buffer: Vec::new()
     }
   }
 
@@ -214,22 +216,18 @@ impl WasmEmulator {
     bus.gpu.powcnt1.contains(PowerControlRegister1::TOP_A)
   }
 
-  pub fn get_audio_buffer(&self) -> *const f32 {
+  pub fn get_audio_buffer(&mut self) -> *const f32 {
     let ref bus = *self.nds.bus.borrow();
 
-    let audio_buffer = bus.arm7.apu.audio_buffer.lock().unwrap();
+    let mut audio_buffer = bus.arm7.apu.audio_buffer.lock().unwrap();
 
-    let buffer = audio_buffer.clone();
+    self.internal_audio_buffer = audio_buffer.drain(..).collect();
 
-    buffer.as_slices().0.as_ptr()
+    self.internal_audio_buffer.as_ptr()
   }
 
   pub fn get_buffer_length(&self) -> usize {
     self.nds.bus.borrow().arm7.apu.audio_buffer.lock().unwrap().len()
-  }
-
-  pub fn drain_audio_buffer(&mut self) {
-    self.nds.bus.borrow_mut().arm7.apu.audio_buffer.lock().unwrap().drain(..);
   }
 
   pub fn step_frame(&mut self) {

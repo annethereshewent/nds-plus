@@ -93,9 +93,6 @@ export class WasmEmulator {
   get_buffer_length(): number;
 /**
 */
-  drain_audio_buffer(): void;
-/**
-*/
   step_frame(): void;
 }
 
@@ -120,7 +117,6 @@ export interface InitOutput {
   readonly wasmemulator_is_top_a: (a: number) => number;
   readonly wasmemulator_get_audio_buffer: (a: number) => number;
   readonly wasmemulator_get_buffer_length: (a: number) => number;
-  readonly wasmemulator_drain_audio_buffer: (a: number) => void;
   readonly wasmemulator_step_frame: (a: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
