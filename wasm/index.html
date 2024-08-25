@@ -291,8 +291,6 @@
 
       async function displaySavesModal() {
         const saves = await getUserSaves()
-
-        console.log("it's not showing the stupid modal wtf")
         const savesModal = document.getElementById("saves-modal")
 
         savesModal.className = "modal show"
@@ -561,8 +559,6 @@
       }
 
       async function saveGame() {
-        console.log('saving game')
-
         let saveData = new Uint8Array(wasm.memory.buffer, emulator.backup_pointer(), emulator.backup_length())
 
         let gameName = fileName.split('/').pop()
