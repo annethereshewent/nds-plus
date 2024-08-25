@@ -16,6 +16,9 @@ export function wasmemulator_update_audio_buffers(a: number, b: number, c: numbe
 export function wasmemulator_get_engine_a_picture_pointer(a: number): number;
 export function wasmemulator_get_engine_b_picture_pointer(a: number): number;
 export function wasmemulator_is_top_a(a: number): number;
+export function wasmemulator_get_audio_buffer(a: number): number;
+export function wasmemulator_get_buffer_length(a: number): number;
+export function wasmemulator_drain_audio_buffer(a: number): void;
 export function wasmemulator_step_frame(a: number): void;
 export function __wbindgen_malloc(a: number, b: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number, d: number): number;

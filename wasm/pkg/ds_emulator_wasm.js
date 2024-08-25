@@ -279,6 +279,25 @@ export class WasmEmulator {
         return ret !== 0;
     }
     /**
+    * @returns {number}
+    */
+    get_audio_buffer() {
+        const ret = wasm.wasmemulator_get_audio_buffer(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @returns {number}
+    */
+    get_buffer_length() {
+        const ret = wasm.wasmemulator_get_buffer_length(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    */
+    drain_audio_buffer() {
+        wasm.wasmemulator_drain_audio_buffer(this.__wbg_ptr);
+    }
+    /**
     */
     step_frame() {
         wasm.wasmemulator_step_frame(this.__wbg_ptr);

@@ -117,6 +117,7 @@
     Loaded file successfully
   </div>
   <script src="jszip.min.js"></script>
+  <script src="audio_processing_node.js"></script>
   <script src="game_db.js"></script>
   <script>
     function enterFullscreen() {
@@ -133,6 +134,7 @@
   <script type="module">
     const FPS_INTERVAL = 1000 / 60
     const SAMPLE_RATE = 44100
+    const NUM_SAMPLES = 8192
     const BUFFER_SIZE = 8192
     const SCREEN_WIDTH = 256
     const SCREEN_HEIGHT = 192
@@ -344,19 +346,26 @@
         }
       }
 
-      function startAudio() {
+      let node
+
+      async function startAudio() {
         const audioContext = new AudioContext({ sampleRate: SAMPLE_RATE })
 
-        const scriptProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 0, 2)
+        await audioContext.resume()
 
-        scriptProcessor.onaudioprocess = (e) => {
-          const leftData = e.outputBuffer.getChannelData(0)
-          const rightData = e.outputBuffer.getChannelData(1)
+        audioContext.audioWorklet.addModule('processors.js').then(() => {
+          node = new AudioProcessingNode(audioContext)
 
-          emulator.update_audio_buffers(leftData, rightData)
-        }
+          console.log("it's a me mario")
 
-        scriptProcessor.connect(audioContext.destination)
+          const audioBuffer = new Float32Array(wasm.memory.buffer, emulator.get_audio_buffer(), NUM_SAMPLES * 2)
+          node.updateBuffer(audioBuffer)
+          emulator.drain_audio_buffer()
+
+          node.connect(audioContext.destination)
+        })
+
+        audioContext.resume()
       }
 
       const CROSS_BUTTON = 0
@@ -413,6 +422,14 @@
         currentContext.putImageData(imageData, 0, 0)
       }
 
+      function updateAudioBuffer() {
+        const bufferLength = emulator.get_buffer_length()
+
+        const audioBuffer = new Float32Array(wasm.memory.buffer, emulator.get_audio_buffer(), bufferLength)
+        node?.updateBuffer(audioBuffer)
+        emulator.drain_audio_buffer()
+      }
+
       let timeout
 
       async function checkSaves() {
@@ -456,6 +473,7 @@
 
           handleJoypadInput()
           checkSaves()
+          updateAudioBuffer()
 
           let topPointer = null
           let bottomPointer = null

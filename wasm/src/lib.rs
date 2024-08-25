@@ -214,6 +214,24 @@ impl WasmEmulator {
     bus.gpu.powcnt1.contains(PowerControlRegister1::TOP_A)
   }
 
+  pub fn get_audio_buffer(&self) -> *const f32 {
+    let ref bus = *self.nds.bus.borrow();
+
+    let audio_buffer = bus.arm7.apu.audio_buffer.lock().unwrap();
+
+    let buffer = audio_buffer.clone();
+
+    buffer.as_slices().0.as_ptr()
+  }
+
+  pub fn get_buffer_length(&self) -> usize {
+    self.nds.bus.borrow().arm7.apu.audio_buffer.lock().unwrap().len()
+  }
+
+  pub fn drain_audio_buffer(&mut self) {
+    self.nds.bus.borrow_mut().arm7.apu.audio_buffer.lock().unwrap().drain(..);
+  }
+
   pub fn step_frame(&mut self) {
     let mut frame_finished = false;
 
