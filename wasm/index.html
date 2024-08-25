@@ -35,6 +35,10 @@
       <div class="navbar-end">
         <div class="navbar-item">
           <div class="buttons">
+            <button class="button is-success" id="manage-saves-button">
+              <i class="fa-solid fa-save"></i>
+              Manage Saves
+            </button>
             <button class="button is-info" onclick="displayHelpModal()">
               <i class="fa-solid fa-circle-info"></i>
               Help
@@ -53,6 +57,7 @@
     <input type="file" id="bios9-input" class="file-input">
     <input type="file" id="firmware-input" class="file-input">
     <input type="file" id="game-input" class="file-input">
+    <input type="file" id="save-input" class="file-input">
     <p id="fps-counter"></p>
     <div>
       <canvas width="256" height="192" id="top-canvas" />
@@ -113,8 +118,29 @@
       </div>
     </div>
   </div>
+  <div id="saves-modal" class="modal hide">
+    <div class="modal-bacoground"></div>
+    <div class="modal-content">
+      <div class="card">
+        <header class="card-header">
+          <p class="card-header-title">Saves List</p>
+        </header>
+        <div class="card-content">
+          <div class="content">
+            <button class="modal-close" aria-label="close" onclick="hideSavesModal()">Close</button>
+            <div id="saves-list">
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="bios-notification" class="notification is-primary">
     Loaded file successfully
+  </div>
+  <div id="save-notification" class="notification is-success">
+    Updated save successfully
   </div>
   <script src="jszip.min.js"></script>
   <script src="audio_processing_node.js"></script>
@@ -130,6 +156,12 @@
     function hideHelpModal() {
       document.getElementById("help-modal").className = "modal hide"
     }
+    function hideSavesModal() {
+      const savesModal = document.getElementById("saves-modal")
+
+      savesModal.className = "modal hide"
+      savesModal.style = "display: none"
+    }
   </script>
   <script type="module">
     const FPS_INTERVAL = 1000 / 60
@@ -142,13 +174,13 @@
     import init, { WasmEmulator, ButtonEvent } from "./pkg/ds_emulator_wasm.js"
 
     async function main() {
-
       let emulator = null
       let biosData7 = null
       let biosData9 = null
       let firmware = null
       let fileName = ""
       let gameData = null
+      let updateSaveGame = ""
 
       const keyboardButtons = []
 
@@ -184,6 +216,9 @@
       document.getElementById("bios9-input").addEventListener("change", handleBios9Change)
       document.getElementById("firmware-input").addEventListener("change", handleFirmwareChange)
       document.getElementById("game-input").addEventListener("change", handleGameChange)
+      document.getElementById("save-input").addEventListener("change", handleSaveChange)
+
+      document.getElementById("manage-saves-button").addEventListener("click", displaySavesModal)
 
       const path = "pkg/ds_emulator_wasm_bg.wasm"
 
@@ -223,6 +258,105 @@
         }
 
         return fileData
+      }
+
+      async function handleSaveChange(e) {
+        const data = await getBinaryData(e)
+
+        const fileData = new Uint8Array(data)
+
+        if (updateSaveGame != "") {
+          setSave(updateSaveGame, fileData)
+
+          const saveNotification = document.getElementById("save-notification")
+
+          saveNotification.style = "display: block"
+          const savesModal = document.getElementById("saves-modal")
+          savesModal.style = "display: none"
+          savesModal.className = "modal hide"
+
+          let opacity = 1.0
+
+          let interval = setInterval(() => {
+            opacity -= 0.1
+
+            saveNotification.style.opacity = opacity
+
+            if (opacity <= 0) {
+              clearInterval(interval)
+            }
+          }, 150)
+
+
+        }
+      }
+
+      async function displaySavesModal() {
+        const saves = await getUserSaves()
+
+        console.log("it's not showing the stupid modal wtf")
+        const savesModal = document.getElementById("saves-modal")
+
+        savesModal.className = "modal show"
+        savesModal.style = "display: block"
+
+        const savesList = document.getElementById("saves-list")
+
+        savesList.innerHTML = ''
+
+        for (const save of saves) {
+          const divEl = document.createElement("div")
+
+          divEl.className = "save-entry"
+
+          const spanEl = document.createElement("span")
+
+          spanEl.innerText = save.gameName
+
+          const deleteSaveEl = document.createElement('i')
+
+          deleteSaveEl.className = "fa-solid fa-x"
+          deleteSaveEl.style = "float: right; color: red; font-size: 14px; cursor: pointer"
+          deleteSaveEl.addEventListener('click', () => deleteSave(save.gameName))
+
+          const updateSaveEl = document.createElement('i')
+
+          updateSaveEl.className = "fa-solid fa-file-pen"
+          updateSaveEl.style = "float: right; color: green; font-size: 14px; cursor: pointer"
+          updateSaveEl.addEventListener("click", () => updateSave(save.gameName))
+
+          divEl.append(spanEl)
+          divEl.append(deleteSaveEl)
+          divEl.append(updateSaveEl)
+
+          savesList.append(divEl)
+        }
+      }
+
+      async function deleteSave(gameName) {
+        if (confirm("are you sure you want to delete this save?")) {
+          const result = await deleteDbSave(gameName)
+
+          if (result) {
+            const savesList = document.getElementById("saves-list")
+
+            for (const child of savesList.children) {
+              const children = [...child.children]
+              const spanElement = children.filter((childEl) => childEl.tagName.toLowerCase() == 'span')[0]
+
+              if (spanElement.innerText == gameName) {
+                child.remove()
+                break
+              }
+            }
+          }
+        }
+      }
+
+      function updateSave(gameName) {
+        updateSaveGame = gameName
+
+        document.getElementById("save-input").click()
       }
 
       async function handleBios7Change(e) {
@@ -266,17 +400,20 @@
 
       let mouseDown = false
 
-      function getCursorPosition(canvas, event) {
+      function setCursorPosition(canvas, event) {
         const rect = canvas.getBoundingClientRect()
         const x = event.clientX - rect.left
         const y = event.clientY - rect.top
 
-        emulator?.touch_screen(x / 2, y / 2)
+        const widthRatio = SCREEN_WIDTH / rect.width
+        const heightRatio = SCREEN_HEIGHT / rect.height
+
+        emulator?.touch_screen(x * widthRatio, y * heightRatio)
       }
 
       bottomCanvas.addEventListener('mousedown', (e) => {
         mouseDown = true
-        getCursorPosition(bottomCanvas, e)
+        setCursorPosition(bottomCanvas, e)
       })
 
       bottomCanvas.addEventListener('mouseup', (e) => {
@@ -286,7 +423,7 @@
 
       bottomCanvas.addEventListener('mousemove', (e) => {
         if (mouseDown) {
-          getCursorPosition(bottomCanvas, e)
+          setCursorPosition(bottomCanvas, e)
         }
       })
 
@@ -533,6 +670,11 @@
         switch (e.key) {
           case "Escape":
             document.getElementById("help-modal").className = "modal hide"
+            const savesModal = document.getElementById("saves-modal")
+
+            savesModal.className = "modal hide"
+            savesModal.style = "display: none"
+
             break
           case "w":
             keyboardButtons[UP] = true
@@ -571,9 +713,6 @@
         e.preventDefault()
 
         switch (e.key) {
-          case "Escape":
-            document.getElementById("help-modal").className = "modal hide"
-            break
           case "w":
             keyboardButtons[UP] = false
             break

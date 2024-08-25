@@ -13,11 +13,7 @@ function getSave(gameName) {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.get(gameName)
 
@@ -30,7 +26,55 @@ function getSave(gameName) {
       }
     }
   })
+}
 
+function getObjectStore(event) {
+  const db = event.target.result
+
+  const transaction = db.transaction(["saves"], "readwrite")
+
+  const objectStore = transaction.objectStore("saves")
+
+  return objectStore
+}
+function deleteDbSave(gameName) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ds_saves")
+
+    request.onsuccess = (event) => {
+      const objectStore = getObjectStore(event)
+
+      const request = objectStore.delete(gameName)
+
+      request.onsuccess = (event) => {
+        resolve(true)
+      }
+
+      request.onerror = (event) => {
+        resolve(false)
+      }
+    }
+  })
+}
+
+function getUserSaves() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ds_saves")
+
+    request.onsuccess = (event) => {
+      const objectStore = getObjectStore(event)
+
+      const request = objectStore.getAll()
+
+      request.onsuccess = (event) => {
+        resolve(request.result)
+      }
+
+      request.onerror = (event) => {
+        resolve(null)
+      }
+    }
+  })
 }
 
 function setSave(gameName, data) {
@@ -38,11 +82,7 @@ function setSave(gameName, data) {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.get(gameName)
 

@@ -26,12 +26,12 @@
   margin: 50px auto;
   text-align: center;
 }
-#bios-notification {
+#bios-notification, #save-notification {
   position: fixed;
   top: 100px;
   left: 25%;
   display: none;
-  width: 40%;
+  width: 60%;
 }
 label {
   font-weight: 600;
@@ -79,9 +79,9 @@ label {
     margin-left: auto;
     width: 100%;
   }
-  #canvas {
+  #bottom-canvas, #top-canvas {
     margin-left: 8%;
-    height: 100vh;
+    height: 50vh;
     width: auto;
   }
   #fps-counter {
