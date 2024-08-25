@@ -189,8 +189,6 @@ export class UI {
     const savesModal = document.getElementById("saves-modal")
     const savesList = document.getElementById("saves-list")
 
-    console.log(saves)
-
     if (saves != null && savesModal != null && savesList != null) {
       savesModal.className = "modal show"
       savesModal.style.display = "block"
@@ -207,29 +205,24 @@ export class UI {
 
         const deleteSaveEl = document.createElement('i')
 
-        deleteSaveEl.className = "fa-solid fa-x"
-        // deleteSaveEl.style = "float: right; color: red; font-size: 14px; cursor: pointer"
-
-        deleteSaveEl.style.float = "right"
-        deleteSaveEl.style.color = "red"
-        deleteSaveEl.style.fontSize = "14px"
-        deleteSaveEl.style.cursor = "pointer"
-
+        deleteSaveEl.className = "fa-solid fa-x save-icon delete-save"
 
         deleteSaveEl.addEventListener('click', () => this.deleteSave(save.gameName))
 
         const updateSaveEl = document.createElement('i')
 
-        updateSaveEl.className = "fa-solid fa-file-pen"
-        // updateSaveEl.style = "float: right; color: green; font-size: 14px; cursor: pointer"
+        updateSaveEl.className = "fa-solid fa-file-pen save-icon update"
 
-        updateSaveEl.style.float = "right"
-        updateSaveEl.style.color = "green"
-        updateSaveEl.style.fontSize = "14px"
-        updateSaveEl.style.cursor = "pointer"
         updateSaveEl.addEventListener("click", () => this.updateSave(save.gameName))
 
+        const downloadSaveEl = document.createElement("div")
+
+        downloadSaveEl.className = "fa-solid fa-download save-icon download"
+
+        downloadSaveEl.addEventListener("click", () => this.downloadSave(save.gameName))
+
         divEl.append(spanEl)
+        divEl.append(downloadSaveEl)
         divEl.append(deleteSaveEl)
         divEl.append(updateSaveEl)
 
@@ -242,6 +235,34 @@ export class UI {
     this.updateSaveGame = gameName
 
     document.getElementById("save-input")?.click()
+  }
+
+  async downloadSave(gameName: string) {
+    const entry = await this.db.getSave(gameName)
+
+    if (entry != null) {
+      this.generateFile(entry.data, gameName)
+    }
+  }
+
+  generateFile(data: Uint8Array, gameName: string) {
+    const blob = new Blob([data], {
+      type: "application/octet-stream"
+    })
+
+    const objectUrl = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+
+    a.href = objectUrl
+    a.download = `${gameName}.sav`
+    document.body.append(a)
+    a.style.display = "none"
+
+    a.click()
+    a.remove()
+
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 
   async deleteSave(gameName: string) {
@@ -267,10 +288,15 @@ export class UI {
   }
 
   async handleSaveChange(e: Event) {
-    if (this.emulator?.has_saved()) {
-      this.emulator?.set_saved(false)
-      clearTimeout(this.timeout)
-      this.timeout = setTimeout(this.saveGame, 1000)
+    const data = await this.getBinaryData(e)
+
+    if (data != null) {
+      const bytes = new Uint8Array(data as ArrayBuffer)
+
+      if (this.updateSaveGame != "") {
+        this.db.setSave(this.updateSaveGame, bytes)
+      }
+
     }
   }
 
@@ -290,8 +316,6 @@ export class UI {
 
   async handleGameChange(e: Event) {
     const game = await this.getBinaryData(e, true)
-
-    console.log('loading game')
 
     if (game != null) {
       this.gameData = new Uint8Array(game as ArrayBuffer)
@@ -388,7 +412,11 @@ export class UI {
   }
 
   checkSaves() {
-
+    if (this.emulator?.has_saved()) {
+      this.emulator?.set_saved(false)
+      clearTimeout(this.timeout)
+      this.timeout = setTimeout(this.saveGame, 1000)
+    }
   }
 
   async handleFirmwareChange(e: Event) {
