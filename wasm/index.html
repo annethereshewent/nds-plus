@@ -140,7 +140,6 @@
     import init, { WasmEmulator, ButtonEvent } from "./pkg/ds_emulator_wasm.js"
 
     async function main() {
-
       let emulator = null
       let biosData7 = null
       let biosData9 = null
@@ -264,17 +263,20 @@
 
       let mouseDown = false
 
-      function getCursorPosition(canvas, event) {
+      function setCursorPosition(canvas, event) {
         const rect = canvas.getBoundingClientRect()
         const x = event.clientX - rect.left
         const y = event.clientY - rect.top
 
-        emulator?.touch_screen(x / 2, y / 2)
+        const widthRatio = SCREEN_WIDTH / rect.width
+        const heightRatio = SCREEN_HEIGHT / rect.height
+
+        emulator?.touch_screen(x * widthRatio, y * heightRatio)
       }
 
       bottomCanvas.addEventListener('mousedown', (e) => {
         mouseDown = true
-        getCursorPosition(bottomCanvas, e)
+        setCursorPosition(bottomCanvas, e)
       })
 
       bottomCanvas.addEventListener('mouseup', (e) => {
@@ -284,7 +286,7 @@
 
       bottomCanvas.addEventListener('mousemove', (e) => {
         if (mouseDown) {
-          getCursorPosition(bottomCanvas, e)
+          setCursorPosition(bottomCanvas, e)
         }
       })
 
