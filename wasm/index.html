@@ -269,7 +269,7 @@
         const x = event.clientX - rect.left
         const y = event.clientY - rect.top
 
-        emulator.touch_screen(x / 2, y / 2)
+        emulator?.touch_screen(x / 2, y / 2)
       }
 
       bottomCanvas.addEventListener('mousedown', (e) => {
@@ -278,7 +278,7 @@
       })
 
       bottomCanvas.addEventListener('mouseup', (e) => {
-        emulator.release_screen()
+        emulator?.release_screen()
         mouseDown = false
       })
 
@@ -289,8 +289,10 @@
       })
 
       bottomCanvas.addEventListener('mouseout', (e) => {
-        emulator.release_screen()
-        mouseDown = false
+        if (mouseDown) {
+          emulator?.release_screen()
+          mouseDown = false
+        }
       })
 
 
