@@ -1,4 +1,4 @@
-import { InitOutput, WasmEmulator } from "../pkg/ds_emulator_wasm"
+import { InitOutput, WasmEmulator } from "../../pkg/ds_emulator_wasm"
 
 const FPS_INTERVAL = 1000 / 60
 

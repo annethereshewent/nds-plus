@@ -1,4 +1,4 @@
-import { WasmEmulator } from "../pkg/ds_emulator_wasm";
+import { WasmEmulator } from "../../pkg/ds_emulator_wasm";
 
 const SAMPLE_RATE = 44100
 const BUFFER_SIZE = 8192
