@@ -48,6 +48,7 @@ export class UI {
   timeout: any|null = null
 
   keyboardButtons: boolean[] = []
+
   constructor() {
     const bios7Json = JSON.parse(localStorage.getItem("ds_bios7") || "null")
     const bios9Json = JSON.parse(localStorage.getItem("ds_bios9") || "null")
@@ -353,6 +354,8 @@ export class UI {
           bottomContext,
           this.wasm
         )
+
+        this.renderer.addCanvasListeners()
       } else {
         throw new Error("could not initialize canvases for rendering")
       }

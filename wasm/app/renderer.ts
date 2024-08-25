@@ -17,6 +17,8 @@ export class Renderer {
   topContext: CanvasRenderingContext2D
   bottomContext: CanvasRenderingContext2D
 
+  mouseDown = false
+
   wasm: InitOutput
   constructor(
     emulator: WasmEmulator,
@@ -93,7 +95,42 @@ export class Renderer {
         imageData.data[imageIndex+3] = 255
       }
     }
-
     currentContext.putImageData(imageData, 0, 0)
+  }
+
+  setCursorPosition(event: MouseEvent) {
+    const rect = this.bottomCanvas.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+    const widthRatio = SCREEN_WIDTH / rect.width
+    const heightRatio = SCREEN_HEIGHT / rect.height
+
+    this.emulator?.touch_screen(x * widthRatio, y * heightRatio)
+  }
+
+  addCanvasListeners() {
+    this.bottomCanvas.addEventListener('mousedown', (e) => {
+      this.mouseDown = true
+      this.setCursorPosition(e)
+    })
+
+    this.bottomCanvas.addEventListener('mouseup', (e) => {
+      this.emulator?.release_screen()
+      this.mouseDown = false
+    })
+
+    this.bottomCanvas.addEventListener('mousemove', (e) => {
+      if (this.mouseDown) {
+        this.setCursorPosition(e)
+      }
+    })
+
+    this.bottomCanvas.addEventListener('mouseout', (e) => {
+      if (this.mouseDown) {
+        this.emulator?.release_screen()
+        this.mouseDown = false
+      }
+    })
   }
 }
