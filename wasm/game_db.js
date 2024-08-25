@@ -13,11 +13,7 @@ function getSave(gameName) {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.get(gameName)
 
@@ -32,16 +28,21 @@ function getSave(gameName) {
   })
 }
 
+function getObjectStore(event) {
+  const db = event.target.result
+
+  const transaction = db.transaction(["saves"], "readwrite")
+
+  const objectStore = transaction.objectStore("saves")
+
+  return objectStore
+}
 function deleteDbSave(gameName) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.delete(gameName)
 
@@ -54,11 +55,6 @@ function deleteDbSave(gameName) {
       }
     }
   })
-
-}
-
-function updateSave(gameName) {
-
 }
 
 function getUserSaves() {
@@ -66,11 +62,7 @@ function getUserSaves() {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.getAll()
 
@@ -90,11 +82,7 @@ function setSave(gameName, data) {
     const request = indexedDB.open("ds_saves")
 
     request.onsuccess = (event) => {
-      const db = event.target.result
-
-      const transaction = db.transaction(["saves"], "readwrite")
-
-      const objectStore = transaction.objectStore("saves")
+      const objectStore = getObjectStore(event)
 
       const request = objectStore.get(gameName)
 

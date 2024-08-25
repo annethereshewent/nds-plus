@@ -26,12 +26,12 @@
   margin: 50px auto;
   text-align: center;
 }
-#bios-notification {
+#bios-notification, #save-notification {
   position: fixed;
   top: 100px;
   left: 25%;
   display: none;
-  width: 40%;
+  width: 60%;
 }
 label {
   font-weight: 600;

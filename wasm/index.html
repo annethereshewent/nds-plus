@@ -57,6 +57,7 @@
     <input type="file" id="bios9-input" class="file-input">
     <input type="file" id="firmware-input" class="file-input">
     <input type="file" id="game-input" class="file-input">
+    <input type="file" id="save-input" class="file-input">
     <p id="fps-counter"></p>
     <div>
       <canvas width="256" height="192" id="top-canvas" />
@@ -138,6 +139,9 @@
   <div id="bios-notification" class="notification is-primary">
     Loaded file successfully
   </div>
+  <div id="save-notification" class="notification is-success">
+    Updated save successfully
+  </div>
   <script src="jszip.min.js"></script>
   <script src="game_db.js"></script>
   <script>
@@ -152,7 +156,10 @@
       document.getElementById("help-modal").className = "modal hide"
     }
     function hideSavesModal() {
-      document.getElementById("saves-modal").className = "modal hide"
+      const savesModal = document.getElementById("saves-modal")
+
+      savesModal.className = "modal hide"
+      savesModal.style = "display: none"
     }
   </script>
   <script type="module">
@@ -171,6 +178,7 @@
       let firmware = null
       let fileName = ""
       let gameData = null
+      let updateSaveGame = ""
 
       const keyboardButtons = []
 
@@ -206,6 +214,8 @@
       document.getElementById("bios9-input").addEventListener("change", handleBios9Change)
       document.getElementById("firmware-input").addEventListener("change", handleFirmwareChange)
       document.getElementById("game-input").addEventListener("change", handleGameChange)
+      document.getElementById("save-input").addEventListener("change", handleSaveChange)
+
       document.getElementById("manage-saves-button").addEventListener("click", displaySavesModal)
 
       const path = "pkg/ds_emulator_wasm_bg.wasm"
@@ -248,17 +258,50 @@
         return fileData
       }
 
-      async function displaySavesModal() {
-        document.getElementById("saves-modal").className = "modal show"
+      async function handleSaveChange(e) {
+        const data = await getBinaryData(e)
 
+        const fileData = new Uint8Array(data)
+
+        if (updateSaveGame != "") {
+          setSave(updateSaveGame, fileData)
+
+          const saveNotification = document.getElementById("save-notification")
+
+          saveNotification.style = "display: block"
+          const savesModal = document.getElementById("saves-modal")
+          savesModal.style = "display: none"
+          savesModal.className = "modal hide"
+
+          let opacity = 1.0
+
+          let interval = setInterval(() => {
+            opacity -= 0.1
+
+            saveNotification.style.opacity = opacity
+
+            if (opacity <= 0) {
+              clearInterval(interval)
+            }
+          }, 150)
+
+
+        }
+      }
+
+      async function displaySavesModal() {
         const saves = await getUserSaves()
+
+        console.log("it's not showing the stupid modal wtf")
+        const savesModal = document.getElementById("saves-modal")
+
+        savesModal.className = "modal show"
+        savesModal.style = "display: block"
 
         const savesList = document.getElementById("saves-list")
 
         savesList.innerHTML = ''
 
-
-        console.log(saves)
         for (const save of saves) {
           const divEl = document.createElement("div")
 
@@ -306,6 +349,12 @@
             }
           }
         }
+      }
+
+      function updateSave(gameName) {
+        updateSaveGame = gameName
+
+        document.getElementById("save-input").click()
       }
 
       async function handleBios7Change(e) {
@@ -605,7 +654,11 @@
         switch (e.key) {
           case "Escape":
             document.getElementById("help-modal").className = "modal hide"
-            document.getElementById("saves-modal").className = "modal hide"
+            const savesModal = document.getElementById("saves-modal")
+
+            savesModal.className = "modal hide"
+            savesModal.style = "display: none"
+
             break
           case "w":
             keyboardButtons[UP] = true
