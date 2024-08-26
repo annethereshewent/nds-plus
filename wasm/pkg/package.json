@@ -1,0 +1,18 @@
+{
+  "name": "ds-emulator-wasm",
+  "type": "module",
+  "collaborators": [
+    "Anne Castrillon"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "ds_emulator_wasm_bg.wasm",
+    "ds_emulator_wasm.js",
+    "ds_emulator_wasm.d.ts"
+  ],
+  "main": "ds_emulator_wasm.js",
+  "types": "ds_emulator_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

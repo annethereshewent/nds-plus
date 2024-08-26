@@ -87,7 +87,7 @@ impl ObjectPixel {
 pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub dispcnt: DisplayControlRegister<IS_ENGINE_B>,
   pub oam: [u8; 0x400],
-  pub pixels: [u8; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+  pub pixels: Box<[u8]>,
   pub winin: WindowInRegister,
   pub winout: WindowOutRegister,
   pub winh: [WindowHorizontalRegister; 2],
@@ -113,7 +113,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       dispcnt: DisplayControlRegister::new(),
       pixel_alphas: [false; SCREEN_WIDTH as usize],
       oam: [0; 0x400],
-      pixels: [0; 3 * (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+      pixels: vec![0; 3 * SCREEN_HEIGHT  as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
       bgxofs: [0; 4],
       bgyofs: [0; 4],
       bg_props: [BgProps::new(); 2],

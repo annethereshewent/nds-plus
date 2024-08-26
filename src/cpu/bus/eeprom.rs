@@ -50,7 +50,7 @@ impl Command {
 
 pub struct Eeprom {
   address_width: usize,
-  backup_file: BackupFile,
+  pub backup_file: BackupFile,
   mode: CommandMode,
   current_address: usize,
   command: Command,
@@ -176,6 +176,11 @@ impl Eeprom {
     }
 
     if !hold {
+      match self.command {
+        Command::WRLO | Command::WRHI | Command::WR => self.backup_file.has_written = true,
+        _ => ()
+      }
+
       self.mode = CommandMode::AwaitingCommand;
       self.command = Command::None;
     }

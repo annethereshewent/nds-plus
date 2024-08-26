@@ -34,8 +34,9 @@ fn main() {
   let firmware_path = Path::new(firmware_path);
 
   let mut nds = Nds::new(
-    args[1].to_string(),
-    firmware_path.to_path_buf(),
+    Some(args[1].to_string()),
+    Some(firmware_path.to_path_buf()),
+    None,
     bios7_bytes,
     bios9_bytes,
     rom_bytes,

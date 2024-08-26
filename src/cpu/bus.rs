@@ -155,8 +155,9 @@ pub struct Bus {
 
 impl Bus {
   pub fn new(
-     file_path: String,
-     firmware_path: PathBuf,
+     file_path: Option<String>,
+     firmware_path: Option<PathBuf>,
+     firmware_bytes: Option<Vec<u8>>,
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
@@ -168,7 +169,14 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
-    let capacity = fs::metadata(&firmware_path).unwrap().len();
+
+    let capacity = if firmware_path.is_some() {
+      fs::metadata(&firmware_path.as_ref().unwrap()).unwrap().len() as usize
+    } else if firmware_bytes.is_some() {
+      firmware_bytes.as_ref().unwrap().len()
+    } else {
+      panic!("Please provide either firmware bytes or a path to the firmware");
+    };
 
     let mut bus = Self {
       arm9: Arm9Bus {
@@ -196,7 +204,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(BackupFile::new(firmware_path, capacity as usize)),
+      spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize)),
       cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),

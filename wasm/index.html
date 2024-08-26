@@ -1,0 +1,160 @@
+<head>
+  <script src="https://kit.fontawesome.com/2c3ddc949d.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <nav class="navbar is-link">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="https://www.github.com/annethereshewent"><i class="fa-brands logo fa-github"></i>NDS Emulator</a>
+    </div>
+
+    <div id="navbar-main" class="navbar-menu">
+      <div class="navbar-start">
+        <div class="navbar-item">
+          <div class="buttons">
+            <button id="bios7-button" class="button is-warning">
+              <i class="fa-solid fa-upload"></i>
+              Load Arm7 Bios
+            </button>
+            <button id="bios9-button" class="button is-warning">
+              <i class="fa-solid fa-upload"></i>
+              Load Arm9 Bios
+            </button>
+            <button id="firmware-button" class="button is-warning">
+              <i class="fa-solid fa-upload"></i>
+              Load Firmware
+            </button>
+            <button disabled id="game-button" class="button is-primary">
+              <i class="fa-solid fa-upload"></i>
+              Load Game
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="navbar-end">
+        <div class="navbar-item">
+          <div class="buttons">
+            <button class="button is-success" id="manage-saves-button">
+              <i class="fa-solid fa-save"></i>
+              Manage Saves
+            </button>
+            <button class="button is-info" onclick="displayHelpModal()">
+              <i class="fa-solid fa-circle-info"></i>
+              Help
+            </button>
+            <button class="button is-danger" onclick="enterFullscreen()">
+              <i class="fa-solid fa-expand"></i>
+              Full Screen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div id="emulator">
+    <input type="file" id="bios7-input" class="file-input">
+    <input type="file" id="bios9-input" class="file-input">
+    <input type="file" id="firmware-input" class="file-input">
+    <input type="file" id="game-input" class="file-input">
+    <input type="file" id="save-input" class="file-input">
+    <p id="fps-counter"></p>
+    <div>
+      <canvas width="256" height="192" id="top-canvas" />
+    </div>
+    <div>
+      <canvas width="256" height="192" id="bottom-canvas" />
+    </div>
+  </div>
+  <div id="help-modal" class="modal hide">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+      <div class="card">
+        <header class="card-header">
+          <p class="card-header-title">
+            NDS Emulator Help
+          </p>
+        </header>
+        <div class="card-content">
+          <div class="content">
+            <button class="modal-close" aria-label="close" onclick="hideHelpModal()">Close</button>
+            <h2>How to use</h2>
+            <p>
+              You will need copies of the arm7 and arm9 BIOSes, as well as the firmware. Use the proper buttons to load accordingly.
+              You will only need to do this once, the BIOS will be saved into local storage for next time you use the emulator.
+            </p>
+            <h2 class="content-title">Controls</h2>
+            <h3>Keyboard:</h3>
+            <ul>
+              <li><label>Up:</label> W key</li>
+              <li><label>Down:</label> S key</li>
+              <li><label>Left:</label> A key</li>
+              <li><label>Right:</label> D key</li>
+              <li><label>A button:</label> L Key</li>
+              <li><label>B button:</label> K Key</li>
+              <li><label>X button:</label> I Key</li>
+              <li><label>Y button:</label> J Key</li>
+              <li><label>L button:</label> C Key</li>
+              <li><label>R button:</label> V Key</li>
+              <li><label>Select:</label> Tab</li>
+              <li><label>Start:</label> Enter</li>
+            </ul>
+            <h3>PS5 Controller:</h3>
+            <ul>
+              <li><label>Directions:</label> Control pad</li>
+              <li><label>A button:</label> Circle button</li>
+              <li><label>B button:</label> Cross button</li>
+              <li><label>X button:</label> Triangle button</li>
+              <li><label>Y button:</label> Square button</li>
+              <li><label>L button:</label> L1 button</li>
+              <li><label>R button:</label> R1 button</li>
+              <li><label>Select:</label> Share</li>
+              <li><label>Start:</label> Options</li>
+            </ul>
+
+            <p>Emulator written by <a href="https://www.github.com/annethereshewent">annethereshewent</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="saves-modal" class="modal hide">
+    <div class="modal-bacoground"></div>
+    <div class="modal-content">
+      <div class="card">
+        <header class="card-header">
+          <p class="card-header-title">Saves List</p>
+        </header>
+        <div class="card-content">
+          <div class="content">
+            <button class="modal-close" aria-label="close" onclick="hideSavesModal()">Close</button>
+            <div id="saves-list" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="bios-notification" class="notification is-primary">
+    Loaded file successfully
+  </div>
+  <div id="save-notification" class="notification is-success">
+    Updated save successfully
+  </div>
+  <script src="./app/dist/bundle.js"></script>
+  <script>
+    function enterFullscreen() {
+      document.documentElement.requestFullscreen()
+    }
+    function displayHelpModal() {
+      document.getElementById("help-modal").className = "modal show"
+    }
+
+    function hideHelpModal() {
+      document.getElementById("help-modal").className = "modal hide"
+    }
+    function hideSavesModal() {
+      const savesModal = document.getElementById("saves-modal")
+
+      savesModal.className = "modal hide"
+      savesModal.style = "display: none"
+    }
+  </script>
+</body>

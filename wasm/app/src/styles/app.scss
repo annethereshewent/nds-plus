@@ -1,0 +1,89 @@
+.logo {
+  font-size: 38px;
+  margin-right: 20px;
+}
+.save-icon.download {
+  color: white;
+}
+.save-icon.update {
+  color: green;
+}
+.save-icon.delete-save {
+  color: red;
+}
+.save-icon {
+  float: right;
+  font-size: 18px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+.fa-solid {
+  font-size: 20px;
+}
+.file-input {
+  display: none;
+}
+.show {
+  display: block;
+}
+.hide {
+  display: none;
+}
+#top-canvas, #bottom-canvas {
+  width: 512px;
+  height: 384px;
+  image-rendering: pixelated;
+}
+#emulator {
+  width: 640px;
+  margin: 50px auto;
+  text-align: center;
+}
+#bios-notification, #save-notification {
+  position: fixed;
+  top: 100px;
+  left: 25%;
+  display: none;
+  width: 60%;
+}
+label {
+  font-weight: 600;
+}
+.modal-content {
+  margin-top: 40px;
+}
+@media all and (display-mode: fullscreen)  {
+  body {
+    top: 0;
+    left: 0;
+    background: #000000;
+    height: 100vh;
+  }
+  .navbar {
+    height: 0;
+    width: 0;
+    display: none;
+  }
+  .navbar-brand {
+    display: none;
+  }
+  #navbar-main {
+    display: none;
+  }
+  #analog-mode {
+    display: none;
+  }
+  #emulator {
+    margin-top: 0px;
+    margin-left: auto;
+    width: 100%;
+  }
+  #bottom-canvas, #top-canvas {
+    margin-left: 8%;
+    height: 50vh;
+    width: auto;
+  }
+  #fps-counter {
+    display: none;
+  }
+}

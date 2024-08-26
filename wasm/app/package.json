@@ -1,0 +1,25 @@
+{
+  "name": "wasm-emulator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "webpack.config.js",
+  "dependencies": {
+    "bulma": "^1.0.2",
+    "jszip": "^3.10.1",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "css-loader": "^7.1.2",
+    "sass": "^1.77.8",
+    "sass-loader": "^16.0.1",
+    "style-loader": "^4.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

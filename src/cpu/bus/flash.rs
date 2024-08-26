@@ -6,6 +6,7 @@ enum CommandMode {
   ReadingRegister
 }
 
+#[derive(PartialEq)]
 enum Command {
   WREN,
   WRDI,
@@ -42,7 +43,7 @@ impl Command {
   }
 }
 pub struct Flash {
-  backup_file: BackupFile,
+  pub backup_file: BackupFile,
   write_enable: bool,
   mode: CommandMode,
   address_bytes_left: usize,
@@ -122,6 +123,9 @@ impl Flash {
     }
 
     if !hold {
+      if self.command == Command::PW {
+        self.backup_file.has_written = true;
+      }
        self.mode = CommandMode::AwaitingCommand;
     }
   }

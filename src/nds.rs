@@ -25,8 +25,9 @@ pub struct Nds {
 
 impl Nds {
   pub fn new(
-    file_path: String,
-    firmware_path: PathBuf,
+    file_path: Option<String>,
+    firmware_path: Option<PathBuf>,
+    firmware_bytes: Option<Vec<u8>>,
     bios7_bytes: Vec<u8>,
     bios9_bytes: Vec<u8>,
     rom_bytes: Vec<u8>,
@@ -38,6 +39,7 @@ impl Nds {
         Bus::new(
           file_path,
           firmware_path,
+          firmware_bytes,
           bios7_bytes,
           bios9_bytes,
           rom_bytes,
