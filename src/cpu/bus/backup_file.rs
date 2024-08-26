@@ -36,12 +36,7 @@ impl BackupFile {
       let buffer = if bytes.len() == capacity {
         bytes
       } else {
-        let mut buf = Vec::with_capacity(capacity);
-        for _ in 0..capacity {
-          buf.push(0xff);
-        }
-
-        buf
+        vec![0xff; capacity]
       };
 
       Self {
