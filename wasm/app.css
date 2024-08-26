@@ -2,6 +2,21 @@
   font-size: 38px;
   margin-right: 20px;
 }
+.save-icon.download {
+  color: white;
+}
+.save-icon.update {
+  color: green;
+}
+.save-icon.delete-save {
+  color: red;
+}
+.save-icon {
+  float: right;
+  font-size: 18px;
+  cursor: pointer;
+  margin-right: 10px;
+}
 .fa-solid {
   font-size: 20px;
 }
