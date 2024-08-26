@@ -303,7 +303,7 @@ export class UI {
   async handleFirmwareChange(e: Event) {
     this.firmware = await this.handleFileChange(e)
 
-    localStorage.setItem("ds_firmware", JSON.stringify(Array.from(this.biosData7 || [])))
+    localStorage.setItem("ds_firmware", JSON.stringify(Array.from(this.firmware || [])))
 
     this.checkIfAllLoaded()
   }
@@ -311,7 +311,7 @@ export class UI {
   async handleBios9Change(e: Event) {
     this.biosData9 = await this.handleFileChange(e)
 
-    localStorage.setItem("ds_bios9", JSON.stringify(Array.from(this.biosData7 || [])))
+    localStorage.setItem("ds_bios9", JSON.stringify(Array.from(this.biosData9 || [])))
 
     this.checkIfAllLoaded()
   }
