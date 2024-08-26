@@ -1,4 +1,4 @@
-import init, { WasmEmulator, ButtonEvent, InitOutput } from "../../pkg/ds_emulator_wasm.js"
+import init, { WasmEmulator, InitOutput } from "../../pkg/ds_emulator_wasm.js"
 import JSZip from 'jszip'
 import { DsDatabase } from "./ds_database"
 import { Audio } from "./audio"
