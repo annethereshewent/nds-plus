@@ -22,6 +22,8 @@ export class UI {
   fileName = ""
   gameData: Uint8Array|null = null
 
+
+  animationFrameId = 0
   updateSaveGame = ""
 
   db: DsDatabase = new DsDatabase()
@@ -238,6 +240,11 @@ export class UI {
 
       const gameDbJson = await response.json()
 
+      // cancel any ongoing events if resetting the system
+      this.audio?.stopAudio()
+      console.log(`animation frame id = ${this.animationFrameId}`)
+      cancelAnimationFrame(this.animationFrameId)
+
       this.emulator = new WasmEmulator(this.biosData7!!, this.biosData9!!, this.firmware!!, this.gameData)
       this.joypad = new Joypad(this.emulator)
       this.joypad.addKeyboardEventListeners()
@@ -254,20 +261,9 @@ export class UI {
 
         if (gameName != null) {
           const saveEntry = await this.db.getSave(gameName)
-          const saveJson = JSON.parse(localStorage.getItem(gameName) || "null")
 
           if (saveEntry != null) {
             this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
-          } else if (saveJson != null) {
-            bytes = new Uint8Array(saveJson)
-
-            if (gameName != null) {
-              await this.db.setSave(gameName, bytes)
-            }
-
-            localStorage.removeItem(gameName)
-
-            this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
           } else {
             this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
           }
@@ -302,7 +298,7 @@ export class UI {
 
       this.audio.startAudio()
 
-      requestAnimationFrame((time) => this.renderer?.run(time, () => {
+      this.animationFrameId = requestAnimationFrame((time) => this.renderer?.run(time, () => {
         this.joypad?.handleJoypadInput()
         this.checkSaves()
       }))
