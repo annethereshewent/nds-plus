@@ -10,12 +10,19 @@ export class DsDatabase {
 
     request.onsuccess = (event) => {
       this.db = request.result
+      console.log('successfully retrieved db')
     }
 
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+    request.onupgradeneeded = (event) => {
+      console.log('upgrade needed!')
       this.db = request.result
 
       this.db.createObjectStore("saves", { keyPath: "gameName" })
+    }
+
+    request.onerror = (event) => {
+      console.log('an error occurred while retrieving the database')
+      console.log(event)
     }
   }
 
@@ -26,13 +33,10 @@ export class DsDatabase {
       const request = objectStore?.get(gameName)
 
       if (request != null) {
-        request.onsuccess = (event) => {
-          resolve(request.result)
-        }
-
-        request.onerror = (event) => {
-          resolve(null)
-        }
+        request.onsuccess = (event) => resolve(request.result)
+        request.onerror = (event) => resolve(null)
+      } else {
+        resolve(null)
       }
     })
   }
@@ -105,9 +109,11 @@ export class DsDatabase {
       const request = objectStore?.getAll()
 
       if (request != null) {
+        console.log('object store exists')
         request.onsuccess = (event) => resolve(request.result)
         request.onerror = (event) => resolve(null)
       } else {
+        console.log('object store does not exist')
         resolve(null)
       }
     })
