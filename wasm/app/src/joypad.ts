@@ -18,35 +18,29 @@ const LEFT = 14
 const RIGHT = 15
 
 export class Joypad {
-  private gamepad: Gamepad|null
   private emulator: WasmEmulator
   private keyboardButtons: boolean[] = []
 
 
   constructor(emulator: WasmEmulator) {
-    this.gamepad = navigator.getGamepads()[0]
     this.emulator = emulator
   }
 
   handleJoypadInput() {
-    if (this.gamepad == null) {
-      this.gamepad = navigator.getGamepads()[0]
-    }
+    const gamepad = navigator.getGamepads()[0]
 
-    console.log(this.gamepad?.buttons[START].pressed)
-
-    this.emulator?.update_input(ButtonEvent.Select, this.gamepad?.buttons[SELECT].pressed == true || this.keyboardButtons[SELECT])
-    this.emulator?.update_input(ButtonEvent.Start, this.gamepad?.buttons[START].pressed == true || this.keyboardButtons[START])
-    this.emulator?.update_input(ButtonEvent.Up, this.gamepad?.buttons[UP].pressed == true || this.keyboardButtons[UP])
-    this.emulator?.update_input(ButtonEvent.Right, this.gamepad?.buttons[RIGHT].pressed == true || this.keyboardButtons[RIGHT])
-    this.emulator?.update_input(ButtonEvent.Down, this.gamepad?.buttons[DOWN].pressed == true || this.keyboardButtons[DOWN])
-    this.emulator?.update_input(ButtonEvent.Left, this.gamepad?.buttons[LEFT].pressed == true || this.keyboardButtons[LEFT])
-    this.emulator?.update_input(ButtonEvent.ButtonL, this.gamepad?.buttons[L1_BUTTON].pressed == true || this.keyboardButtons[L1_BUTTON])
-    this.emulator?.update_input(ButtonEvent.ButtonR, this.gamepad?.buttons[R1_BUTTON].pressed == true || this.keyboardButtons[R1_BUTTON])
-    this.emulator?.update_input(ButtonEvent.ButtonX, this.gamepad?.buttons[TRIANGLE_BUTTON].pressed == true || this.keyboardButtons[TRIANGLE_BUTTON])
-    this.emulator?.update_input(ButtonEvent.ButtonA, this.gamepad?.buttons[CIRCLE_BUTTON].pressed == true || this.keyboardButtons[CIRCLE_BUTTON])
-    this.emulator?.update_input(ButtonEvent.ButtonB, this.gamepad?.buttons[CROSS_BUTTON].pressed == true || this.keyboardButtons[CROSS_BUTTON])
-    this.emulator?.update_input(ButtonEvent.ButtonY, this.gamepad?.buttons[SQUARE_BUTTON].pressed == true || this.keyboardButtons[SQUARE_BUTTON])
+    this.emulator?.update_input(ButtonEvent.Select, gamepad?.buttons[SELECT].pressed == true || this.keyboardButtons[SELECT])
+    this.emulator?.update_input(ButtonEvent.Start, gamepad?.buttons[START].pressed == true || this.keyboardButtons[START])
+    this.emulator?.update_input(ButtonEvent.Up, gamepad?.buttons[UP].pressed == true || this.keyboardButtons[UP])
+    this.emulator?.update_input(ButtonEvent.Right, gamepad?.buttons[RIGHT].pressed == true || this.keyboardButtons[RIGHT])
+    this.emulator?.update_input(ButtonEvent.Down, gamepad?.buttons[DOWN].pressed == true || this.keyboardButtons[DOWN])
+    this.emulator?.update_input(ButtonEvent.Left, gamepad?.buttons[LEFT].pressed == true || this.keyboardButtons[LEFT])
+    this.emulator?.update_input(ButtonEvent.ButtonL, gamepad?.buttons[L1_BUTTON].pressed == true || this.keyboardButtons[L1_BUTTON])
+    this.emulator?.update_input(ButtonEvent.ButtonR, gamepad?.buttons[R1_BUTTON].pressed == true || this.keyboardButtons[R1_BUTTON])
+    this.emulator?.update_input(ButtonEvent.ButtonX, gamepad?.buttons[TRIANGLE_BUTTON].pressed == true || this.keyboardButtons[TRIANGLE_BUTTON])
+    this.emulator?.update_input(ButtonEvent.ButtonA, gamepad?.buttons[CIRCLE_BUTTON].pressed == true || this.keyboardButtons[CIRCLE_BUTTON])
+    this.emulator?.update_input(ButtonEvent.ButtonB, gamepad?.buttons[CROSS_BUTTON].pressed == true || this.keyboardButtons[CROSS_BUTTON])
+    this.emulator?.update_input(ButtonEvent.ButtonY, gamepad?.buttons[SQUARE_BUTTON].pressed == true || this.keyboardButtons[SQUARE_BUTTON])
   }
 
   addKeyboardEventListeners() {
