@@ -313,7 +313,7 @@ export class UI {
     if (this.emulator?.has_saved()) {
       this.emulator?.set_saved(false)
       clearTimeout(this.timeout)
-      this.timeout = setTimeout(this.saveGame, 1000)
+      this.timeout = setTimeout(() => this.saveGame(), 1000)
     }
   }
 
