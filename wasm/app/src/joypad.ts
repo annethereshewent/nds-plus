@@ -49,8 +49,6 @@ export class Joypad {
 
   addKeyboardEventListeners() {
     document.addEventListener("keydown", (e) => {
-      e.preventDefault()
-
       switch (e.key) {
         case "Escape":
           const helpModal = document.getElementById("help-modal")
@@ -100,8 +98,6 @@ export class Joypad {
     })
 
     document.addEventListener("keyup", (e) => {
-      e.preventDefault()
-
       switch (e.key) {
         case "w":
           this.keyboardButtons[UP] = false
