@@ -147,7 +147,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     let mut value: T = num::zero();
 
     for i in 0..size_of::<T>() {
-      value = num::cast::<u8, T>(self.palette_ram[(index + i) as usize] << (8 * i)).unwrap() | value;
+      value = num::cast::<u8, T>(self.palette_ram[(index + i) as usize]).unwrap() << (8 * i) | value;
     }
 
     value
