@@ -4,6 +4,7 @@ import { DsDatabase } from "./ds_database"
 import { Audio } from "./audio"
 import { Renderer } from "./renderer"
 import { Joypad } from "./joypad"
+import wasmData from '../../pkg/ds_emulator_wasm_bg.wasm'
 
 interface GameDBEntry {
   save_type: string,
@@ -62,8 +63,7 @@ export class UI {
   }
 
   async setWasm() {
-    const path = "pkg/ds_emulator_wasm_bg.wasm"
-    this.wasm = await init(path)
+    this.wasm = await init(wasmData)
   }
 
   addEventListeners() {
