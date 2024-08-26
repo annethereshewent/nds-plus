@@ -66,8 +66,9 @@ impl BackupFile {
 
   pub fn flush(&mut self) {
     if self.file.is_some() {
-      self.file.as_ref().unwrap().seek(SeekFrom::Start(0)).unwrap();
-      self.file.as_ref().unwrap().write_all(&self.buffer).unwrap();
+      let mut file = self.file.as_ref().unwrap();
+      file.seek(SeekFrom::Start(0)).unwrap();
+      file.write_all(&self.buffer).unwrap();
     }
   }
 }

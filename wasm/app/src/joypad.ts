@@ -33,6 +33,8 @@ export class Joypad {
       this.gamepad = navigator.getGamepads()[0]
     }
 
+    console.log(this.gamepad?.buttons[START].pressed)
+
     this.emulator?.update_input(ButtonEvent.Select, this.gamepad?.buttons[SELECT].pressed == true || this.keyboardButtons[SELECT])
     this.emulator?.update_input(ButtonEvent.Start, this.gamepad?.buttons[START].pressed == true || this.keyboardButtons[START])
     this.emulator?.update_input(ButtonEvent.Up, this.gamepad?.buttons[UP].pressed == true || this.keyboardButtons[UP])

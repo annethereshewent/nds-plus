@@ -283,7 +283,6 @@ export class UI {
         throw new Error("could not initialize canvases for rendering")
       }
 
-
       this.audio.startAudio()
 
       requestAnimationFrame((time) => this.renderer?.run(time, () => {

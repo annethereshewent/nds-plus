@@ -1,4 +1,6 @@
-import { UI } from "./src/ui";
+import { UI } from "./src/ui"
+import 'bulma/css/bulma'
+import './src/styles/app'
 
 const ui = new UI()
 

@@ -23,11 +23,9 @@
 .file-input {
   display: none;
 }
-
 .show {
   display: block;
 }
-
 .hide {
   display: none;
 }
@@ -50,20 +48,6 @@
 }
 label {
   font-weight: 600;
-}
-#analog-mode {
-  float: right;
-  width: 325px;
-  margin-right: 40px;
-  margin-top: 40px;
-}
-#analog-mode-status-icon {
-  vertical-align: middle;
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  background: #D70040;
-  border-radius: 20px;
 }
 .modal-content {
   margin-top: 40px;
