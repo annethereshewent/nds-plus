@@ -388,7 +388,10 @@ export class UI {
       requestAnimationFrame((time) => this.renderer?.run(time, () => {
         this.handleJoypadInput()
         this.checkSaves()
-        this.audio?.updateAudioBuffer()
+
+        if (this.audio?.node?.bufferReady) {
+          this.audio?.updateAudioBuffer()
+        }
       }))
     }
   }

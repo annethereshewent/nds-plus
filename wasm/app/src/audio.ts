@@ -5,7 +5,7 @@ const SAMPLE_RATE = 44100
 
 export class Audio {
   private emulator: WasmEmulator
-  private node: AudioProcessingNode|null = null
+  node: AudioProcessingNode|null = null
   private wasm: InitOutput
 
   constructor(emulator: WasmEmulator, wasm: InitOutput) {
@@ -18,7 +18,7 @@ export class Audio {
 
     await audioContext.resume()
 
-    audioContext.audioWorklet.addModule('processors.js').then(() => {
+    audioContext.audioWorklet.addModule("processors.js").then(() => {
       this.node = new AudioProcessingNode(audioContext)
 
       const audioBuffer = new Float32Array(this.wasm.memory.buffer, this.emulator.get_audio_buffer(), this.emulator.get_buffer_length())
@@ -34,7 +34,11 @@ export class Audio {
     const bufferLength = this.emulator.get_buffer_length()
 
     const audioBuffer = new Float32Array(this.wasm.memory.buffer, this.emulator.get_audio_buffer(), bufferLength)
-    this.node?.updateBuffer(audioBuffer)
+
+    if (this.node != null) {
+      this.node.updateBuffer(audioBuffer)
+    }
+
   }
 
 }

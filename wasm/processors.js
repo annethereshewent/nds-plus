@@ -35,6 +35,9 @@ class DSWorkletProcessor extends AudioWorkletProcessor {
 
         isLeft = !isLeft
       }
+      if (this.audioBuffer.length == 0) {
+        this.port.postMessage(true)
+      }
     }
 
     return true
