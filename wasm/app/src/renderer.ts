@@ -16,8 +16,9 @@ export class Renderer {
 
   topContext: CanvasRenderingContext2D
   bottomContext: CanvasRenderingContext2D
-
   mouseDown = false
+
+  animationFrameId = 0
 
   wasm: InitOutput
   constructor(
@@ -39,7 +40,7 @@ export class Renderer {
     this.wasm = wasm
   }
 
-  run(time: number, callback: () => void) {
+  run(time: number, callback: () => void, errorCallback: () => void) {
     const diff = time - this.previousTime
     const realDiff = time - this.realPreviousTime
 
@@ -55,7 +56,14 @@ export class Renderer {
     this.realPreviousTime = time
 
     if (diff >= FPS_INTERVAL || this.previousTime == 0) {
-      this.emulator.step_frame()
+      try {
+        this.emulator.step_frame()
+      } catch (e: any) {
+        this.cancelRendering()
+        errorCallback()
+
+        throw new Error("an error occurred while emulating.")
+      }
 
       this.frames++
       this.previousTime = time - (diff % FPS_INTERVAL)
@@ -76,7 +84,11 @@ export class Renderer {
       this.updatePicture(bottomPointer, this.bottomContext)
     }
 
-    requestAnimationFrame((time) => this.run(time, callback))
+    this.animationFrameId = requestAnimationFrame((time) => this.run(time, callback, errorCallback))
+  }
+
+  cancelRendering() {
+    cancelAnimationFrame(this.animationFrameId)
   }
 
   updatePicture(pointer: number, currentContext: CanvasRenderingContext2D) {

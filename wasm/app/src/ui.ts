@@ -22,8 +22,6 @@ export class UI {
   fileName = ""
   gameData: Uint8Array|null = null
 
-
-  animationFrameId = 0
   updateSaveGame = ""
 
   db: DsDatabase = new DsDatabase()
@@ -242,8 +240,7 @@ export class UI {
 
       // cancel any ongoing events if resetting the system
       this.audio?.stopAudio()
-      console.log(`animation frame id = ${this.animationFrameId}`)
-      cancelAnimationFrame(this.animationFrameId)
+      this.renderer?.cancelRendering()
 
       this.emulator = new WasmEmulator(this.biosData7!!, this.biosData9!!, this.firmware!!, this.gameData)
       this.joypad = new Joypad(this.emulator)
@@ -297,12 +294,19 @@ export class UI {
       }
 
       this.audio.startAudio()
+      requestAnimationFrame((time) => this.renderer?.run(time, () => {
+          this.joypad?.handleJoypadInput()
+          this.checkSaves()
 
-      this.animationFrameId = requestAnimationFrame((time) => this.renderer?.run(time, () => {
-        this.joypad?.handleJoypadInput()
-        this.checkSaves()
-      }))
+        }, () => this.resetSystem())
+      )
     }
+  }
+
+  resetSystem() {
+    this.audio?.stopAudio()
+    this.audio = null
+    this.emulator = null
   }
 
   checkSaves() {
