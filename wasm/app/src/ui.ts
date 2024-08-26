@@ -44,21 +44,21 @@ export class UI {
 
     if (bios7Json != null) {
       this.biosData7 = new Uint8Array(bios7Json)
+      document.getElementById("bios7-button")?.setAttribute("disabled", "true")
     }
 
     if (bios9Json != null) {
       this.biosData9 = new Uint8Array(bios9Json)
+      document.getElementById("bios9-button")?.setAttribute("disabled", "true")
     }
 
     if (firmwareJson != null) {
       this.firmware = new Uint8Array(firmwareJson)
+      document.getElementById("firmware-button")?.setAttribute("disabled", "true")
     }
 
     if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
       document.getElementById("game-button")?.removeAttribute("disabled")
-      document.getElementById("bios9-button")?.setAttribute("disabled", "true")
-      document.getElementById("bios7-button")?.setAttribute("disabled", "true")
-      document.getElementById("firmware-button")?.setAttribute("disabled", "true")
     }
   }
 
@@ -273,64 +273,69 @@ export class UI {
       this.audio?.stopAudio()
       this.renderer?.cancelRendering()
 
-      this.emulator = new WasmEmulator(this.biosData7!!, this.biosData9!!, this.firmware!!, this.gameData)
-      this.joypad = new Joypad(this.emulator)
-      this.joypad.addKeyboardEventListeners()
 
-      const gameCode = this.emulator.get_game_code()
+      if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
+        this.emulator = new WasmEmulator(this.biosData7, this.biosData9, this.firmware, this.gameData)
+        this.joypad = new Joypad(this.emulator)
+        this.joypad.addKeyboardEventListeners()
 
-      const entry = gameDbJson.filter((entry: GameDBEntry) => entry.game_code == gameCode)[0]
+        const gameCode = this.emulator.get_game_code()
 
-      if (entry != null) {
-        let bytes = new Uint8Array(0)
+        const entry = gameDbJson.filter((entry: GameDBEntry) => entry.game_code == gameCode)[0]
 
-        let gameName = this.fileName.split('/').pop()
-        gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
+        if (entry != null) {
+          let bytes = new Uint8Array(0)
 
-        if (gameName != null) {
-          const saveEntry = await this.db.getSave(gameName)
+          let gameName = this.fileName.split('/').pop()
+          gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
 
-          if (saveEntry != null) {
-            this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
-          } else {
-            this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+          if (gameName != null) {
+            const saveEntry = await this.db.getSave(gameName)
+
+            if (saveEntry != null) {
+              this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
+            } else {
+              this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+            }
           }
+
+        } else {
+          alert("Couldn't find game in DB, resorting to no save")
         }
 
-      } else {
-        alert("Couldn't find game in DB, resorting to no save")
-      }
+        const topCanvas = document.getElementById("top-canvas") as HTMLCanvasElement
+        const bottomCanvas = document.getElementById("bottom-canvas") as HTMLCanvasElement
 
-      const topCanvas = document.getElementById("top-canvas") as HTMLCanvasElement
-      const bottomCanvas = document.getElementById("bottom-canvas") as HTMLCanvasElement
+        const topContext = topCanvas.getContext("2d")
+        const bottomContext = bottomCanvas.getContext("2d")
 
-      const topContext = topCanvas.getContext("2d")
-      const bottomContext = bottomCanvas.getContext("2d")
+        this.audio = new Audio(this.emulator)
 
-      this.audio = new Audio(this.emulator)
+        if (topContext != null && bottomContext != null && this.wasm != null) {
+          this.renderer = new Renderer(
+            this.emulator,
+            topCanvas,
+            bottomCanvas,
+            topContext,
+            bottomContext,
+            this.wasm
+          )
 
-      if (topContext != null && bottomContext != null && this.wasm != null) {
-        this.renderer = new Renderer(
-          this.emulator,
-          topCanvas,
-          bottomCanvas,
-          topContext,
-          bottomContext,
-          this.wasm
+          this.renderer.addCanvasListeners()
+        } else {
+          throw new Error("could not initialize canvases for rendering")
+        }
+
+        this.audio.startAudio()
+        requestAnimationFrame((time) => this.renderer?.run(time, () => {
+            this.joypad?.handleJoypadInput()
+            this.checkSaves()
+
+          }, () => this.resetSystem())
         )
-
-        this.renderer.addCanvasListeners()
       } else {
-        throw new Error("could not initialize canvases for rendering")
+        throw new Error("bios and firmware data not loaded")
       }
-
-      this.audio.startAudio()
-      requestAnimationFrame((time) => this.renderer?.run(time, () => {
-          this.joypad?.handleJoypadInput()
-          this.checkSaves()
-
-        }, () => this.resetSystem())
-      )
     }
   }
 
@@ -349,39 +354,50 @@ export class UI {
   }
 
   async handleFirmwareChange(e: Event) {
-    this.firmware = await this.handleFileChange(e)
+    this.firmware = await this.handleFileChange(e, "firmware.bin")
 
-    localStorage.setItem("ds_firmware", JSON.stringify(Array.from(this.firmware || [])))
-
-    this.checkIfAllLoaded()
+    if (this.firmware != null) {
+      this.setLoaded("ds_firmware", this.firmware, "firmware-button")
+    }
   }
 
   async handleBios9Change(e: Event) {
-    this.biosData9 = await this.handleFileChange(e)
+    this.biosData9 = await this.handleFileChange(e, "bios9.bin")
 
-    localStorage.setItem("ds_bios9", JSON.stringify(Array.from(this.biosData9 || [])))
-
-    this.checkIfAllLoaded()
+    if (this.biosData9 != null) {
+      this.setLoaded("ds_bios9", this.biosData9, "bios9-button")
+    }
   }
 
   checkIfAllLoaded() {
     if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
       document.getElementById("game-button")?.removeAttribute("disabled")
-      document.getElementById("bios9-button")?.setAttribute("disabled", "true")
-      document.getElementById("bios7-button")?.setAttribute("disabled", "true")
-      document.getElementById("firmware-button")?.setAttribute("disabled", "true")
     }
   }
 
   async handleBios7Change(e: Event) {
-    this.biosData7 = await this.handleFileChange(e)
+    this.biosData7 = await this.handleFileChange(e, "bios7.bin")
 
-    localStorage.setItem("ds_bios7", JSON.stringify(Array.from(this.biosData7 || [])))
+    if (this.biosData7 != null) {
+      this.setLoaded("ds_bios7", this.biosData7, "bios7-button")
+    }
+  }
 
+  setLoaded(key: string, data: Uint8Array, button: string) {
+    localStorage.setItem(key, JSON.stringify(Array.from(data || [])))
+    document.getElementById(button)?.setAttribute("disabled", "true")
     this.checkIfAllLoaded()
   }
 
-  async handleFileChange(e: Event) {
+  async handleFileChange(e: Event, fileName: string) {
+    const targetFilename = (e.target as HTMLInputElement)?.files?.[0].name?.split('/')?.pop()
+
+    if (targetFilename != fileName) {
+      if (!confirm(`Warning! Current filename does not match the required filename of ${fileName}. Are you sure you want to continue?`)) {
+        return null
+      }
+    }
+
     let fileData = null
     const data = await this.getBinaryData(e)
 
