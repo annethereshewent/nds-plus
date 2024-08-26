@@ -79,6 +79,23 @@ export class UI {
     document.getElementById("save-input")?.addEventListener("change", (e) => this.handleSaveChange(e))
 
     document.getElementById("manage-saves-button")?.addEventListener("click", () => this.displaySavesModal())
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key == 'Escape') {
+        e.preventDefault()
+        const helpModal = document.getElementById("help-modal")
+        if (helpModal != null) {
+          helpModal.className = "modal hide"
+        }
+
+        const savesModal = document.getElementById("saves-modal")
+
+        if (savesModal != null) {
+          savesModal.className = "modal hide"
+          savesModal.style.display = "none"
+        }
+      }
+    })
   }
 
   async displaySavesModal() {

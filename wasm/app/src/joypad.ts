@@ -46,20 +46,6 @@ export class Joypad {
   addKeyboardEventListeners() {
     document.addEventListener("keydown", (e) => {
       switch (e.key) {
-        case "Escape":
-          const helpModal = document.getElementById("help-modal")
-          if (helpModal != null) {
-            helpModal.className = "modal hide"
-          }
-
-          const savesModal = document.getElementById("saves-modal")
-
-          if (savesModal != null) {
-            savesModal.className = "modal hide"
-            savesModal.style.display = "none"
-          }
-
-          break
         case "w":
           this.keyboardButtons[UP] = true
           break
@@ -89,6 +75,14 @@ export class Joypad {
           break
         case "v":
           this.keyboardButtons[R1_BUTTON] = true
+          break
+        case "Enter":
+          e.preventDefault()
+          this.keyboardButtons[START] = true
+          break
+        case "Tab":
+          e.preventDefault()
+          this.keyboardButtons[SELECT] = true
           break
       }
     })
@@ -124,6 +118,14 @@ export class Joypad {
           break
         case "v":
           this.keyboardButtons[R1_BUTTON] = false
+          break
+        case "Enter":
+          e.preventDefault()
+          this.keyboardButtons[START] = false
+          break
+        case "Tab":
+          e.preventDefault()
+          this.keyboardButtons[SELECT] = false
           break
       }
     })
