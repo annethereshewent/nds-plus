@@ -34,11 +34,7 @@ export class Audio {
     const bufferLength = this.emulator.get_buffer_length()
 
     const audioBuffer = new Float32Array(this.wasm.memory.buffer, this.emulator.get_audio_buffer(), bufferLength)
-
-    if (this.node != null) {
-      this.node.updateBuffer(audioBuffer)
-    }
-
+    this.node?.updateBuffer(audioBuffer)
   }
 
 }

@@ -38,6 +38,8 @@ class DSWorkletProcessor extends AudioWorkletProcessor {
       if (this.audioBuffer.length == 0) {
         this.port.postMessage(true)
       }
+    } else {
+      this.port.postMessage(true)
     }
 
     return true
