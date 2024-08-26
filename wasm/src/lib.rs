@@ -64,7 +64,7 @@ impl WasmEmulator {
     firmware_bytes: &[u8],
     game_data: &[u8],
   ) -> Self {
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    // panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
 
