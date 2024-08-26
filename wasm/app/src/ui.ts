@@ -202,6 +202,14 @@ export class UI {
   }
 
   async handleSaveChange(e: Event) {
+    let saveName = (e.target as HTMLInputElement)?.files?.[0].name?.split('/')?.pop()
+
+    saveName = saveName?.substring(0, saveName?.lastIndexOf('.'))
+    if (saveName != this.updateSaveGame) {
+      if (!confirm("Warning! Save file does not match selected game name. are you sure you want to continue?")) {
+        return
+      }
+    }
     const data = await this.getBinaryData(e)
 
     if (data != null) {
@@ -211,6 +219,29 @@ export class UI {
         this.db.setSave(this.updateSaveGame, bytes)
       }
 
+      const notification = document.getElementById("save-notification")
+
+      if (notification != null) {
+        notification.style.display = "block"
+
+        let opacity = 1.0
+
+        let interval = setInterval(() => {
+          opacity -= 0.1
+          notification.style.opacity = `${opacity}`
+
+          if (opacity <= 0) {
+            clearInterval(interval)
+          }
+        }, 100)
+      }
+
+      const savesModal = document.getElementById("saves-modal")
+
+      if (savesModal != null) {
+        savesModal.style.display = "none"
+        savesModal.className = "modal hide"
+      }
     }
   }
 
