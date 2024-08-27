@@ -232,6 +232,9 @@ impl Frontend {
             bus.gpu.engine_a.debug_on = !bus.gpu.engine_a.debug_on;
             bus.gpu.engine_b.debug_on = !bus.gpu.engine_b.debug_on;
             bus.gpu.engine3d.debug_on = !bus.gpu.engine3d.debug_on;
+          } else if keycode.unwrap() == Keycode::T {
+            self.use_control_stick = !self.use_control_stick;
+            bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
           }
         }
         Event::KeyUp { keycode, .. } => {

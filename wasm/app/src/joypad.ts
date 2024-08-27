@@ -17,8 +17,13 @@ const DOWN = 13
 const LEFT = 14
 const RIGHT = 15
 
+const L2_BUTTON = 6
+const R2_BUTTON = 7
+
 const L3_BUTTON = 10
 const R3_BUTTON = 11
+
+
 
 export class Joypad {
   private emulator: WasmEmulator
@@ -95,6 +100,15 @@ export class Joypad {
           break
         case "v":
           this.keyboardButtons[R1_BUTTON] = true
+          break
+        case "t":
+          this.useControlStick = !this.useControlStick
+
+          if (this.useControlStick) {
+            this.emulator.press_screen()
+          } else {
+            this.emulator.release_screen()
+          }
           break
         case "Enter":
           e.preventDefault()
