@@ -142,15 +142,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   pub fn read_palette_ram<T: Number>(&self, address: u32) -> T {
     let index = (address as usize) & (self.palette_ram.len() - 1);
 
-    // unsafe { *(&self.palette_ram[index as usize] as *const u8 as *const T) }
-
-    let mut value: T = num::zero();
-
-    for i in 0..size_of::<T>() {
-      value = num::cast::<u8, T>(self.palette_ram[(index + i) as usize]).unwrap() << (8 * i) | value;
-    }
-
-    value
+    unsafe { *(&self.palette_ram[index as usize] as *const u8 as *const T) }
   }
 
   pub fn clear_obj_lines(&mut self) {
