@@ -246,7 +246,7 @@ impl Frontend {
             bus.arm7.extkeyin.set(*button, false);
           } else if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, false);
-          } else if button == Button::LeftStick {
+          } else if button == Button::RightStick {
             self.use_control_stick = !self.use_control_stick;
             if self.use_control_stick {
               bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);

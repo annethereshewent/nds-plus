@@ -132,7 +132,7 @@ function passArrayF32ToWasm0(arg, malloc) {
 }
 /**
 */
-export const ButtonEvent = Object.freeze({ ButtonA:0,"0":"ButtonA",ButtonB:1,"1":"ButtonB",ButtonY:2,"2":"ButtonY",ButtonX:3,"3":"ButtonX",ButtonL:4,"4":"ButtonL",ButtonR:5,"5":"ButtonR",Select:6,"6":"Select",Start:7,"7":"Start",Up:8,"8":"Up",Down:9,"9":"Down",Left:10,"10":"Left",Right:11,"11":"Right", });
+export const ButtonEvent = Object.freeze({ ButtonA:0,"0":"ButtonA",ButtonB:1,"1":"ButtonB",ButtonY:2,"2":"ButtonY",ButtonX:3,"3":"ButtonX",ButtonL:4,"4":"ButtonL",ButtonR:5,"5":"ButtonR",Select:6,"6":"Select",Start:7,"7":"Start",Up:8,"8":"Up",Down:9,"9":"Down",Left:10,"10":"Left",Right:11,"11":"Right",ButtonR3:12,"12":"ButtonR3", });
 
 const WasmEmulatorFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
@@ -268,6 +268,18 @@ export class WasmEmulator {
     is_top_a() {
         const ret = wasm.wasmemulator_is_top_a(this.__wbg_ptr);
         return ret !== 0;
+    }
+    /**
+    */
+    press_screen() {
+        wasm.wasmemulator_press_screen(this.__wbg_ptr);
+    }
+    /**
+    * @param {number} x
+    * @param {number} y
+    */
+    touch_screen_controller(x, y) {
+        wasm.wasmemulator_touch_screen_controller(this.__wbg_ptr, x, y);
     }
     /**
     */

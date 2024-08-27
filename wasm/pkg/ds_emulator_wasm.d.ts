@@ -15,6 +15,7 @@ export enum ButtonEvent {
   Down = 9,
   Left = 10,
   Right = 11,
+  ButtonR3 = 12,
 }
 /**
 */
@@ -85,6 +86,14 @@ export class WasmEmulator {
   is_top_a(): boolean;
 /**
 */
+  press_screen(): void;
+/**
+* @param {number} x
+* @param {number} y
+*/
+  touch_screen_controller(x: number, y: number): void;
+/**
+*/
   step_frame(): void;
 }
 
@@ -107,6 +116,8 @@ export interface InitOutput {
   readonly wasmemulator_get_engine_a_picture_pointer: (a: number) => number;
   readonly wasmemulator_get_engine_b_picture_pointer: (a: number) => number;
   readonly wasmemulator_is_top_a: (a: number) => number;
+  readonly wasmemulator_press_screen: (a: number) => void;
+  readonly wasmemulator_touch_screen_controller: (a: number, b: number, c: number) => void;
   readonly wasmemulator_step_frame: (a: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
