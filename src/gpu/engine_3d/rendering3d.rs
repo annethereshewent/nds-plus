@@ -266,9 +266,7 @@ impl Engine3d {
       }
     }
 
-    if max_x >= SCREEN_WIDTH as u32 || max_y >= SCREEN_HEIGHT as u32 {
-      return;
-    }
+    max_y = max_y.min(SCREEN_HEIGHT as u32 - 1);
 
     let mut left_start_index = start_index;
     let mut right_start_index = start_index;
@@ -424,7 +422,7 @@ impl Engine3d {
 
       let boundary2_u32 = boundary2 as u32;
 
-      while x < boundary2_u32 as u32 {
+      while x < boundary2_u32 && x < SCREEN_WIDTH as u32 {
         let curr_u = u_d.next() as u32 >> 4;
         let curr_v = v_d.next() as u32 >> 4;
 

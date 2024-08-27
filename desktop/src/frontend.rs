@@ -28,6 +28,7 @@ use sdl2::{
     AudioSpecDesired
   },
   controller::{
+    Axis,
     Button,
     GameController
   },
@@ -84,7 +85,10 @@ pub struct Frontend {
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
-  device: AudioDevice<DsAudioCallback>
+  device: AudioDevice<DsAudioCallback>,
+  use_control_stick: bool,
+  controller_x: i16,
+  controller_y: i16
 }
 
 impl Frontend {
@@ -189,22 +193,27 @@ impl Frontend {
       ext_button_map,
       key_map,
       ext_key_map,
-      device
+      device,
+      use_control_stick: false,
+      controller_x: 0,
+      controller_y: 0
     }
   }
 
   pub fn handle_touchscreen(&mut self, bus: &mut Bus) {
-    let state = self.event_pump.mouse_state();
+    if !self.use_control_stick {
+      let state = self.event_pump.mouse_state();
 
-    let y = state.y();
-    let x = state.x();
+      let y = state.y();
+      let x = state.x();
 
-    if state.left() && y >= SCREEN_HEIGHT as i32 * 2 && x >= 0 {
-      bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
-      bus.touchscreen.touch_screen(x as u16 / 2, y as u16 / 2 - SCREEN_HEIGHT);
-    } else if !state.left() {
-      bus.touchscreen.release_screen();
-      bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
+      if state.left() && y >= SCREEN_HEIGHT as i32 * 2 && x >= 0 {
+        bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+        bus.touchscreen.touch_screen(x as u16 / 2, y as u16 / 2 - SCREEN_HEIGHT);
+      } else if !state.left() {
+        bus.touchscreen.release_screen();
+        bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
+      }
     }
   }
 
@@ -237,6 +246,13 @@ impl Frontend {
             bus.arm7.extkeyin.set(*button, false);
           } else if let Some(button) = self.button_map.get(&button) {
             bus.key_input_register.set(*button, false);
+          } else if button == Button::RightStick {
+            self.use_control_stick = !self.use_control_stick;
+            if self.use_control_stick {
+              bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+            } else {
+              bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
+            }
           }
         }
         Event::ControllerButtonUp { button, .. } => {
@@ -246,8 +262,23 @@ impl Frontend {
             bus.key_input_register.set(*button, true);
           }
         }
+        Event::ControllerAxisMotion { axis, value, .. } => {
+          match axis {
+            Axis::LeftX => {
+              self.controller_x = value;
+            }
+            Axis::LeftY => {
+              self.controller_y = value;
+            }
+            _ => ()
+          }
+        }
         _ => ()
       }
+      if self.use_control_stick {
+        bus.touchscreen.touch_screen_controller(self.controller_x, self.controller_y);
+      }
+
     }
   }
 

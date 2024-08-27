@@ -17,9 +17,14 @@ const DOWN = 13
 const LEFT = 14
 const RIGHT = 15
 
+const L3_BUTTON = 10
+const R3_BUTTON = 11
+
 export class Joypad {
   private emulator: WasmEmulator
   private keyboardButtons: boolean[] = []
+
+  private useControlStick = false
 
 
   constructor(emulator: WasmEmulator) {
@@ -41,6 +46,21 @@ export class Joypad {
     this.emulator?.update_input(ButtonEvent.ButtonA, gamepad?.buttons[CIRCLE_BUTTON].pressed == true || this.keyboardButtons[CIRCLE_BUTTON])
     this.emulator?.update_input(ButtonEvent.ButtonB, gamepad?.buttons[CROSS_BUTTON].pressed == true || this.keyboardButtons[CROSS_BUTTON])
     this.emulator?.update_input(ButtonEvent.ButtonY, gamepad?.buttons[SQUARE_BUTTON].pressed == true || this.keyboardButtons[SQUARE_BUTTON])
+
+
+    if (this.useControlStick) {
+      this.emulator?.touch_screen_controller(gamepad?.axes[0] || 0.0, gamepad?.axes[1] || 0.0)
+    }
+
+    if (gamepad?.buttons[R3_BUTTON].pressed){
+      this.useControlStick = !this.useControlStick
+
+      if (this.useControlStick) {
+        this.emulator.press_screen()
+      } else {
+        this.emulator.release_screen()
+      }
+    }
   }
 
   addKeyboardEventListeners() {

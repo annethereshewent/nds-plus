@@ -1,3 +1,5 @@
+use crate::gpu::{SCREEN_HEIGHT, SCREEN_WIDTH};
+
 pub struct Touchscreen {
   pub x: u16,
   pub y: u16,
@@ -47,6 +49,18 @@ impl Touchscreen {
     self.x = x << 4;
     self.y = y << 4;
   }
+
+  pub fn touch_screen_controller(&mut self, x: i16, y: i16) {
+    let middle_x = SCREEN_WIDTH  as i16/ 2;
+    let middle_y = SCREEN_HEIGHT as i16 / 2;
+
+    let pointer_x = x >> 10;
+    let pointer_y = y >> 10;
+
+    self.x = ((middle_x + pointer_x) << 4) as u16;
+    self.y = ((middle_y + pointer_y) << 4) as u16;
+  }
+
 
   pub fn release_screen(&mut self) {
     self.x = 0;
