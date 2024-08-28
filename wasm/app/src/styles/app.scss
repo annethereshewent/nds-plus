@@ -36,7 +36,7 @@
 }
 #emulator {
   width: 640px;
-  margin: 50px auto;
+  margin: 0 auto;
   text-align: center;
 }
 #bios-notification, #save-notification {
@@ -74,6 +74,7 @@ label {
     left: 0;
     background: #000000;
     height: 100vh;
+    overflow: none;
   }
   .navbar {
     height: 0;
@@ -84,9 +85,6 @@ label {
     display: none;
   }
   #navbar-main {
-    display: none;
-  }
-  #analog-mode {
     display: none;
   }
   #emulator {
@@ -100,6 +98,9 @@ label {
     width: auto;
   }
   #fps-counter {
+    display: none;
+  }
+  .analog-mode {
     display: none;
   }
 }
