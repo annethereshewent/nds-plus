@@ -56,14 +56,78 @@ export class CloudService {
     }
   }
 
+  async getSaves(): Promise<SaveEntry[]> {
+    const url = "https://www.googleapis.com/drive/v3/files"
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`
+      }
+    })
+
+    const json = await response.json()
+
+    console.log(json)
+
+    return []
+  }
+
+  async uploadSave(gameName: string, bytes: Uint8Array) {
+    const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media"
+
+    const buffer = bytes.buffer
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/octet-stream",
+        "Content-Length": `${bytes.length}`
+      },
+      body: buffer
+    })
+
+    const file = await response.json()
+
+    // rename the file to ${gameName}.sav
+
+    if (file != null) {
+      console.log(file.id)
+      const url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}?uploadType=media`
+
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: JSON.stringify({
+          name: `${gameName}.sav`,
+          mimeType: "application/octet-stream"
+        })
+      })
+
+      const json = await response.json()
+
+      console.log(`got past update so it should have renamed the file. (PS FUCK YOU GOOGLE I HATE YOU)`)
+
+      console.log(json)
+    }
+  }
+
   checkAuthentication() {
     if (window.location.href.indexOf("#") != -1) {
       const tokenParams = window.location.href.split("#")[1].split("&")
 
       let accessToken = tokenParams.filter((param) => param.indexOf('access_token') != -1)[0]
+      let refreshToken = tokenParams.filter((param) => param.indexOf('refresh_token') != -1)[0]
 
       if (accessToken != null) {
         accessToken = accessToken.split("=")[1]
+
+        if (refreshToken != null) {
+          refreshToken = refreshToken.split("=")[1]
+          localStorage.setItem("ds_refresh_token", refreshToken)
+        }
 
         localStorage.setItem("ds_access_token", accessToken)
 

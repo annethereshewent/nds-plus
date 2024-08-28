@@ -106,19 +106,7 @@ export class UI {
   }
 
   async displaySavesModal() {
-    if (!this.cloudService.usingCloud) {
-      this.getLocalSaves()
-    } else {
-      this.getCloudSaves()
-    }
-  }
-
-  async getCloudSaves() {
-
-  }
-
-  async getLocalSaves() {
-    const saves = await this.db.getSaves()
+    const saves = !this.cloudService.usingCloud ? await this.db.getSaves() : await this.cloudService.getSaves()
     const savesModal = document.getElementById("saves-modal")
     const savesList = document.getElementById("saves-list")
 
@@ -250,7 +238,7 @@ export class UI {
         if (!this.cloudService.usingCloud) {
           this.db.setSave(this.updateSaveGame, bytes)
         } else {
-          // this.cloudService.uploadSave(this.updateSaveGame, bytes)
+          this.cloudService.uploadSave(this.updateSaveGame, bytes)
         }
       }
 
@@ -292,7 +280,7 @@ export class UI {
         if (!this.cloudService.usingCloud) {
           this.db.setSave(gameName, saveData)
         } else {
-          // this.cloudService.uploadSave(gameName, saveData)
+          this.cloudService.uploadSave(gameName, saveData)
         }
       }
     }
