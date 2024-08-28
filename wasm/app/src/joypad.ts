@@ -23,13 +23,15 @@ const R2_BUTTON = 7
 const L3_BUTTON = 10
 const R3_BUTTON = 11
 
-
+const PS_BUTTON = 16
 
 export class Joypad {
   private emulator: WasmEmulator
   private keyboardButtons: boolean[] = []
 
   private useControlStick = false
+
+  private updatingControlStick = false
 
 
   constructor(emulator: WasmEmulator) {
@@ -57,14 +59,37 @@ export class Joypad {
       this.emulator?.touch_screen_controller(gamepad?.axes[0] || 0.0, gamepad?.axes[1] || 0.0)
     }
 
-    if (gamepad?.buttons[R3_BUTTON].pressed){
+    if (gamepad?.buttons[R3_BUTTON].pressed && !this.updatingControlStick){
+      this.updatingControlStick = true
       this.useControlStick = !this.useControlStick
+
+      this.updateAnalogStatus()
 
       if (this.useControlStick) {
         this.emulator.press_screen()
       } else {
         this.emulator.release_screen()
       }
+      setTimeout(() => {
+        this.updatingControlStick = false
+      }, 300)
+    }
+  }
+
+  updateAnalogStatus() {
+    const element = document.getElementById("analog-mode")
+
+    if (element != null) {
+      for (const child of element.children) {
+        if (child.tagName.toLowerCase() == "span") {
+          const status = this.useControlStick ? "On" : "Off"
+          child.innerHTML = `<label>Analog Mode</label>: ${status}`
+        }
+        if (child.id == "analog-mode-status") {
+          (child as HTMLElement).style.background = this.useControlStick ? "#50C878" : "#D70040"
+        }
+      }
+
     }
   }
 

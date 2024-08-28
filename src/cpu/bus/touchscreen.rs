@@ -54,8 +54,8 @@ impl Touchscreen {
     let middle_x = SCREEN_WIDTH  as i16/ 2;
     let middle_y = SCREEN_HEIGHT as i16 / 2;
 
-    let pointer_x = x >> 10;
-    let pointer_y = y >> 10;
+    let pointer_x = x / 1000;
+    let pointer_y = y / 1000;
 
     self.x = ((middle_x + pointer_x) << 4) as u16;
     self.y = ((middle_y + pointer_y) << 4) as u16;

@@ -52,6 +52,22 @@ label {
 .modal-content {
   margin-top: 40px;
 }
+.analog-mode {
+  float: right;
+  margin-right: 100px;
+  margin-top: 40px;
+  width: 225px;
+  height: 80px;
+  #analog-mode-status {
+    display: inline-block;
+    border-radius: 40px;
+    width: 20px;
+    height: 20px;
+    background: #D70040;
+    vertical-align: middle;
+    margin-right: 5px;
+  }
+}
 @media all and (display-mode: fullscreen)  {
   body {
     top: 0;
