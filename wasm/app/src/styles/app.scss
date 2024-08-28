@@ -68,6 +68,9 @@ label {
     margin-right: 5px;
   }
 }
+#cloud-logged-in {
+  display: none;
+}
 @media all and (display-mode: fullscreen)  {
   body {
     top: 0;
