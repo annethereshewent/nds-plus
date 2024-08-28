@@ -34,6 +34,14 @@ export class CloudService {
         console.log(`token expired, silently logging in`)
 
         this.silentSignIn()
+
+        signIn.style.display = "none"
+
+        const isLoggedIn = document.getElementById("cloud-logged-in")
+
+        if (isLoggedIn != null) {
+          isLoggedIn.style.display = "block"
+        }
       }
     }
   }
@@ -61,6 +69,35 @@ export class CloudService {
 
       silentEl.contentWindow.window.location.href = `${BASE_URL}?${params.toString()}`
     }
+  }
+
+  async cloudRequest(request: () => Promise<Response>): Promise<any> {
+    return new Promise(async (resolve, reject) => {
+      const response = await request()
+
+      if (response.status == 200) {
+        const json = await response.json()
+
+        resolve(json)
+      } else if (response.status == 401) {
+        this.silentSignIn()
+
+        // allow silent sign in time to do its thing
+        setTimeout(async () => {
+          const response = await request()
+
+          if (response.status == 200) {
+            const json = await response.json()
+            resolve(json)
+          } else {
+            resolve(null)
+          }
+        }, 300)
+      }
+
+      resolve(null)
+    })
+
   }
 
   getLoginParams(noPrompt: boolean = false) {
@@ -91,13 +128,13 @@ export class CloudService {
 
     const url = `https://www.googleapis.com/drive/v3/files?q=${params.toString()}`
 
-    const response = await fetch(url, {
+    const json = await this.cloudRequest(() => fetch(url, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`
       }
-    })
+    }))
 
-    console.log(response)
+    console.log(json)
 
     return {
       gameName: "",
@@ -108,13 +145,11 @@ export class CloudService {
   async getSaves(): Promise<SaveEntry[]> {
     const url = "https://www.googleapis.com/drive/v3/files"
 
-    const response = await fetch(url, {
+    const json = await this.cloudRequest(() => fetch(url, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`
       }
-    })
-
-    const json = await response.json()
+    }))
 
     const saveEntries: SaveEntry[] = []
     if (json != null && json.files != null) {
@@ -133,7 +168,7 @@ export class CloudService {
 
     const buffer = bytes.buffer
 
-    const response = await fetch(url, {
+    const file = await this.cloudRequest(() => fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
@@ -141,16 +176,14 @@ export class CloudService {
         "Content-Length": `${bytes.length}`
       },
       body: buffer
-    })
-
-    const file = await response.json()
+    }))
 
     // rename the file to ${gameName}.sav
 
     if (file != null) {
       const url = `https://www.googleapis.com/drive/v3/files/${file.id}?uploadType=media`
 
-      const response = await fetch(url, {
+      const json = await this.cloudRequest(() => fetch(url, {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -160,9 +193,7 @@ export class CloudService {
           name: `${gameName}.sav`,
           mimeType: "application/octet-stream"
         })
-      })
-
-      const json = await response.json()
+      }))
 
       console.log(json)
     }
@@ -171,13 +202,11 @@ export class CloudService {
   async getLoggedInEmail() {
     const url = "https://www.googleapis.com/oauth2/v2/userinfo"
 
-    const response = await fetch(url, {
+    const json = await this.cloudRequest(() => fetch(url, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`
       }
-    })
-
-    const json = await response.json()
+    }))
 
     if (json != null && json.email != null) {
       localStorage.setItem("ds_user_email", json.email)
@@ -196,8 +225,6 @@ export class CloudService {
 
         if (expires != null) {
           expires = expires.split("=")[1]
-
-          console.log(expires)
 
           const timestamp = parseInt(expires) + Date.now() / 1000
 
