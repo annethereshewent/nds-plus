@@ -6,11 +6,19 @@ This is a DS emulator written in Rust! It currently plays some games, though it'
 
 Web demo is now live! to test the latest version of the emulator, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
 
+## Features
+
+- Support for both web and desktop
+- Ability to use control stick in Super Mario 64 DS
+- Save management on the web client: upload, download and delete saves stored locally
+
 ## TODO
 
 - Texture/rendering issues
 - CPU bugs
 - Multithreading
+- Cloud saves
+- iOS app
 
 ## Controls
 
