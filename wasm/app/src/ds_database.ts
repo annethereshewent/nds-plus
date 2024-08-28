@@ -1,7 +1,4 @@
-export interface SaveEntry {
-  gameName: string,
-  data: Uint8Array
-}
+import { SaveEntry } from "./save_entry"
 
 export class DsDatabase {
   db: IDBDatabase|null = null

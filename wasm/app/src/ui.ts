@@ -159,14 +159,10 @@ export class UI {
   }
 
   async downloadSave(gameName: string) {
-    if (!this.cloudService.usingCloud) {
-      const entry = await this.db.getSave(gameName)
+    const entry = !this.cloudService.usingCloud ?  await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
-      if (entry != null) {
-        this.generateFile(entry.data, gameName)
-      }
-    } else {
-      // this.cloudService.downloadFile()
+    if (entry != null) {
+      this.generateFile(entry.data!!, gameName)
     }
   }
 
@@ -317,9 +313,9 @@ export class UI {
           gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
 
           if (gameName != null) {
-            const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : this.cloudService.getSave(gameName)
+            const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
-            if (saveEntry != null) {
+            if (saveEntry != null && saveEntry.data != null) {
               this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
             } else {
               this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
