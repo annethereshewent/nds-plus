@@ -166,14 +166,11 @@ export class CloudService {
 
   }
 
-  async getLoginParams(noPrompt: boolean = false) {
-    const response = await fetch('/env')
-    const redirectUri = await response.text()
-
-    console.log(redirectUri.toString())
+  getLoginParams(noPrompt: boolean = false) {
+    // since it always redirects back to the root, location.href should be fine (hopefully!)
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
-      redirect_uri: redirectUri.toString(),
+      redirect_uri: location.href,
       response_type: "token",
       scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
     })
