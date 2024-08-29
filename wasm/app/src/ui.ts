@@ -25,7 +25,7 @@ export class UI {
 
   updateSaveGame = ""
 
-  db: DsDatabase = new DsDatabase()
+  db: DsDatabase
 
   wasm: InitOutput|null = null
 
@@ -63,6 +63,8 @@ export class UI {
     if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
       document.getElementById("game-button")?.removeAttribute("disabled")
     }
+
+    this.db = new DsDatabase(() => this.uploadLocalSaves())
   }
 
   async setWasm() {
@@ -71,6 +73,23 @@ export class UI {
 
   checkOauth() {
     this.cloudService.checkAuthentication()
+  }
+
+  async uploadLocalSaves() {
+    if (this.cloudService.usingCloud) {
+      // check for any local saves and upload them.
+      const saveEntries = await this.db.getSaves()
+
+      if (saveEntries != null) {
+        for (const entry of saveEntries) {
+          this.cloudService.uploadSave(entry.gameName, entry.data!!)
+          // delete from indexeddb as they're already stored in the cloud.
+          // only time it will fall back to indexeddb is if user
+          // is not using cloud
+          this.db.deleteSave(entry.gameName)
+        }
+      }
+    }
   }
 
   addEventListeners() {
@@ -122,7 +141,7 @@ export class UI {
 
         const spanEl = document.createElement("span")
 
-        spanEl.innerText = save.gameName
+        spanEl.innerText = save.gameName.length > 50 ? save.gameName.substring(0, 50) + "..." : save.gameName
 
         const deleteSaveEl = document.createElement('i')
 

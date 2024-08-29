@@ -108,6 +108,13 @@ export class CloudService {
             resolve(json)
           } else {
             resolve(null)
+            localStorage.removeItem("ds_access_token")
+            localStorage.removeItem("ds_access_expires")
+            localStorage.removeItem("ds_user_email")
+
+            this.usingCloud = false
+            this.accessToken = ""
+
           }
         }, 400)
       }
