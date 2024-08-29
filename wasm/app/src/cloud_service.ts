@@ -6,7 +6,7 @@ const CLIENT_ID = "353451169812-khtanjkfi98eh2bgcldmqt22g47og1ef.apps.googleuser
 
 export class CloudService {
   private accessToken: string = ""
-  private dsFolderId: number|null = null
+  private dsFolderId: string|null = null
 
   usingCloud = false
 
@@ -330,7 +330,14 @@ export class CloudService {
 
     if (resultFile != null) {
       let fileName = !gameName.match(/\.sav$/) ? `${gameName}.sav` : gameName
-      const url = `https://www.googleapis.com/drive/v3/files/${resultFile.id}?uploadType=media`
+
+      const params = new URLSearchParams({
+        uploadType: "media",
+        addParents: this.dsFolderId || "",
+        removeParents: resultFile.parents.join(",")
+      })
+
+      const url = `https://www.googleapis.com/drive/v3/files/${resultFile.id}?${params.toString()}`
 
       const json = await this.cloudRequest(() => fetch(url, {
         method: "PATCH",
@@ -340,9 +347,7 @@ export class CloudService {
         },
         body: JSON.stringify({
           name: fileName,
-          mimeType: "application/octet-stream",
-          addParents: this.dsFolderId,
-          removeParents: resultFile.parents.join(",")
+          mimeType: "application/octet-stream"
         })
       }))
     }
