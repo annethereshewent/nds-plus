@@ -102,7 +102,7 @@ export class CloudService {
   }
 
   async oauthSignIn() {
-    const params = await this.getLoginParams()
+    const params = this.getLoginParams()
 
     console.log(`${BASE_URL}?${params.toString()}`)
 
@@ -170,7 +170,7 @@ export class CloudService {
     // since it always redirects back to the root, location.href should be fine (hopefully!)
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
-      redirect_uri: location.href,
+      redirect_uri: location.href.replace(/\/$/, ''), // remove the trailing slash
       response_type: "token",
       scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
     })
