@@ -261,8 +261,6 @@ export class CloudService {
   async getSaves(): Promise<SaveEntry[]> {
     await this.createDsSavesFolder()
 
-    console.log(this.dsFolderId)
-
     const params = new URLSearchParams({
       q: `parents in "${this.dsFolderId}"`
     })
