@@ -1,3 +1,3 @@
 node_modules
 dist/
-google_client.secret
+env

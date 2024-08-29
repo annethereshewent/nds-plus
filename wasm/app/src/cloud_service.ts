@@ -101,8 +101,10 @@ export class CloudService {
     }
   }
 
-  oauthSignIn() {
-    const params = this.getLoginParams()
+  async oauthSignIn() {
+    const params = await this.getLoginParams()
+
+    console.log(`${BASE_URL}?${params.toString()}`)
 
     const popup = window.open(`${BASE_URL}?${params.toString()}`, "popup", "popup=true,width=650,height=650,resizable=true")
 
@@ -164,10 +166,14 @@ export class CloudService {
 
   }
 
-  getLoginParams(noPrompt: boolean = false) {
+  async getLoginParams(noPrompt: boolean = false) {
+    const response = await fetch('/env')
+    const redirectUri = await response.text()
+
+    console.log(redirectUri.toString())
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
-      redirect_uri: "http://localhost:8080",
+      redirect_uri: redirectUri.toString(),
       response_type: "token",
       scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email",
     })
