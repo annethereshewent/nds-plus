@@ -11,6 +11,25 @@ export class CloudService {
   usingCloud = false
 
   constructor() {
+
+    window.addEventListener("message", (e) => {
+      if (e.data == "authFinished") {
+        this.getTokenFromStorage()
+
+        const signIn = document.getElementById("cloud-button")
+
+        if (signIn != null) {
+          signIn.style.display = "none"
+        }
+
+        const isLoggedIn = document.getElementById("cloud-logged-in")
+
+        if (isLoggedIn != null) {
+          isLoggedIn.style.display = "block"
+        }
+      }
+    })
+
     const signIn = document.getElementById("cloud-button")
     const accessToken = localStorage.getItem("ds_access_token")
     const expiresIn = parseInt(localStorage.getItem("ds_access_expires") || "-1")
@@ -32,23 +51,7 @@ export class CloudService {
         localStorage.removeItem("ds_access_token")
         localStorage.removeItem("ds_access_expires")
 
-        console.log(`token expired, silently logging in`)
-
         this.silentSignIn()
-
-
-        setTimeout(() => {
-          this.getTokenFromStorage()
-
-          signIn.style.display = "none"
-
-          const isLoggedIn = document.getElementById("cloud-logged-in")
-
-          if (isLoggedIn != null) {
-            isLoggedIn.style.display = "block"
-            }
-        }, 400)
-
       }
     }
   }
@@ -104,8 +107,6 @@ export class CloudService {
   async oauthSignIn() {
     const params = this.getLoginParams()
 
-    console.log(`${BASE_URL}?${params.toString()}`)
-
     const popup = window.open(`${BASE_URL}?${params.toString()}`, "popup", "popup=true,width=650,height=650,resizable=true")
 
     if (popup != null) {
@@ -137,33 +138,30 @@ export class CloudService {
 
         resolve(data)
       } else if (response.status == 401) {
-        this.silentSignIn()
+        window.addEventListener("message", async (e) => {
+          if (e.data == "authFinished") {
+            this.getTokenFromStorage()
+            const response = await request()
 
-        // allow silent sign in time to do its thing
-        setTimeout(async () => {
-          this.getTokenFromStorage()
+            if (response.status == 200) {
+              const data = returnBuffer ? await response.arrayBuffer() : await response.json()
 
-          const response = await request()
+              resolve(data)
+            } else {
+              localStorage.removeItem("ds_access_token")
+              localStorage.removeItem("ds_access_expires")
+              localStorage.removeItem("ds_user_email")
 
-          if (response.status == 200) {
-            const json = await response.json()
-            resolve(json)
-          } else {
-            resolve(null)
-            localStorage.removeItem("ds_access_token")
-            localStorage.removeItem("ds_access_expires")
-            localStorage.removeItem("ds_user_email")
+              this.usingCloud = false
+              this.accessToken = ""
 
-            this.usingCloud = false
-            this.accessToken = ""
-
+              resolve(null)
+            }
           }
-        }, 400)
+        })
+        this.silentSignIn()
       }
-
-      resolve(null)
     })
-
   }
 
   getLoginParams(noPrompt: boolean = false) {
@@ -393,6 +391,8 @@ export class CloudService {
 
         // finally get logged in user email
         await this.getLoggedInEmail()
+
+        parent.postMessage("authFinished", "*")
 
         window.close()
       }
