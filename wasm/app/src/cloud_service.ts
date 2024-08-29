@@ -35,14 +35,29 @@ export class CloudService {
 
         this.silentSignIn()
 
-        signIn.style.display = "none"
 
-        const isLoggedIn = document.getElementById("cloud-logged-in")
+        setTimeout(() => {
+          this.getTokenFromStorage()
 
-        if (isLoggedIn != null) {
-          isLoggedIn.style.display = "block"
-        }
+          signIn.style.display = "none"
+
+          const isLoggedIn = document.getElementById("cloud-logged-in")
+
+          if (isLoggedIn != null) {
+            isLoggedIn.style.display = "block"
+            }
+        }, 400)
+
       }
+    }
+  }
+
+  getTokenFromStorage() {
+    const accessToken = localStorage.getItem("ds_access_token")
+
+    if (accessToken != null) {
+      this.accessToken = accessToken
+      this.usingCloud = true
     }
   }
 
@@ -71,19 +86,21 @@ export class CloudService {
     }
   }
 
-  async cloudRequest(request: () => Promise<Response>): Promise<any> {
+  async cloudRequest(request: () => Promise<Response>, returnBuffer: boolean = false): Promise<any> {
     return new Promise(async (resolve, reject) => {
       const response = await request()
 
       if (response.status == 200) {
-        const json = await response.json()
+        const data = returnBuffer ? await response.arrayBuffer() : await response.json()
 
-        resolve(json)
+        resolve(data)
       } else if (response.status == 401) {
         this.silentSignIn()
 
         // allow silent sign in time to do its thing
         setTimeout(async () => {
+          this.getTokenFromStorage()
+
           const response = await request()
 
           if (response.status == 200) {
@@ -92,7 +109,7 @@ export class CloudService {
           } else {
             resolve(null)
           }
-        }, 300)
+        }, 400)
       }
 
       resolve(null)
@@ -121,25 +138,69 @@ export class CloudService {
     return params
   }
 
-  async getSave(gameName: string): Promise<SaveEntry> {
+  async getSaveInfo(gameName: string) {
+    const fileName = gameName.match(/\.sav$/) ? gameName : `${gameName}.sav`
     const params = new URLSearchParams({
-      q: `name = ${gameName}.sav`
+      q: `name = "${fileName}"`
     })
 
-    const url = `https://www.googleapis.com/drive/v3/files?q=${params.toString()}`
+    const url = `https://www.googleapis.com/drive/v3/files?${params.toString()}`
 
-    const json = await this.cloudRequest(() => fetch(url, {
+    return await this.cloudRequest(() => fetch(url, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`
       }
     }))
+  }
 
-    console.log(json)
+  async getSave(gameName: string): Promise<SaveEntry> {
+    const json = await this.getSaveInfo(gameName)
+
+    if (json != null && json.files != null) {
+      const file = json.files[0]
+
+      if (file != null) {
+
+        // retrieve the file data from the cloud
+        const url = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`
+
+        const body = await this.cloudRequest(() => fetch(url, {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`
+          }
+        }), true)
+
+        return {
+          gameName,
+          data: new Uint8Array((body as ArrayBuffer))
+        }
+      }
+
+    }
 
     return {
-      gameName: "",
+      gameName,
       data: new Uint8Array(0)
     }
+  }
+
+  async deleteSave(gameName: string): Promise<boolean> {
+    const json = await this.getSaveInfo(gameName)
+
+    if (json != null && json.files != null) {
+      const url = `https://www.googleapis.com/drive/v3/files/${json.files[0].id}`
+
+      await this.cloudRequest(() => fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        },
+        method: "DELETE"
+      }))
+
+      return true
+    }
+
+    return false
   }
 
   async getSaves(): Promise<SaveEntry[]> {
@@ -164,24 +225,50 @@ export class CloudService {
   }
 
   async uploadSave(gameName: string, bytes: Uint8Array) {
-    const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media"
+    const json = await this.getSaveInfo(gameName)
 
-    const buffer = bytes.buffer
+    // this is a hack to get it to change the underlying array buffer
+    // (so it doesn't save a bunch of junk from memory unrelated to save)
+    const bytesCopy = new Uint8Array(Array.from(bytes))
 
-    const file = await this.cloudRequest(() => fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        "Content-Type": "application/octet-stream",
-        "Content-Length": `${bytes.length}`
-      },
-      body: buffer
-    }))
+    const buffer = bytesCopy.buffer
+
+    let resultFile: any
+    if (json != null && json.files != null) {
+      const file = json.files[0]
+
+      if (file != null) {
+        const url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}`
+        resultFile = await this.cloudRequest(() => fetch(url, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/octet-stream",
+            "Content-Length": `${bytes.length}`
+          },
+          body: buffer
+        }))
+        // there's no need for renaming the file since it's already been uploaded
+        return
+      } else {
+        const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media"
+        resultFile = await this.cloudRequest(() => fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/octet-stream",
+            "Content-Length": `${bytes.length}`
+          },
+          body: buffer
+        }))
+      }
+    }
 
     // rename the file to ${gameName}.sav
 
-    if (file != null) {
-      const url = `https://www.googleapis.com/drive/v3/files/${file.id}?uploadType=media`
+    if (resultFile != null) {
+      let fileName = !gameName.match(/\.sav$/) ? `${gameName}.sav` : gameName
+      const url = `https://www.googleapis.com/drive/v3/files/${resultFile.id}?uploadType=media`
 
       const json = await this.cloudRequest(() => fetch(url, {
         method: "PATCH",
@@ -190,12 +277,10 @@ export class CloudService {
           "Content-Type": "application/octet-stream"
         },
         body: JSON.stringify({
-          name: `${gameName}.sav`,
+          name: fileName,
           mimeType: "application/octet-stream"
         })
       }))
-
-      console.log(json)
     }
   }
 
@@ -234,6 +319,7 @@ export class CloudService {
         localStorage.setItem("ds_access_token", accessToken)
 
         this.accessToken = accessToken
+        this.usingCloud = true
 
         // finally get logged in user email
         await this.getLoggedInEmail()

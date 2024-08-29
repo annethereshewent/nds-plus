@@ -189,29 +189,32 @@ export class UI {
   async deleteLocalSave(gameName: string) {
     const result = await this.db.deleteSave(gameName)
 
-    if (result) {
-      const savesList = document.getElementById("saves-list")
 
-      if (savesList != null) {
-        for (const child of savesList.children) {
-          const children = [...child.children]
-          const spanElement = (children.filter((childEl) => childEl.tagName.toLowerCase() == 'span')[0] as HTMLSpanElement)
-
-          if (spanElement?.innerText == gameName) {
-            child.remove()
-            break
-          }
-        }
-      }
-    }
   }
 
   async deleteSave(gameName: string) {
     if (confirm("are you sure you want to delete this save?")) {
-      if (!this.cloudService.usingCloud) {
-        this.deleteLocalSave(gameName)
-      } else {
-        // this.cloudService.deleteSave(gameName)
+      // if (!this.cloudService.usingCloud) {
+      //   await this.db.deleteSave(gameName)
+      // } else {
+      //   await this.cloudService.deleteSave(gameName)
+      // }
+      const result = !this.cloudService.usingCloud ? await this.db.deleteSave(gameName) : await this.cloudService.deleteSave(gameName)
+
+      if (result) {
+        const savesList = document.getElementById("saves-list")
+
+        if (savesList != null) {
+          for (const child of savesList.children) {
+            const children = [...child.children]
+            const spanElement = (children.filter((childEl) => childEl.tagName.toLowerCase() == 'span')[0] as HTMLSpanElement)
+
+            if (spanElement?.innerText == gameName) {
+              child.remove()
+              break
+            }
+          }
+        }
       }
     }
   }
@@ -219,7 +222,6 @@ export class UI {
   async handleSaveChange(e: Event) {
     let saveName = (e.target as HTMLInputElement)?.files?.[0].name?.split('/')?.pop()
 
-    saveName = saveName?.substring(0, saveName?.lastIndexOf('.'))
     if (saveName != this.updateSaveGame) {
       if (!confirm("Warning! Save file does not match selected game name. are you sure you want to continue?")) {
         return
