@@ -195,7 +195,7 @@ export class UI {
     const a = document.createElement('a')
 
     a.href = objectUrl
-    a.download = `${gameName}.sav`
+    a.download = gameName.match(/\.sav$/) ? gameName : `${gameName}.sav`
     document.body.append(a)
     a.style.display = "none"
 
