@@ -33,6 +33,11 @@ export class CloudService {
     const signIn = document.getElementById("cloud-button")
     const accessToken = localStorage.getItem("ds_access_token")
     const expiresIn = parseInt(localStorage.getItem("ds_access_expires") || "-1")
+    const dsFolderId = localStorage.getItem("ds_folder_id")
+
+    if (dsFolderId != null) {
+      this.dsFolderId = dsFolderId
+    }
 
     if (signIn != null) {
       if (accessToken == null) {
@@ -50,6 +55,7 @@ export class CloudService {
       } else {
         localStorage.removeItem("ds_access_token")
         localStorage.removeItem("ds_access_expires")
+        localStorage.removeItem("ds_folder_id")
 
         this.silentSignIn()
       }
@@ -71,6 +77,7 @@ export class CloudService {
 
       if (json != null && json.files != null && json.files[0] != null) {
         this.dsFolderId = json.files[0].id
+        localStorage.setItem("ds_folder_id", this.dsFolderId!!)
       } else {
         // create the folder
         const url = `https://www.googleapis.com/drive/v3/files?uploadType=media`
@@ -151,6 +158,7 @@ export class CloudService {
               localStorage.removeItem("ds_access_token")
               localStorage.removeItem("ds_access_expires")
               localStorage.removeItem("ds_user_email")
+              localStorage.removeItem("ds_folder_id")
 
               this.usingCloud = false
               this.accessToken = ""
