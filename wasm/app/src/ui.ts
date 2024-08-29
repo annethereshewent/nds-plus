@@ -5,6 +5,7 @@ import { Audio } from "./audio"
 import { Renderer } from "./renderer"
 import { Joypad } from "./joypad"
 import wasmData from '../../pkg/ds_emulator_wasm_bg.wasm'
+import { CloudService } from "./cloud_service"
 
 interface GameDBEntry {
   save_type: string,
@@ -24,7 +25,7 @@ export class UI {
 
   updateSaveGame = ""
 
-  db: DsDatabase = new DsDatabase()
+  db: DsDatabase
 
   wasm: InitOutput|null = null
 
@@ -36,6 +37,8 @@ export class UI {
   keyboardButtons: boolean[] = []
 
   joypad: Joypad|null = null
+
+  cloudService = new CloudService()
 
   constructor() {
     const bios7Json = JSON.parse(localStorage.getItem("ds_bios7") || "null")
@@ -60,10 +63,33 @@ export class UI {
     if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
       document.getElementById("game-button")?.removeAttribute("disabled")
     }
+
+    this.db = new DsDatabase(() => this.uploadLocalSaves())
   }
 
   async setWasm() {
     this.wasm = await init(wasmData)
+  }
+
+  checkOauth() {
+    this.cloudService.checkAuthentication()
+  }
+
+  async uploadLocalSaves() {
+    if (this.cloudService.usingCloud) {
+      // check for any local saves and upload them.
+      const saveEntries = await this.db.getSaves()
+
+      if (saveEntries != null) {
+        for (const entry of saveEntries) {
+          this.cloudService.uploadSave(entry.gameName, entry.data!!)
+          // delete from indexeddb as they're already stored in the cloud.
+          // only time it will fall back to indexeddb is if user
+          // is not using cloud
+          this.db.deleteSave(entry.gameName)
+        }
+      }
+    }
   }
 
   addEventListeners() {
@@ -99,7 +125,7 @@ export class UI {
   }
 
   async displaySavesModal() {
-    const saves = await this.db.getSaves()
+    const saves = !this.cloudService.usingCloud ? await this.db.getSaves() : await this.cloudService.getSaves()
     const savesModal = document.getElementById("saves-modal")
     const savesList = document.getElementById("saves-list")
 
@@ -115,7 +141,7 @@ export class UI {
 
         const spanEl = document.createElement("span")
 
-        spanEl.innerText = save.gameName
+        spanEl.innerText = save.gameName.length > 50 ? save.gameName.substring(0, 50) + "..." : save.gameName
 
         const deleteSaveEl = document.createElement('i')
 
@@ -152,10 +178,10 @@ export class UI {
   }
 
   async downloadSave(gameName: string) {
-    const entry = await this.db.getSave(gameName)
+    const entry = !this.cloudService.usingCloud ?  await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
     if (entry != null) {
-      this.generateFile(entry.data, gameName)
+      this.generateFile(entry.data!!, gameName)
     }
   }
 
@@ -179,9 +205,20 @@ export class UI {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 
+  async deleteLocalSave(gameName: string) {
+    const result = await this.db.deleteSave(gameName)
+
+
+  }
+
   async deleteSave(gameName: string) {
     if (confirm("are you sure you want to delete this save?")) {
-      const result = await this.db.deleteSave(gameName)
+      // if (!this.cloudService.usingCloud) {
+      //   await this.db.deleteSave(gameName)
+      // } else {
+      //   await this.cloudService.deleteSave(gameName)
+      // }
+      const result = !this.cloudService.usingCloud ? await this.db.deleteSave(gameName) : await this.cloudService.deleteSave(gameName)
 
       if (result) {
         const savesList = document.getElementById("saves-list")
@@ -204,7 +241,6 @@ export class UI {
   async handleSaveChange(e: Event) {
     let saveName = (e.target as HTMLInputElement)?.files?.[0].name?.split('/')?.pop()
 
-    saveName = saveName?.substring(0, saveName?.lastIndexOf('.'))
     if (saveName != this.updateSaveGame) {
       if (!confirm("Warning! Save file does not match selected game name. are you sure you want to continue?")) {
         return
@@ -216,7 +252,11 @@ export class UI {
       const bytes = new Uint8Array(data as ArrayBuffer)
 
       if (this.updateSaveGame != "") {
-        this.db.setSave(this.updateSaveGame, bytes)
+        if (!this.cloudService.usingCloud) {
+          this.db.setSave(this.updateSaveGame, bytes)
+        } else {
+          this.cloudService.uploadSave(this.updateSaveGame, bytes)
+        }
       }
 
       const notification = document.getElementById("save-notification")
@@ -254,7 +294,11 @@ export class UI {
       if (gameName != null) {
         gameName = gameName.substring(0, gameName.lastIndexOf('.'))
 
-        this.db.setSave(gameName, saveData)
+        if (!this.cloudService.usingCloud) {
+          this.db.setSave(gameName, saveData)
+        } else {
+          this.cloudService.uploadSave(gameName, saveData)
+        }
       }
     }
   }
@@ -290,9 +334,9 @@ export class UI {
           gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
 
           if (gameName != null) {
-            const saveEntry = await this.db.getSave(gameName)
+            const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
-            if (saveEntry != null) {
+            if (saveEntry != null && saveEntry.data != null) {
               this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
             } else {
               this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)

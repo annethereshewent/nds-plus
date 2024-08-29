@@ -1,15 +1,14 @@
-interface SaveEntry {
-  gameName: string,
-  data: Uint8Array
-}
+import { SaveEntry } from "./save_entry"
 
 export class DsDatabase {
   db: IDBDatabase|null = null
-  constructor() {
+  constructor(callback: () => void) {
     const request = indexedDB.open("ds_saves", 2)
 
     request.onsuccess = (event) => {
       this.db = request.result
+
+      callback()
     }
 
     request.onupgradeneeded = (event) => {

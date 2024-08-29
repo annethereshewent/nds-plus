@@ -6,3 +6,6 @@ const ui = new UI()
 
 ui.addEventListeners()
 ui.setWasm()
+
+ui.checkOauth()
+ui.uploadLocalSaves()
