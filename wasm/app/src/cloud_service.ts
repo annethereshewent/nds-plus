@@ -6,6 +6,7 @@ const CLIENT_ID = "353451169812-khtanjkfi98eh2bgcldmqt22g47og1ef.apps.googleuser
 
 export class CloudService {
   private accessToken: string = ""
+  private dsFolderId: number|null = null
 
   usingCloud = false
 
@@ -48,6 +49,45 @@ export class CloudService {
             }
         }, 400)
 
+      }
+    }
+  }
+
+  async createDsSavesFolder() {
+    if (this.dsFolderId == null) {
+      const params = new URLSearchParams({
+        q: `mimeType = "application/vnd.google-apps.folder" and name="ds-saves"`
+      })
+      const url = `https://www.googleapis.com/drive/v3/files?${params.toString()}`
+
+      const json = await this.cloudRequest(() => fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        },
+      }))
+
+      if (json != null && json.files != null && json.files[0] != null) {
+        this.dsFolderId = json.files[0].id
+      } else {
+        // create the folder
+        const url = `https://www.googleapis.com/drive/v3/files?uploadType=media`
+
+        const json = await this.cloudRequest(() => fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/vnd.google-apps.folder"
+          },
+          body: JSON.stringify({
+            name: "ds-saves",
+            mimeType: "application/vnd.google-apps.folder"
+          })
+        }))
+
+
+        if (json != null && json.files != null && json.files[0] != null) {
+          this.dsFolderId = json.files[0].id
+        }
       }
     }
   }
@@ -145,10 +185,18 @@ export class CloudService {
     return params
   }
 
-  async getSaveInfo(gameName: string) {
+  async getSaveInfo(gameName: string, searchRoot: boolean = false) {
+    await this.createDsSavesFolder()
+
     const fileName = gameName.match(/\.sav$/) ? gameName : `${gameName}.sav`
+
+
+    const query = searchRoot ? `name = "${fileName}"` : `name = "${fileName}" and parents in "${this.dsFolderId}"`
+
+
     const params = new URLSearchParams({
-      q: `name = "${fileName}"`
+      q: query,
+      fields: "files/id,files/parents,files/name"
     })
 
     const url = `https://www.googleapis.com/drive/v3/files?${params.toString()}`
@@ -211,7 +259,14 @@ export class CloudService {
   }
 
   async getSaves(): Promise<SaveEntry[]> {
-    const url = "https://www.googleapis.com/drive/v3/files"
+    await this.createDsSavesFolder()
+
+    console.log(this.dsFolderId)
+
+    const params = new URLSearchParams({
+      q: `parents in "${this.dsFolderId}"`
+    })
+    const url = `https://www.googleapis.com/drive/v3/files?${params.toString()}`
 
     const json = await this.cloudRequest(() => fetch(url, {
       headers: {
@@ -245,8 +300,8 @@ export class CloudService {
       const file = json.files[0]
 
       if (file != null) {
-        const url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}`
-        resultFile = await this.cloudRequest(() => fetch(url, {
+        const url = `https://www.googleapis.com/upload/drive/v3/files/${file.id}?uploadType=media`
+        await this.cloudRequest(() => fetch(url, {
           method: "PATCH",
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -258,7 +313,7 @@ export class CloudService {
         // there's no need for renaming the file since it's already been uploaded
         return
       } else {
-        const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media"
+        const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media&fields=id,name,parents"
         resultFile = await this.cloudRequest(() => fetch(url, {
           method: "POST",
           headers: {
@@ -285,7 +340,9 @@ export class CloudService {
         },
         body: JSON.stringify({
           name: fileName,
-          mimeType: "application/octet-stream"
+          mimeType: "application/octet-stream",
+          addParents: this.dsFolderId,
+          removeParents: resultFile.parents.join(",")
         })
       }))
     }
