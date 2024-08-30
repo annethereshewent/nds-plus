@@ -35,6 +35,21 @@ export class DsDatabase {
     })
   }
 
+  async hasSaves(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const objectStore = this.getObjectStore()
+
+      const request = objectStore?.count()
+
+      if (request != null) {
+        request.onsuccess = () => resolve(request.result > 0)
+        request.onerror = () => resolve(false)
+      } else {
+        resolve(false)
+      }
+    })
+  }
+
   setSave(gameName: string, data: Uint8Array) {
     return new Promise((resolve, reject) => {
       const objectStore = this.getObjectStore()

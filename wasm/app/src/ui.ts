@@ -171,7 +171,8 @@ export class UI {
         savesList.append(divEl)
       }
 
-      if (this.cloudService.usingCloud) {
+      const hasSaves = await this.db.hasSaves()
+      if (this.cloudService.usingCloud && hasSaves) {
         const localSavesEl = document.createElement("div")
 
         const button = document.createElement("button")
