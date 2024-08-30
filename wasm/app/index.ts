@@ -8,4 +8,3 @@ ui.addEventListeners()
 ui.setWasm()
 
 ui.checkOauth()
-ui.uploadLocalSaves()

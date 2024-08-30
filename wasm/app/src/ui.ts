@@ -64,7 +64,7 @@ export class UI {
       document.getElementById("game-button")?.removeAttribute("disabled")
     }
 
-    this.db = new DsDatabase(() => this.uploadLocalSaves())
+    this.db = new DsDatabase()
   }
 
   async setWasm() {
@@ -76,7 +76,9 @@ export class UI {
   }
 
   async uploadLocalSaves() {
-    if (this.cloudService.usingCloud) {
+    if (this.cloudService.usingCloud &&
+      confirm("This will overwrite any saves on the cloud. Are you sure you want to continue?")
+    ) {
       // check for any local saves and upload them.
       const saveEntries = await this.db.getSaves()
 
@@ -167,6 +169,24 @@ export class UI {
         divEl.append(updateSaveEl)
 
         savesList.append(divEl)
+      }
+
+      if (this.cloudService.usingCloud) {
+        const localSavesEl = document.createElement("div")
+
+        const button = document.createElement("button")
+
+        button.innerText = "Upload local saves"
+
+        button.className = "button is-danger is-small"
+
+        button.addEventListener("click", () => this.uploadLocalSaves())
+
+        localSavesEl.style.textAlign = "center"
+        localSavesEl.style.marginTop = "20px"
+        localSavesEl.append(button)
+
+        savesList.append(localSavesEl)
       }
     }
   }
