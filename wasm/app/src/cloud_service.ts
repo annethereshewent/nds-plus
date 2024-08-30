@@ -333,8 +333,6 @@ export class CloudService {
       }
     }
 
-    // rename the file to ${gameName}.sav
-
     if (resultFile != null) {
       let fileName = !gameName.match(/\.sav$/) ? `${gameName}.sav` : gameName
 
