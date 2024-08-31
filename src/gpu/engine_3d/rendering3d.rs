@@ -154,18 +154,14 @@ impl RgbSlopes {
 impl Engine3d {
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
-      if self.clear_color.alpha != 0 {
-        for pixel in self.frame_buffer.iter_mut() {
-          pixel.color = Some(Color {
-            r: self.clear_color.r,
-            g: self.clear_color.g,
-            b: self.clear_color.b,
-            alpha: Some(self.clear_color.alpha)
-          });
-          pixel.depth = self.clear_depth as u32;
-        }
-      } else {
-        self.clear_frame_buffer();
+      for pixel in self.frame_buffer.iter_mut() {
+        pixel.color = Some(Color {
+          r: self.clear_color.r,
+          g: self.clear_color.g,
+          b: self.clear_color.b,
+          alpha: Some(self.clear_color.alpha)
+        });
+        pixel.depth = self.clear_depth as u32;
       }
 
       if self.disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) {
@@ -204,7 +200,7 @@ impl Engine3d {
 
     let mut color = Color::from(color_raw).to_rgb6();
 
-    if palette_index == 0 && polygon.tex_params.color0_transparent && alpha.is_none() {
+    if palette_index == 0 && polygon.tex_params.color0_transparent {
       color.alpha = Some(0);
     } else {
       color.alpha = alpha;
@@ -470,7 +466,10 @@ impl Engine3d {
         }
 
         if let Some(mut color) = color {
-          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && color.alpha.is_some() {
+          let fb_alpha = pixel.color.unwrap().alpha.unwrap();
+          let polygon_alpha = color.alpha.unwrap();
+          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && fb_alpha != 0 && polygon_alpha != 0x1f {
+
             let fb_color = pixel.color.unwrap();
             let fb_alpha = if fb_color.alpha.is_some() {
               fb_color.alpha.unwrap()
@@ -480,19 +479,14 @@ impl Engine3d {
 
             let polygon_alpha = color.alpha.unwrap();
 
-            if fb_alpha != 0 {
-              let pixel_color = pixel.color.unwrap().to_rgb6();
-              let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
+            let pixel_color = pixel.color.unwrap().to_rgb6();
+            let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
 
-              color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
+            color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
 
-              color.to_rgb5();
+            color.to_rgb5();
 
-              pixel.color = Some(color);
-            } else {
-              color.to_rgb5();
-              pixel.color = Some(color);
-            }
+            pixel.color = Some(color);
 
             if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
               pixel.depth = z as u32;
@@ -542,7 +536,7 @@ impl Engine3d {
     let mut b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
 
     let new_alpha = if pixel.alpha.is_some() && texel.alpha.is_some() {
-      Some(modulation_fn(pixel.alpha.unwrap() as u16, texel.alpha.unwrap() as u16) as u8)
+      Some((modulation_fn(texel.alpha6() as u16, pixel.alpha6() as u16) >> 1) as u8)
     } else {
       texel.alpha
     };
@@ -639,12 +633,12 @@ impl Engine3d {
           (byte >> 4) & 0xf
         };
 
-        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(0x1f))
       }
       TextureFormat::Color256 => {
         let palette_index = vram.read_texture::<u8>(address);
 
-        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, None)
+        Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(0x1f))
       }
       TextureFormat::Color4x4 => {
         let blocks_per_row = polygon.tex_params.texture_s_size / 4;
@@ -675,10 +669,14 @@ impl Engine3d {
 
         let mode = (extra_palette_info >> 14) & 0x3;
 
-        let get_color = |num: u32|
-          Color::from(
+        let get_color = |num: u32| {
+          let mut color = Color::from(
             vram.read_texture_palette(palette_offset + 2 * num)
           );
+          color.alpha = Some(0x1f);
+
+          color
+        };
 
         match (texel_value, mode) {
           (0, _) => Some(get_color(0).to_rgb6()),
@@ -734,7 +732,7 @@ impl Engine3d {
         let alpha = if palette_index == 0 && polygon.tex_params.color0_transparent {
           Some(0)
         } else {
-          None
+          Some(0x1f)
         };
 
         let mut color = Color::from(color_raw);
@@ -746,7 +744,7 @@ impl Engine3d {
         let address = vram_offset + 2 * texel;
         let color_raw = vram.read_texture::<u16>(address);
 
-        let alpha = if color_raw & 0x8000 == 0 { Some(0) } else { None };
+        let alpha = if color_raw & 0x8000 == 0 { Some(0) } else { Some(0x1f) };
 
         let mut color = Color::from(color_raw);
 
