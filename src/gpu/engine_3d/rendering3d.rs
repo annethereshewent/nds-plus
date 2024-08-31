@@ -429,7 +429,11 @@ impl Engine3d {
 
         let mut vertex_color = rgb_d.next_color();
 
-        vertex_color.alpha = Some(polygon.attributes.alpha());
+        vertex_color.alpha = if polygon.attributes.alpha() != 0 {
+          Some(polygon.attributes.alpha())
+        } else {
+          Some(0x1f)
+        };
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
@@ -453,7 +457,21 @@ impl Engine3d {
               }
               PolygonMode::Toon => {
                 if disp3dcnt.contains(Display3dControlRegister::POLYGON_ATTR_SHADING) {
-                  Self::modulation_blend(texel_color, vertex_color, true)
+                  let shaded = Color {
+                    r: vertex_color.r,
+                    g: vertex_color.r,
+                    b: vertex_color.r,
+                    alpha: Some(vertex_color.r)
+                  };
+                  let blended = Self::modulation_blend(texel_color, shaded, false);
+
+                  let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
+
+                  toon_color.alpha = vertex_color.alpha;
+
+                  toon_color.to_rgb6();
+
+                  Self::apply_polygon_shading(blended.unwrap(), toon_color)
                 } else {
                   let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
 
@@ -502,6 +520,20 @@ impl Engine3d {
       boundary2 += right_slope;
       y += 1;
     }
+  }
+
+  fn apply_polygon_shading(blended: Color, toon_color: Color) -> Option<Color> {
+    let r = (blended.r + toon_color.r).min(0x3f);
+    let g = (blended.g + toon_color.g).min(0x3f);
+    let b = (blended.b + toon_color.b).min(0x3f);
+    let alpha = (blended.alpha.unwrap_or(0x1f) + toon_color.alpha.unwrap_or(0x1f)).min(0x1f);
+
+    Some(Color {
+      r,
+      g,
+      b,
+      alpha: Some(alpha)
+    })
   }
 
   fn check_polygon_depth(polygon: &Polygon, current_depth: u32, new_depth: u32) -> bool {
