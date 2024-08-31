@@ -12,7 +12,7 @@ bitflags! {
   pub struct PolygonAttributes: u32 {
     const SHOW_BACK_SURFACE = 1 << 6;
     const SHOW_FRONT_SURFACE = 1 << 7;
-    const UPDATE_DEPTH_FOR_TRANSLUSCENT = 1 << 11;
+    const UPDATE_DEPTH_FOR_TRANSLUCENT = 1 << 11;
     const CLIP_FAR_PLANE = 1 << 12;
     const RENDER_1_DOT = 1 << 13;
     const DRAW_PIXELS_WITH_DEPTH = 1 << 14;

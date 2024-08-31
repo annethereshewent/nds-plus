@@ -170,7 +170,7 @@ impl Engine3d {
 
 
       if self.disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) {
-        let (opaque, transluscent): (Vec<Polygon>, Vec<Polygon>) =
+        let (opaque, translucent): (Vec<Polygon>, Vec<Polygon>) =
           self.polygon_buffer.drain(..).partition(|polygon| polygon.attributes.alpha() == 0x1f);
 
         for polygon in opaque {
@@ -178,7 +178,7 @@ impl Engine3d {
           Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
         }
 
-        for polygon in transluscent {
+        for polygon in translucent {
           let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
           Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
         }
@@ -493,7 +493,7 @@ impl Engine3d {
 
               pixel.color = Some(color);
 
-              if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
+              if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUCENT) {
                 pixel.depth = z as u32;
               }
             } else {
@@ -613,7 +613,7 @@ impl Engine3d {
 
     match polygon.tex_params.texture_format {
       TextureFormat::None => None,
-      TextureFormat::A3I5Transluscent => {
+      TextureFormat::A3I5Translucent => {
         let byte = vram.read_texture::<u8>(address);
 
         let palette_index = byte & 0x1f;
@@ -621,7 +621,7 @@ impl Engine3d {
 
         Self::get_palette_color(polygon, palette_base as u32, palette_index as u32, vram, Some(alpha * 4 + alpha / 2))
       }
-      TextureFormat::A5I3Transluscent => {
+      TextureFormat::A5I3Translucent => {
         let byte = vram.read_texture::<u8>(address);
 
         let palette_index = byte & 0x7;
