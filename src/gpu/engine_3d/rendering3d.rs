@@ -450,7 +450,7 @@ impl Engine3d {
                 todo!("decal mode not implemented");
               }
               PolygonMode::Modulation => {
-                Self::modulation_blend(texel_color, vertex_color, false)
+                Self::modulation_blend(texel_color, vertex_color)
               }
               PolygonMode::Shadow => {
                 todo!("shadow mode not implemented");
@@ -463,7 +463,7 @@ impl Engine3d {
                     b: vertex_color.r,
                     alpha: Some(vertex_color.r)
                   };
-                  let blended = Self::modulation_blend(texel_color, shaded, false);
+                  let blended = Self::modulation_blend(texel_color, shaded);
 
                   let mut toon_color = toon_table[((vertex_color.r >> 1) & 0x1f) as usize];
 
@@ -479,7 +479,7 @@ impl Engine3d {
 
                   toon_color.to_rgb6();
 
-                  Self::modulation_blend(texel_color, toon_color, false)
+                  Self::modulation_blend(texel_color, toon_color)
                 }
               }
             }
@@ -502,13 +502,12 @@ impl Engine3d {
               color.to_rgb5();
 
               pixel.color = Some(color);
-
-              if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUCENT) {
-                pixel.depth = z as u32;
-              }
             } else {
               color.to_rgb5();
               pixel.color = Some(color);
+              pixel.depth = z as u32;
+            }
+            if polygon_alpha != 0x1f && polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUCENT) {
               pixel.depth = z as u32;
             }
           }
@@ -559,25 +558,19 @@ impl Engine3d {
     }
   }
 
-  fn modulation_blend(texel: Color, pixel: Color, toon_highlight: bool) -> Option<Color> {
+  fn modulation_blend(texel: Color, pixel: Color) -> Option<Color> {
     // ((val1 + 1) * (val2 + 1) - 1) / 64;
     let modulation_fn = |component1, component2| ((component1 + 1) * (component2 + 1) - 1) / 64;
 
-    let mut r = modulation_fn(texel.r as u16, pixel.r as u16) as u8;
-    let mut g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
-    let mut b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
+    let r = modulation_fn(texel.r as u16, pixel.r as u16) as u8;
+    let g = modulation_fn(texel.g as u16, pixel.g as u16) as u8;
+    let b = modulation_fn(texel.b as u16, pixel.b as u16) as u8;
 
     let new_alpha = if pixel.alpha.is_some() && texel.alpha.is_some() {
       Some((modulation_fn(texel.alpha6() as u16, pixel.alpha6() as u16) >> 1) as u8)
     } else {
       texel.alpha
     };
-
-    if toon_highlight {
-      r = cmp::max(r + pixel.r, 0x3f);
-      g = cmp::max(g + pixel.g, 0x3f);
-      b = cmp::max(b + pixel.b, 0x3f);
-    }
 
     Some(Color {
       r,
