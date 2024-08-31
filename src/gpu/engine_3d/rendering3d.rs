@@ -1,6 +1,6 @@
 use std::{cmp, collections::HashSet};
 
-use crate::gpu::{color::Color, engine_3d::texture_params::TextureParams, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, GPU, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{color::Color, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
 
@@ -468,33 +468,34 @@ impl Engine3d {
         if let Some(mut color) = color {
           let fb_alpha = pixel.color.unwrap().alpha.unwrap();
           let polygon_alpha = color.alpha.unwrap();
-          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && fb_alpha != 0 && polygon_alpha != 0x1f {
+          if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
+            if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && fb_alpha != 0 && polygon_alpha != 0x1f {
+              let fb_color = pixel.color.unwrap();
+              let fb_alpha = if fb_color.alpha.is_some() {
+                fb_color.alpha.unwrap()
+              } else {
+                0x1f
+              };
 
-            let fb_color = pixel.color.unwrap();
-            let fb_alpha = if fb_color.alpha.is_some() {
-              fb_color.alpha.unwrap()
+              let polygon_alpha = color.alpha.unwrap();
+
+              let pixel_color = pixel.color.unwrap().to_rgb6();
+              let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
+
+              color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
+
+              color.to_rgb5();
+
+              pixel.color = Some(color);
+
+              if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
+                pixel.depth = z as u32;
+              }
             } else {
-              0x1f
-            };
-
-            let polygon_alpha = color.alpha.unwrap();
-
-            let pixel_color = pixel.color.unwrap().to_rgb6();
-            let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
-
-            color.alpha = Some(cmp::max(fb_alpha, polygon_alpha));
-
-            color.to_rgb5();
-
-            pixel.color = Some(color);
-
-            if polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUSCENT) {
+              color.to_rgb5();
+              pixel.color = Some(color);
               pixel.depth = z as u32;
             }
-          } else if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
-            color.to_rgb5();
-            pixel.color = Some(color);
-            pixel.depth = z as u32;
           }
         }
         z += dzdx;
