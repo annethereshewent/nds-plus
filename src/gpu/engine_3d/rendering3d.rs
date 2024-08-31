@@ -470,8 +470,14 @@ impl Engine3d {
         }
 
         if let Some(mut color) = color {
-          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && pixel.color.unwrap().alpha.is_some() && color.alpha.is_some() {
-            let fb_alpha = pixel.color.unwrap().alpha.unwrap();
+          if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && color.alpha.is_some() {
+            let fb_color = pixel.color.unwrap();
+            let fb_alpha = if fb_color.alpha.is_some() {
+              fb_color.alpha.unwrap()
+            } else {
+              0x1f
+            };
+
             let polygon_alpha = color.alpha.unwrap();
 
             if fb_alpha != 0 {

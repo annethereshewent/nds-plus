@@ -245,11 +245,13 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         if let Some(blend_layer) = layer {
           if blend_layer.index != 4 {
-            if let Some(color2) = self.bg_lines[blend_layer.index][x] {
+            if let Some(mut color2) = self.bg_lines[blend_layer.index][x] {
               if let Some(alpha) = color.alpha {
                 let eva = alpha + 1;
                 let evb = 32 - eva;
-                Engine3d::blend_colors3d(color, color2, eva as u16, evb as u16)
+                let mut color = color;
+
+                Engine3d::blend_colors3d(color.to_rgb6(), color2.to_rgb6(), eva as u16, evb as u16).to_rgb5()
               } else {
                 self.blend_colors(color, color2, self.bldalpha.eva as u16, self.bldalpha.evb as u16)
               }
