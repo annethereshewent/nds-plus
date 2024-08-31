@@ -24,6 +24,16 @@ impl Color {
     *self
   }
 
+  pub fn alpha6(&self) -> u8 {
+    let return_alpha = if let Some(alpha) = self.alpha {
+      alpha
+    } else {
+      0x1f
+    };
+
+    Self::upscale(return_alpha)
+  }
+
   pub fn write(&mut self, value: u16) {
     self.r = (value & 0x1f) as u8;
     self.g = ((value >> 5) & 0x1f) as u8;
