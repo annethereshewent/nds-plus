@@ -515,8 +515,10 @@ impl Engine3d {
   fn check_polygon_depth(polygon: &Polygon, current_depth: u32, new_depth: u32) -> bool {
     if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
       new_depth >= current_depth - 0x200 && new_depth <= current_depth + 0x200
-    } else {
+    } else if !polygon.is_front {
       new_depth < current_depth
+    } else {
+      new_depth <= current_depth
     }
   }
 
