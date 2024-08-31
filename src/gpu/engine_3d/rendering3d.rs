@@ -476,14 +476,6 @@ impl Engine3d {
           let polygon_alpha = color.alpha.unwrap();
           if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
             if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && fb_alpha != 0 && polygon_alpha != 0x1f {
-              let fb_alpha = if fb_color.alpha.is_some() {
-                fb_color.alpha.unwrap()
-              } else {
-                0x1f
-              };
-
-              let polygon_alpha = color.alpha.unwrap();
-
               let pixel_color = pixel.color.unwrap().to_rgb6();
               let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
 
@@ -523,9 +515,9 @@ impl Engine3d {
   }
 
   pub fn blend_colors3d(color: Color, color2: Color, eva: u16, evb: u16) -> Color {
-    let r = ((color.r as u16 * eva + color2.r as u16 * evb) >> 5) as u8;
-    let g = ((color.g as u16 * eva + color2.g as u16 * evb) >> 5) as u8;
-    let b = ((color.b as u16 * eva + color2.b as u16 * evb) >> 5) as u8;
+    let r = ((color.r as u16 * eva + color2.r as u16 * evb) >> 5).min(0x3f) as u8;
+    let g = ((color.g as u16 * eva + color2.g as u16 * evb) >> 5).min(0x3f) as u8;
+    let b = ((color.b as u16 * eva + color2.b as u16 * evb) >> 5).min(0x3f) as u8;
 
     Color {
       r,
