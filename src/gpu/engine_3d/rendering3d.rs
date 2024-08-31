@@ -154,15 +154,20 @@ impl RgbSlopes {
 impl Engine3d {
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
-      for pixel in self.frame_buffer.iter_mut() {
-        pixel.color = Some(Color {
-          r: self.clear_color.r,
-          g: self.clear_color.g,
-          b: self.clear_color.b,
-          alpha: Some(self.clear_color.alpha)
-        });
-        pixel.depth = self.clear_depth as u32;
+      if self.clear_color.alpha != 0 {
+        for pixel in self.frame_buffer.iter_mut() {
+          pixel.color = Some(Color {
+            r: self.clear_color.r,
+            g: self.clear_color.g,
+            b: self.clear_color.b,
+            alpha: Some(self.clear_color.alpha)
+          });
+          pixel.depth = self.clear_depth as u32;
+        }
+      } else {
+        self.clear_frame_buffer();
       }
+
 
       if self.disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) {
         let (opaque, transluscent): (Vec<Polygon>, Vec<Polygon>) =
@@ -466,11 +471,11 @@ impl Engine3d {
         }
 
         if let Some(mut color) = color {
-          let fb_alpha = pixel.color.unwrap().alpha.unwrap();
+          let fb_color = pixel.color.unwrap_or(Color::new());
+          let fb_alpha = fb_color.alpha.unwrap_or(0x1f);
           let polygon_alpha = color.alpha.unwrap();
           if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
-            if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && fb_alpha != 0 && polygon_alpha != 0x1f {
-              let fb_color = pixel.color.unwrap();
+            if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && fb_alpha != 0 && polygon_alpha != 0x1f {
               let fb_alpha = if fb_color.alpha.is_some() {
                 fb_color.alpha.unwrap()
               } else {
