@@ -1191,6 +1191,7 @@ impl Engine3d {
     }
   }
 
+
   fn submit_polygon(&mut self) {
     let a = (
       self.current_vertices[0].transformed[0] - self.current_vertices[1].transformed[0],
@@ -1244,7 +1245,7 @@ impl Engine3d {
     }
 
     for i in (0..3).rev() {
-      Self::clip_plane(i, &mut self.current_vertices);
+      Self::sutherland_hodgman_clipping(i, &mut self.current_vertices);
     }
 
     if self.current_vertices.is_empty() {
@@ -1340,125 +1341,118 @@ impl Engine3d {
     self.polygon_buffer.push(polygon);
   }
 
-  fn clip_plane(index: usize, vertices: &mut Vec<Vertex>) {
-    let mut temp: Vec<Vertex> = Vec::with_capacity(10);
-
+  fn sutherland_hodgman_clipping(coordinate: usize, vertices: &mut Vec<Vertex>) {
+    let mut clipped: Vec<Vertex> = Vec::with_capacity(10);
     for i in 0..vertices.len() {
-      let current = vertices[i];
-      let previous_index = if i == 0 {
-        vertices.len() - 1
-      } else {
-        i - 1
-      };
+      let k = (i + 1) % vertices.len();
 
-      let previous = vertices[previous_index];
-
-      // current is inside the positive part of plane
-      if current.transformed[index] <= current.transformed[3] {
-
-        // previous point is outside
-        if previous.transformed[index] > previous.transformed[3] {
-          temp.push(Self::find_plane_intersection(index, current, previous, true));
-        }
-        temp.push(current.clone());
-
-      } else if previous.transformed[index] <= previous.transformed[3] {
-        temp.push(Self::find_plane_intersection(index, previous, current, true));
-      }
+      Self::clip(coordinate, vertices, &mut clipped, i, k, 1);
     }
 
     vertices.clear();
 
-    for i in 0..temp.len() {
-      let current = temp[i];
-      let previous_i = if i == 0 { temp.len() - 1} else { i - 1 };
+    for i in 0..clipped.len() {
+      let k = (i + 1) % clipped.len();
 
-      let previous = temp[previous_i];
-
-      // current is inside negative part of plane
-      if current.transformed[index] >= -current.transformed[3] {
-        if previous.transformed[index] < -previous.transformed[3] {
-          // previous is outside negative part of plane
-          let vertex = Self::find_plane_intersection(index, current, previous, false);
-          vertices.push(vertex);
-        }
-        vertices.push(current.clone());
-      } else if previous.transformed[index] >= -previous.transformed[3] {
-
-        let vertex = Self::find_plane_intersection(index, previous, current, false);
-        vertices.push(vertex);
-      }
+      Self::clip(coordinate, &mut clipped, vertices, i, k, -1);
     }
-
   }
 
-  fn find_plane_intersection(index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
-    let sign = if positive_plane { 1 } else { -1 };
+  fn get_boundary_intersection(coordinate: usize, a: Vertex, b: Vertex, sign: i64) -> Vertex {
+    // intersecting point can be found by formula p(alpha) = alpha * [x,y,z,w](a) + (1 - alpha) * [x,y,z,w](b)
+    // solving for alpha w.r.t. x you get the formula alpha = (w(b) - x(b)) / (x(a) - w(a) + w(b) - x(b))
+    // (the above can be generalized for the other coordinates)
+    // plug back that alpha into the above formula to get x y z and new w coordinates
 
-    let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
-    let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
+    // for clipping -w plane, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
+    // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
-    let new_w = Self::calculate_coordinates(
-      index,
-      3,
-      inside,
-      outside,
-      numerator,
-      denominator,
-      sign,
-      0
-    );
+    let numerator = b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64;
+    let denominator = a.transformed[coordinate] as i64 + sign * (b.transformed[3] as i64 - a.transformed[3] as i64) - b.transformed[coordinate] as i64;
 
-    let x = Self::calculate_coordinates(index, 0, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let y = Self::calculate_coordinates(index, 1, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let z = Self::calculate_coordinates(index, 2, inside, outside, numerator, denominator, sign, new_w) as i32;
+    let alpha = numerator as f64 / denominator as f64;
 
-    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, numerator, denominator) as u8;
-    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, numerator, denominator) as u8;
-    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, numerator, denominator) as u8;
+    macro_rules! interpolate {
+      ($prop:ident $subprop: ident) => {{
+        (alpha * a.$prop.$subprop as f64 + (1.0 - alpha) * b.$prop.$subprop as f64) as i64
+      }};
+      (coordinates $coordinate:expr) => {{
+        (alpha * a.transformed[$coordinate] as f64 + (1.0 - alpha) * b.transformed[$coordinate] as f64) as i64
+      }}
+    }
 
-    let mut texcoord = Texcoord::new();
+    let w = interpolate!(coordinates 3);
 
-    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, numerator, denominator) as i16;
-    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, numerator, denominator) as i16;
+    macro_rules! calculate_coordinates {
+      ($coordinate:expr) => {{
+        if $coordinate == coordinate {
+          sign * w
+        } else {
+          interpolate!(coordinates $coordinate)
+        }
+      }}
+    }
+
+    let x = calculate_coordinates!(0) as i32;
+    let y = calculate_coordinates!(1) as i32;
+    let z = calculate_coordinates!(2) as i32;
 
     Vertex {
-      transformed: [x, y, z, new_w as i32],
+      transformed: [x, y, z, w as i32],
       screen_x: 0,
       screen_y: 0,
       z_depth: 0,
       x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
       y: 0, // see above
       z: 0, // see above
-      texcoord,
+      texcoord: Texcoord {
+        u: interpolate!(texcoord u) as i16,
+        v: interpolate!(texcoord v) as i16
+      },
       color: Color {
-        r,
-        g,
-        b,
+        r: interpolate!(color r) as u8,
+        g: interpolate!(color g) as u8,
+        b: interpolate!(color b) as u8,
         alpha: None
       },
       normalized_w: 0
     }
   }
 
-  fn interpolate(inside: i64, outside: i64, numerator: i64, denominator: i64) -> i64 {
-    inside + (outside - inside) * numerator / denominator
-  }
+  fn clip(coordinate: usize, vertices: &mut Vec<Vertex>, clipped: &mut Vec<Vertex>, i: usize, k: usize, sign: i64) {
+    let first = vertices[i];
+    let second = vertices[k];
 
-  fn calculate_coordinates(
-    current_index: usize,
-    index: usize,
-    inside: Vertex,
-    outside: Vertex,
-    numerator: i64,
-    denominator: i64,
-    sign: i64,
-    w: i64) -> i64
-  {
-    if current_index == index {
-      sign * w as i64
+    let second_inside = if sign == 1 {
+      second.transformed[coordinate] <= second.transformed[3]
+    } else if sign == -1 {
+      second.transformed[coordinate] >= -second.transformed[3]
     } else {
-      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, numerator, denominator)
+      unreachable!()
+    };
+
+    let first_inside = if sign == 1 {
+      first.transformed[coordinate] <= first.transformed[3]
+    } else if sign == -1 {
+      first.transformed[coordinate] >= -first.transformed[3]
+    } else {
+      unreachable!()
+    };
+
+    if second_inside {
+      let first_outside = if sign == 1 {
+        first.transformed[coordinate] > first.transformed[3]
+      } else if sign == -1 {
+        first.transformed[coordinate] < -first.transformed[3]
+      } else {
+        unreachable!()
+      };
+      if first_outside {
+        clipped.push(Self::get_boundary_intersection(coordinate, first, second, sign));
+      }
+      clipped.push(second);
+    } else if first_inside {
+      clipped.push(Self::get_boundary_intersection(coordinate, second, first, sign));
     }
   }
 

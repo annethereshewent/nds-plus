@@ -48,7 +48,7 @@ impl BoxTest {
     for x in 0..2 {
       let mut vertices = [vertices_arr[x << 2], vertices_arr[x << 2 | 1], vertices_arr[x << 2 | 3], vertices_arr[x << 2 | 2]].to_vec();
 
-      Engine3d::clip_plane(0, &mut vertices);
+      Engine3d::sutherland_hodgman_clipping(0, &mut vertices);
 
       if !vertices.is_empty() {
         return true;
@@ -58,7 +58,7 @@ impl BoxTest {
     for y in 0..2 {
       let mut vertices = [vertices_arr[y << 1], vertices_arr[y << 1 | 1], vertices_arr[y << 1 | 5], vertices_arr[y << 1 | 4]].to_vec();
 
-      Engine3d::clip_plane(1, &mut vertices);
+      Engine3d::sutherland_hodgman_clipping(1, &mut vertices);
 
       if !vertices.is_empty() {
         return true;
@@ -68,7 +68,7 @@ impl BoxTest {
     for z in 0..2 {
       let mut vertices = [vertices_arr[z], vertices_arr[z | 2], vertices_arr[z | 6], vertices_arr[z | 4]].to_vec();
 
-      Engine3d::clip_plane(2, &mut vertices);
+      Engine3d::sutherland_hodgman_clipping(2, &mut vertices);
 
       if !vertices.is_empty() {
         return true;

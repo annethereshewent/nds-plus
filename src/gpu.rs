@@ -2,9 +2,8 @@ use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
 
 
 use crate::number::Number;
-use color::Color;
 use engine_2d::Engine2d;
-use engine_3d::{Engine3d, Pixel3d};
+use engine_3d::Engine3d;
 use registers::{
   display_capture_control_register::{
     CaptureSource, DisplayCaptureControlRegister, ScreenSourceA, ScreenSourceB
