@@ -1358,7 +1358,7 @@ impl Engine3d {
     }
   }
 
-  fn get_boundary_intersection(coordinate: usize, b: Vertex, a: Vertex, sign: i64) -> Vertex {
+  fn get_boundary_intersection(coordinate: usize, a: Vertex, b: Vertex, sign: i64) -> Vertex {
     // intersecting point can be found by formula p(alpha) = alpha * [x,y,z,w](a) + (1 - alpha) * [x,y,z,w](b)
     // solving for alpha w.r.t. x you get the formula alpha = (w(b) - x(b)) / (x(a) - w(a) + w(b) - x(b))
     // (the above can be generalized for the other coordinates)
@@ -1375,11 +1375,9 @@ impl Engine3d {
     macro_rules! interpolate {
       ($prop:ident $subprop: ident) => {{
         (alpha * a.$prop.$subprop as f64 + (1.0 - alpha) * b.$prop.$subprop as f64) as i64
-        // b.$prop.$subprop as i64 + (a.$prop.$subprop as i64 - b.$prop.$subprop as i64) * numerator / denominator
       }};
       (coordinates $coordinate:expr) => {{
         (alpha * a.transformed[$coordinate] as f64 + (1.0 - alpha) * b.transformed[$coordinate] as f64) as i64
-        // b.transformed[$coordinate] as i64 + (a.transformed[$coordinate] as i64 - b.transformed[$coordinate] as i64) * numerator / denominator
       }}
     }
 
@@ -1450,11 +1448,11 @@ impl Engine3d {
         unreachable!()
       };
       if first_outside {
-        clipped.push(Self::get_boundary_intersection(coordinate, second, first, sign));
+        clipped.push(Self::get_boundary_intersection(coordinate, first, second, sign));
       }
       clipped.push(second);
     } else if first_inside {
-      clipped.push(Self::get_boundary_intersection(coordinate, first, second, sign));
+      clipped.push(Self::get_boundary_intersection(coordinate, second, first, sign));
     }
   }
 
