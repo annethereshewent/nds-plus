@@ -1401,16 +1401,9 @@ impl Engine3d {
     // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
     // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
-    //  let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
-
     let numerator = b.transformed[3] as i64 - sign * b.transformed[coordinate] as i64;
     let denominator = numerator as i64 - (a.transformed[3] as i64 - sign * a.transformed[coordinate] as i64);
 
-    let alpha = numerator / denominator;
-    println!("numerator = {numerator} denominator = {denominator}");
-    println!("alpha = {alpha}");
-
-    // inside + (outside - inside) * numerator / denominator
     macro_rules! interpolate {
       ($prop:ident $subprop: ident) => {{
         // alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
@@ -1437,15 +1430,6 @@ impl Engine3d {
     let y = calculate_coordinates!(1) as i32;
     let z = calculate_coordinates!(2) as i32;
 
-    let r = interpolate!(color r) as u8;
-    let g = interpolate!(color g) as u8;
-    let b = interpolate!(color b) as u8;
-
-    let mut texcoord = Texcoord::new();
-
-    texcoord.u = interpolate!(texcoord u) as i16;
-    texcoord.v = interpolate!(texcoord v) as i16;
-
     Vertex {
       transformed: [x, y, z, w as i32],
       screen_x: 0,
@@ -1454,11 +1438,14 @@ impl Engine3d {
       x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
       y: 0, // see above
       z: 0, // see above
-      texcoord,
+      texcoord: Texcoord {
+        u: interpolate!(texcoord u) as i16,
+        v: interpolate!(texcoord v) as i16
+      },
       color: Color {
-        r,
-        g,
-        b,
+        r: interpolate!(color r) as u8,
+        g: interpolate!(color g) as u8,
+        b: interpolate!(color b) as u8,
         alpha: None
       },
       normalized_w: 0
