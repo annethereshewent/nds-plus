@@ -1245,7 +1245,7 @@ impl Engine3d {
     }
 
     for i in (0..3).rev() {
-      Self::clip_plane(i, &mut self.current_vertices);
+      Self::sutherland_hodgman_clipping(i, &mut self.current_vertices);
     }
 
     if self.current_vertices.is_empty() {
@@ -1367,6 +1367,7 @@ impl Engine3d {
     // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
     // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
+    // let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
     let alpha =
     (b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64) /
     (a.transformed[coordinate] as i64 - sign * (a.transformed[3] as i64 + b.transformed[3] as i64) - b.transformed[coordinate] as i64);
@@ -1441,7 +1442,7 @@ impl Engine3d {
       let comparison = if sign > 0 {
         second.transformed[index] <= second.transformed[3]
       } else {
-        second.transformed[index] >= sign * second.transformed[3]
+        second.transformed[index] >= -second.transformed[3]
       };
 
       if comparison {
@@ -1455,7 +1456,7 @@ impl Engine3d {
     let comparison = if sign > 0 {
       second.transformed[index] <= second.transformed[3] && first.transformed[index] > first.transformed[3]
     } else {
-      second.transformed[index] >= sign * second.transformed[3] && first.transformed[index] < sign * first.transformed[3]
+      second.transformed[index] >= -second.transformed[3] && first.transformed[index] < -first.transformed[3]
     };
 
     // second is inside but first is outside
@@ -1485,12 +1486,12 @@ impl Engine3d {
 
         // previous point is outside
         if previous.transformed[index] > previous.transformed[3] {
-          temp.push(Self::find_plane_intersection(index, current, previous, true));
+          temp.push(Self::get_boundary_intersection(index, current, previous, 1));
         }
         temp.push(current.clone());
 
       } else if previous.transformed[index] <= previous.transformed[3] {
-        temp.push(Self::find_plane_intersection(index, previous, current, true));
+        temp.push(Self::get_boundary_intersection(index, previous, current, 1));
       }
     }
 
@@ -1506,13 +1507,13 @@ impl Engine3d {
       if current.transformed[index] >= -current.transformed[3] {
         if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
-          let vertex = Self::find_plane_intersection(index, current, previous, false);
+          let vertex = Self::get_boundary_intersection(index, current, previous, -1);
           vertices.push(vertex);
         }
         vertices.push(current.clone());
       } else if previous.transformed[index] >= -previous.transformed[3] {
 
-        let vertex = Self::find_plane_intersection(index, previous, current, false);
+        let vertex = Self::get_boundary_intersection(index, previous, current, -1);
         vertices.push(vertex);
       }
     }
