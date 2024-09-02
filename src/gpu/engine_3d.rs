@@ -1191,6 +1191,7 @@ impl Engine3d {
     }
   }
 
+
   fn submit_polygon(&mut self) {
     let a = (
       self.current_vertices[0].transformed[0] - self.current_vertices[1].transformed[0],
@@ -1340,6 +1341,132 @@ impl Engine3d {
     self.polygon_buffer.push(polygon);
   }
 
+  fn sutherland_hodgman_clipping(index: usize, vertices: &mut Vec<Vertex>) {
+    let mut clipped: Vec<Vertex> = Vec::new();
+    for i in 0..vertices.len() {
+      let k = (i + 1) % vertices.len();
+
+      clipped.extend(Self::clip(index, vertices, i, k, 1));
+    }
+
+    vertices.clear();
+
+    for i in 0..clipped.len() {
+      let k = (i + 1) % clipped.len();
+
+      vertices.extend(Self::clip(index, &mut clipped, i, k, -1));
+    }
+  }
+
+  fn get_boundary_intersection(coordinate: usize, b: Vertex, a: Vertex, sign: i64) -> Vertex {
+    // intersecting point can be found by formula p(alpha) = alpha * [x,y,z,w](a) + (1 - alpha) * [x,y,z,w](b)
+    // solving for alpha w.r.t. x you get the formula alpha = (w(b) - x(b)) / (x(a) - w(a) + w(b) - x(b))
+    // (the above can be generalized for the other coordinates)
+    // plug back that alpha into the above formula to get x y z and new w coordinates
+
+    // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
+    // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
+
+    let alpha =
+    (b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64) /
+    (a.transformed[coordinate] as i64 - sign * (a.transformed[3] as i64 + b.transformed[3] as i64) - b.transformed[coordinate] as i64);
+
+    macro_rules! interpolate {
+      ($prop:ident $subprop: ident) => {{
+        alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
+      }};
+      (coordinates $coordinate:expr) => {{
+        alpha * a.transformed[$coordinate] as i64 + (1 - alpha) * b.transformed[$coordinate] as i64
+      }}
+    }
+
+    let w = interpolate!(coordinates 3);
+
+    macro_rules! calculate_coordinates {
+      ($coordinate:expr) => {{
+        if $coordinate == coordinate {
+          sign * w
+        } else {
+          interpolate!(coordinates $coordinate)
+        }
+      }}
+    }
+
+    let x = calculate_coordinates!(0) as i32;
+    let y = calculate_coordinates!(1) as i32;
+    let z = calculate_coordinates!(2) as i32;
+
+    let r = interpolate!(color r) as u8;
+    let g = interpolate!(color g) as u8;
+    let b = interpolate!(color b) as u8;
+
+    let mut texcoord = Texcoord::new();
+
+    texcoord.u = interpolate!(texcoord u) as i16;
+    texcoord.v = interpolate!(texcoord v) as i16;
+
+    Vertex {
+      transformed: [x, y, z, w as i32],
+      screen_x: 0,
+      screen_y: 0,
+      z_depth: 0,
+      x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
+      y: 0, // see above
+      z: 0, // see above
+      texcoord,
+      color: Color {
+        r,
+        g,
+        b,
+        alpha: None
+      },
+      normalized_w: 0
+    }
+  }
+
+  fn clip(index: usize, vertices: &mut Vec<Vertex>, i: usize, k: usize, sign: i32) -> Vec<Vertex> {
+    let mut temp: Vec<Vertex> = Vec::with_capacity(10);
+    let first = vertices[i];
+    let second = vertices[k];
+
+    let comparison = if sign > 0 {
+      first.transformed[index] <= first.transformed[3]
+    } else {
+      first.transformed[index] >= sign * first.transformed[3]
+    };
+
+    // first is inside
+    if comparison {
+      // both first and second are inside, only add second vertex
+      let comparison = if sign > 0 {
+        second.transformed[index] <= second.transformed[3]
+      } else {
+        second.transformed[index] >= sign * second.transformed[3]
+      };
+
+      if comparison {
+        temp.push(second);
+      } else {
+        // first is inside but second is outside, find intersection
+        temp.push(Self::get_boundary_intersection(index, first, second, sign as i64));
+      }
+    }
+
+    let comparison = if sign > 0 {
+      second.transformed[index] <= second.transformed[3] && first.transformed[index] > first.transformed[3]
+    } else {
+      second.transformed[index] >= sign * second.transformed[3] && first.transformed[index] < sign * first.transformed[3]
+    };
+
+    // second is inside but first is outside
+    if comparison {
+      temp.push(second);
+      temp.push(Self::get_boundary_intersection(index, second, first, sign as i64));
+    }
+
+    temp
+  }
+
   fn clip_plane(index: usize, vertices: &mut Vec<Vertex>) {
     let mut temp: Vec<Vertex> = Vec::with_capacity(10);
 
@@ -1398,29 +1525,32 @@ impl Engine3d {
     let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
     let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
 
+    let quotient = numerator / denominator;
+
+    println!("alpha = {:x}", quotient);
+
     let new_w = Self::calculate_coordinates(
       index,
       3,
       inside,
       outside,
-      numerator,
-      denominator,
+      quotient,
       sign,
       0
     );
 
-    let x = Self::calculate_coordinates(index, 0, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let y = Self::calculate_coordinates(index, 1, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let z = Self::calculate_coordinates(index, 2, inside, outside, numerator, denominator, sign, new_w) as i32;
+    let x = Self::calculate_coordinates(index, 0, inside, outside, quotient, sign, new_w) as i32;
+    let y = Self::calculate_coordinates(index, 1, inside, outside, quotient, sign, new_w) as i32;
+    let z = Self::calculate_coordinates(index, 2, inside, outside, quotient, sign, new_w) as i32;
 
-    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, numerator, denominator) as u8;
-    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, numerator, denominator) as u8;
-    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, numerator, denominator) as u8;
+    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, quotient) as u8;
+    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, quotient) as u8;
+    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, quotient) as u8;
 
     let mut texcoord = Texcoord::new();
 
-    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, numerator, denominator) as i16;
-    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, numerator, denominator) as i16;
+    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, quotient) as i16;
+    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, quotient) as i16;
 
     Vertex {
       transformed: [x, y, z, new_w as i32],
@@ -1441,8 +1571,8 @@ impl Engine3d {
     }
   }
 
-  fn interpolate(inside: i64, outside: i64, numerator: i64, denominator: i64) -> i64 {
-    inside + (outside - inside) * numerator / denominator
+  fn interpolate(inside: i64, outside: i64, quotient: i64) -> i64 {
+    inside + (outside - inside) * quotient
   }
 
   fn calculate_coordinates(
@@ -1450,15 +1580,14 @@ impl Engine3d {
     index: usize,
     inside: Vertex,
     outside: Vertex,
-    numerator: i64,
-    denominator: i64,
+    quotient: i64,
     sign: i64,
     w: i64) -> i64
   {
     if current_index == index {
       sign * w as i64
     } else {
-      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, numerator, denominator)
+      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, quotient)
     }
   }
 
