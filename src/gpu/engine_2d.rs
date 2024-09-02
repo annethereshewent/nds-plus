@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use crate::number::Number;
 
 use super::{

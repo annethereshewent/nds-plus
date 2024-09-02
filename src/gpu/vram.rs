@@ -294,7 +294,6 @@ impl VRam {
         }
         Bank::BankH => Self::add_mapping(&mut self.engine_b_bg_extended_palette, bank, size, 0),
         Bank::BankI => Self::add_mapping(&mut self.engine_b_obj, bank, size, 0),
-        _ => panic!("invalid bank given for mst = {}", vramcnt.vram_mst)
       }
       3 => match bank {
         Bank::BankI => {
@@ -391,7 +390,6 @@ impl VRam {
         }
         Bank::BankH => Self::remove_mapping(&mut self.engine_b_bg_extended_palette, bank, size, 0),
         Bank::BankI => Self::remove_mapping(&mut self.engine_b_obj, bank, size, 0),
-        _ => panic!("invalid option given")
       }
       3 => match bank {
         Bank::BankI => {

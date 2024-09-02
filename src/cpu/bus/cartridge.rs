@@ -27,13 +27,13 @@ pub struct GameInfo {
 pub struct Header {
   game_title: String,
   pub game_code: u32,
-  maker_code: String,
-  unit_code: u8,
-  encryption_seed_select: u8,
-  device_capacity: u8,
-  region: u8,
-  rom_version: u8,
-  autostart: u8,
+  _maker_code: String,
+  _unit_code: u8,
+  _encryption_seed_select: u8,
+  _device_capacity: u8,
+  _region: u8,
+  _rom_version: u8,
+  _autostart: u8,
   pub arm9_rom_offset: u32,
   pub arm9_entry_address: u32,
   pub arm9_ram_address: u32,
@@ -49,13 +49,13 @@ impl Header {
     let header = Self {
       game_title: std::str::from_utf8(&rom[0..0xc]).unwrap_or_default().to_string(),
       game_code: u32::from_le_bytes(rom[0xc..0x10].try_into().unwrap()),
-      maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap_or_default().to_string(),
-      unit_code: rom[0x12],
-      encryption_seed_select: rom[0x13],
-      device_capacity: rom[0x14],
-      region: rom[0x1d],
-      rom_version: rom[0x1e],
-      autostart: rom[0x1f],
+      _maker_code: std::str::from_utf8(&rom[0x10..0x12]).unwrap_or_default().to_string(),
+      _unit_code: rom[0x12],
+      _encryption_seed_select: rom[0x13],
+      _device_capacity: rom[0x14],
+      _region: rom[0x1d],
+      _rom_version: rom[0x1e],
+      _autostart: rom[0x1f],
       arm9_rom_offset: util::read_word(rom, 0x20),
       arm9_entry_address: util::read_word(rom, 0x24),
       arm9_ram_address: util::read_word(rom, 0x28),
@@ -421,7 +421,7 @@ impl Cartridge {
       let block4k_start = address & !0xfff;
       let block4k_end = block4k_start + 0x1000;
       let leftover = self.rom_bytes_left - (block4k_end as usize - address as usize);
-      self.copy_rom((address as usize..block4k_end as usize));
+      self.copy_rom(address as usize..block4k_end as usize);
       self.copy_rom(block4k_start as usize..(block4k_start as usize + leftover) as usize);
     } else {
       self.copy_rom((address as usize)..(address as usize + self.rom_bytes_left));
