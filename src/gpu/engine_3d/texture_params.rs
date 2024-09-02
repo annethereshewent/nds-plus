@@ -1,5 +1,5 @@
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TextureFormat {
   None,
   A3I5Translucent,

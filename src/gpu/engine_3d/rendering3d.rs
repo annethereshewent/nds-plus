@@ -234,6 +234,11 @@ impl Engine3d {
     debug_on: bool,
     found: &mut HashSet<String>
   ) {
+    if polygon.attributes.polygon_mode() == PolygonMode::Shadow {
+      // TODO: implement shadow mode
+      return;
+    }
+
     let mut min_y = vertices[0].screen_y;
     let mut max_y = vertices[0].screen_y;
     let mut min_x = vertices[0].screen_x;
@@ -429,11 +434,7 @@ impl Engine3d {
 
         let mut vertex_color = rgb_d.next_color();
 
-        vertex_color.alpha = if polygon.attributes.alpha() != 0 {
-          Some(polygon.attributes.alpha())
-        } else {
-          Some(0x1f)
-        };
+        vertex_color.alpha = Some(polygon.attributes.alpha());
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
@@ -502,11 +503,12 @@ impl Engine3d {
               color.to_rgb5();
 
               pixel.color = Some(color);
-            } else {
+            } else if polygon_alpha != 0 {
               color.to_rgb5();
               pixel.color = Some(color);
               pixel.depth = z as u32;
             }
+
             if polygon_alpha != 0x1f && polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUCENT) {
               pixel.depth = z as u32;
             }
