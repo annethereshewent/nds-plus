@@ -1358,12 +1358,12 @@ impl Engine3d {
 
         // previous point is outside
         if previous.transformed[index] > previous.transformed[3] {
-          temp.push(Self::find_plane_intersection(index, current, previous, true));
+          temp.push(Self::get_boundary_intersection(index, current, previous, 1));
         }
         temp.push(current.clone());
 
       } else if previous.transformed[index] <= previous.transformed[3] {
-        temp.push(Self::find_plane_intersection(index, previous, current, true));
+        temp.push(Self::get_boundary_intersection(index, previous, current, 1));
       }
     }
 
@@ -1379,51 +1379,75 @@ impl Engine3d {
       if current.transformed[index] >= -current.transformed[3] {
         if previous.transformed[index] < -previous.transformed[3] {
           // previous is outside negative part of plane
-          let vertex = Self::find_plane_intersection(index, current, previous, false);
+          let vertex = Self::get_boundary_intersection(index, current, previous, -1);
           vertices.push(vertex);
         }
         vertices.push(current.clone());
       } else if previous.transformed[index] >= -previous.transformed[3] {
 
-        let vertex = Self::find_plane_intersection(index, previous, current, false);
+        let vertex = Self::get_boundary_intersection(index, previous, current, -1);
         vertices.push(vertex);
       }
     }
 
   }
 
-  fn find_plane_intersection(index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
-    let sign = if positive_plane { 1 } else { -1 };
+  fn get_boundary_intersection(coordinate: usize, b: Vertex, a: Vertex, sign: i64) -> Vertex {
+    // intersecting point can be found by formula p(alpha) = alpha * [x,y,z,w](a) + (1 - alpha) * [x,y,z,w](b)
+    // solving for alpha w.r.t. x you get the formula alpha = (w(b) - x(b)) / (x(a) - w(a) + w(b) - x(b))
+    // (the above can be generalized for the other coordinates)
+    // plug back that alpha into the above formula to get x y z and new w coordinates
 
-    let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
-    let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
+    // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
+    // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
-    let new_w = Self::calculate_coordinates(
-      index,
-      3,
-      inside,
-      outside,
-      numerator,
-      denominator,
-      sign,
-      0
-    );
+    //  let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
 
-    let x = Self::calculate_coordinates(index, 0, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let y = Self::calculate_coordinates(index, 1, inside, outside, numerator, denominator, sign, new_w) as i32;
-    let z = Self::calculate_coordinates(index, 2, inside, outside, numerator, denominator, sign, new_w) as i32;
+    let numerator = b.transformed[3] as i64 - sign * b.transformed[coordinate] as i64;
+    let denominator = numerator as i64 - (a.transformed[3] as i64 - sign * a.transformed[coordinate] as i64);
 
-    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, numerator, denominator) as u8;
-    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, numerator, denominator) as u8;
-    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, numerator, denominator) as u8;
+    let alpha = numerator / denominator;
+    println!("numerator = {numerator} denominator = {denominator}");
+    println!("alpha = {alpha}");
+
+    // inside + (outside - inside) * numerator / denominator
+    macro_rules! interpolate {
+      ($prop:ident $subprop: ident) => {{
+        // alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
+        b.$prop.$subprop as i64 + (a.$prop.$subprop as i64 - b.$prop.$subprop as i64) * numerator / denominator
+      }};
+      (coordinates $coordinate:expr) => {{
+        b.transformed[$coordinate] as i64 + (a.transformed[$coordinate] as i64 - b.transformed[$coordinate] as i64) * numerator / denominator
+      }}
+    }
+
+    let w = interpolate!(coordinates 3);
+
+    macro_rules! calculate_coordinates {
+      ($coordinate:expr) => {{
+        if $coordinate == coordinate {
+          sign * w
+        } else {
+          interpolate!(coordinates $coordinate)
+        }
+      }}
+    }
+
+    let x = calculate_coordinates!(0) as i32;
+    let y = calculate_coordinates!(1) as i32;
+    let z = calculate_coordinates!(2) as i32;
+
+    let r = interpolate!(color r) as u8;
+    let g = interpolate!(color g) as u8;
+    let b = interpolate!(color b) as u8;
 
     let mut texcoord = Texcoord::new();
 
-    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, numerator, denominator) as i16;
-    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, numerator, denominator) as i16;
+    texcoord.u = interpolate!(texcoord u) as i16;
+    texcoord.v = interpolate!(texcoord v) as i16;
 
     Vertex {
-      transformed: [x, y, z, new_w as i32],
+      transformed: [x, y, z, w as i32],
       screen_x: 0,
       screen_y: 0,
       z_depth: 0,
@@ -1438,27 +1462,6 @@ impl Engine3d {
         alpha: None
       },
       normalized_w: 0
-    }
-  }
-
-  fn interpolate(inside: i64, outside: i64, numerator: i64, denominator: i64) -> i64 {
-    inside + (outside - inside) * numerator / denominator
-  }
-
-  fn calculate_coordinates(
-    current_index: usize,
-    index: usize,
-    inside: Vertex,
-    outside: Vertex,
-    numerator: i64,
-    denominator: i64,
-    sign: i64,
-    w: i64) -> i64
-  {
-    if current_index == index {
-      sign * w as i64
-    } else {
-      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, numerator, denominator)
     }
   }
 
