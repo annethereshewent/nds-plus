@@ -1364,7 +1364,7 @@ impl Engine3d {
     // (the above can be generalized for the other coordinates)
     // plug back that alpha into the above formula to get x y z and new w coordinates
 
-    // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
+    // for clipping -w plane, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
     // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
     let numerator = b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64;
