@@ -1245,7 +1245,7 @@ impl Engine3d {
     }
 
     for i in (0..3).rev() {
-      Self::sutherland_hodgman_clipping(i, &mut self.current_vertices);
+      Self::clip_plane(i, &mut self.current_vertices);
     }
 
     if self.current_vertices.is_empty() {
@@ -1341,12 +1341,12 @@ impl Engine3d {
     self.polygon_buffer.push(polygon);
   }
 
-  fn sutherland_hodgman_clipping(index: usize, vertices: &mut Vec<Vertex>) {
-    let mut clipped: Vec<Vertex> = Vec::new();
+  fn sutherland_hodgman_clipping(coordinate: usize, vertices: &mut Vec<Vertex>) {
+    let mut clipped: Vec<Vertex> = Vec::with_capacity(10);
     for i in 0..vertices.len() {
       let k = (i + 1) % vertices.len();
 
-      clipped.extend(Self::clip(index, vertices, i, k, 1));
+      Self::clip(coordinate, vertices, &mut clipped, i, k, 1);
     }
 
     vertices.clear();
@@ -1354,7 +1354,7 @@ impl Engine3d {
     for i in 0..clipped.len() {
       let k = (i + 1) % clipped.len();
 
-      vertices.extend(Self::clip(index, &mut clipped, i, k, -1));
+      Self::clip(coordinate, &mut clipped, vertices, i, k, -1);
     }
   }
 
@@ -1367,17 +1367,19 @@ impl Engine3d {
     // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
     // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
-    // let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
-    let alpha =
-    (b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64) /
-    (a.transformed[coordinate] as i64 - sign * (a.transformed[3] as i64 + b.transformed[3] as i64) - b.transformed[coordinate] as i64);
+    let numerator = b.transformed[3] as i64 - sign * b.transformed[coordinate] as i64;
+    let denominator = numerator as i64 - (a.transformed[3] as i64 - sign * a.transformed[coordinate] as i64);
+
+    let alpha = numerator / denominator;
 
     macro_rules! interpolate {
       ($prop:ident $subprop: ident) => {{
-        alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
+        // alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
+        b.$prop.$subprop as i64 + (a.$prop.$subprop as i64 - b.$prop.$subprop as i64) * numerator / denominator
       }};
       (coordinates $coordinate:expr) => {{
-        alpha * a.transformed[$coordinate] as i64 + (1 - alpha) * b.transformed[$coordinate] as i64
+        // alpha * a.transformed[$coordinate] as i64 + (1 - alpha) * b.transformed[$coordinate] as i64
+        b.transformed[$coordinate] as i64 + (a.transformed[$coordinate] as i64 - b.transformed[$coordinate] as i64) * numerator / denominator
       }}
     }
 
@@ -1397,15 +1399,6 @@ impl Engine3d {
     let y = calculate_coordinates!(1) as i32;
     let z = calculate_coordinates!(2) as i32;
 
-    let r = interpolate!(color r) as u8;
-    let g = interpolate!(color g) as u8;
-    let b = interpolate!(color b) as u8;
-
-    let mut texcoord = Texcoord::new();
-
-    texcoord.u = interpolate!(texcoord u) as i16;
-    texcoord.v = interpolate!(texcoord v) as i16;
-
     Vertex {
       transformed: [x, y, z, w as i32],
       screen_x: 0,
@@ -1414,46 +1407,48 @@ impl Engine3d {
       x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
       y: 0, // see above
       z: 0, // see above
-      texcoord,
+      texcoord: Texcoord {
+        u: interpolate!(texcoord u) as i16,
+        v: interpolate!(texcoord v) as i16
+      },
       color: Color {
-        r,
-        g,
-        b,
+        r: interpolate!(color r) as u8,
+        g: interpolate!(color g) as u8,
+        b: interpolate!(color b) as u8,
         alpha: None
       },
       normalized_w: 0
     }
   }
 
-  fn clip(index: usize, vertices: &mut Vec<Vertex>, i: usize, k: usize, sign: i32) -> Vec<Vertex> {
-    let mut temp: Vec<Vertex> = Vec::with_capacity(10);
+  fn clip(index: usize, vertices: &mut Vec<Vertex>, clipped: &mut Vec<Vertex>, i: usize, k: usize, sign: i32) {
     let first = vertices[i];
     let second = vertices[k];
 
-    let comparison = if sign > 0 {
+    let comparison = if sign >= 0 {
       first.transformed[index] <= first.transformed[3]
     } else {
-      first.transformed[index] >= sign * first.transformed[3]
+      first.transformed[index] >= -first.transformed[3]
     };
 
     // first is inside
     if comparison {
       // both first and second are inside, only add second vertex
-      let comparison = if sign > 0 {
+      let comparison = if sign >= 0 {
         second.transformed[index] <= second.transformed[3]
       } else {
         second.transformed[index] >= -second.transformed[3]
       };
 
       if comparison {
-        temp.push(second);
+        clipped.push(second);
       } else {
         // first is inside but second is outside, find intersection
-        temp.push(Self::get_boundary_intersection(index, first, second, sign as i64));
+        clipped.push(Self::get_boundary_intersection(index, first, second, sign as i64));
       }
     }
 
-    let comparison = if sign > 0 {
+    let comparison = if sign >= 0 {
       second.transformed[index] <= second.transformed[3] && first.transformed[index] > first.transformed[3]
     } else {
       second.transformed[index] >= -second.transformed[3] && first.transformed[index] < -first.transformed[3]
@@ -1461,11 +1456,9 @@ impl Engine3d {
 
     // second is inside but first is outside
     if comparison {
-      temp.push(second);
-      temp.push(Self::get_boundary_intersection(index, second, first, sign as i64));
+      clipped.push(second);
+      clipped.push(Self::get_boundary_intersection(index, second, first, sign as i64));
     }
-
-    temp
   }
 
   fn clip_plane(index: usize, vertices: &mut Vec<Vertex>) {
@@ -1516,79 +1509,6 @@ impl Engine3d {
         let vertex = Self::get_boundary_intersection(index, previous, current, -1);
         vertices.push(vertex);
       }
-    }
-
-  }
-
-  fn find_plane_intersection(index: usize, inside: Vertex, outside: Vertex, positive_plane: bool) -> Vertex {
-    let sign = if positive_plane { 1 } else { -1 };
-
-    let numerator = inside.transformed[3] as i64 - sign * inside.transformed[index] as i64;
-    let denominator = numerator as i64 - (outside.transformed[3] as i64 - sign * outside.transformed[index] as i64);
-
-    let quotient = numerator / denominator;
-
-    println!("alpha = {:x}", quotient);
-
-    let new_w = Self::calculate_coordinates(
-      index,
-      3,
-      inside,
-      outside,
-      quotient,
-      sign,
-      0
-    );
-
-    let x = Self::calculate_coordinates(index, 0, inside, outside, quotient, sign, new_w) as i32;
-    let y = Self::calculate_coordinates(index, 1, inside, outside, quotient, sign, new_w) as i32;
-    let z = Self::calculate_coordinates(index, 2, inside, outside, quotient, sign, new_w) as i32;
-
-    let r = Self::interpolate(inside.color.r as i64, outside.color.r as i64, quotient) as u8;
-    let g = Self::interpolate(inside.color.g as i64, outside.color.g as i64, quotient) as u8;
-    let b = Self::interpolate(inside.color.b as i64, outside.color.b as i64, quotient) as u8;
-
-    let mut texcoord = Texcoord::new();
-
-    texcoord.u = Self::interpolate(inside.texcoord.u as i64, outside.texcoord.u as i64, quotient) as i16;
-    texcoord.v = Self::interpolate(inside.texcoord.v as i64, outside.texcoord.v as i64, quotient) as i16;
-
-    Vertex {
-      transformed: [x, y, z, new_w as i32],
-      screen_x: 0,
-      screen_y: 0,
-      z_depth: 0,
-      x: 0, // these don't matter after this point, todo: maybe merge transformed and these together
-      y: 0, // see above
-      z: 0, // see above
-      texcoord,
-      color: Color {
-        r,
-        g,
-        b,
-        alpha: None
-      },
-      normalized_w: 0
-    }
-  }
-
-  fn interpolate(inside: i64, outside: i64, quotient: i64) -> i64 {
-    inside + (outside - inside) * quotient
-  }
-
-  fn calculate_coordinates(
-    current_index: usize,
-    index: usize,
-    inside: Vertex,
-    outside: Vertex,
-    quotient: i64,
-    sign: i64,
-    w: i64) -> i64
-  {
-    if current_index == index {
-      sign * w as i64
-    } else {
-      Self::interpolate(inside.transformed[index] as i64, outside.transformed[index] as i64, quotient)
     }
   }
 
