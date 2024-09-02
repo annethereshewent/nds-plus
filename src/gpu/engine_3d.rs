@@ -1245,7 +1245,7 @@ impl Engine3d {
     }
 
     for i in (0..3).rev() {
-      Self::clip_plane(i, &mut self.current_vertices);
+      Self::sutherland_hodgman_clipping(i, &mut self.current_vertices);
     }
 
     if self.current_vertices.is_empty() {
@@ -1367,10 +1367,8 @@ impl Engine3d {
     // for clipping -w, the final equation comes out to: (-w(b) - x(b)) / (x(a) + w(a) - w(b) - x(b))
     // thus, you can just have one equation and flip the signs for w(b) in the numerator, w(a) and w(b) in the denominator
 
-    let numerator = b.transformed[3] as i64 - sign * b.transformed[coordinate] as i64;
-    let denominator = numerator as i64 - (a.transformed[3] as i64 - sign * a.transformed[coordinate] as i64);
-
-    let alpha = numerator / denominator;
+    let numerator = b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64;
+    let denominator = a.transformed[coordinate] as i64 + sign * (b.transformed[3] as i64 - a.transformed[3] as i64) - b.transformed[coordinate] as i64;
 
     macro_rules! interpolate {
       ($prop:ident $subprop: ident) => {{
@@ -1421,94 +1419,40 @@ impl Engine3d {
     }
   }
 
-  fn clip(index: usize, vertices: &mut Vec<Vertex>, clipped: &mut Vec<Vertex>, i: usize, k: usize, sign: i32) {
+  fn clip(coordinate: usize, vertices: &mut Vec<Vertex>, clipped: &mut Vec<Vertex>, i: usize, k: usize, sign: i64) {
     let first = vertices[i];
     let second = vertices[k];
 
-    let comparison = if sign >= 0 {
-      first.transformed[index] <= first.transformed[3]
+    let second_inside = if sign == 1 {
+      second.transformed[coordinate] <= second.transformed[3]
+    } else if sign == -1 {
+      second.transformed[coordinate] >= -second.transformed[3]
     } else {
-      first.transformed[index] >= -first.transformed[3]
+      unreachable!()
     };
 
-    // first is inside
-    if comparison {
-      // both first and second are inside, only add second vertex
-      let comparison = if sign >= 0 {
-        second.transformed[index] <= second.transformed[3]
+    let first_inside = if sign == 1 {
+      first.transformed[coordinate] <= first.transformed[3]
+    } else if sign == -1 {
+      first.transformed[coordinate] >= -first.transformed[3]
+    } else {
+      unreachable!()
+    };
+
+    if second_inside {
+      let first_outside = if sign == 1 {
+        first.transformed[coordinate] > first.transformed[3]
+      } else if sign == -1 {
+        first.transformed[coordinate] < -first.transformed[3]
       } else {
-        second.transformed[index] >= -second.transformed[3]
+        unreachable!()
       };
-
-      if comparison {
-        clipped.push(second);
-      } else {
-        // first is inside but second is outside, find intersection
-        clipped.push(Self::get_boundary_intersection(index, first, second, sign as i64));
+      if first_outside {
+        clipped.push(Self::get_boundary_intersection(coordinate, second, first, sign));
       }
-    }
-
-    let comparison = if sign >= 0 {
-      second.transformed[index] <= second.transformed[3] && first.transformed[index] > first.transformed[3]
-    } else {
-      second.transformed[index] >= -second.transformed[3] && first.transformed[index] < -first.transformed[3]
-    };
-
-    // second is inside but first is outside
-    if comparison {
       clipped.push(second);
-      clipped.push(Self::get_boundary_intersection(index, second, first, sign as i64));
-    }
-  }
-
-  fn clip_plane(index: usize, vertices: &mut Vec<Vertex>) {
-    let mut temp: Vec<Vertex> = Vec::with_capacity(10);
-
-    for i in 0..vertices.len() {
-      let current = vertices[i];
-      let previous_index = if i == 0 {
-        vertices.len() - 1
-      } else {
-        i - 1
-      };
-
-      let previous = vertices[previous_index];
-
-      // current is inside the positive part of plane
-      if current.transformed[index] <= current.transformed[3] {
-
-        // previous point is outside
-        if previous.transformed[index] > previous.transformed[3] {
-          temp.push(Self::get_boundary_intersection(index, current, previous, 1));
-        }
-        temp.push(current.clone());
-
-      } else if previous.transformed[index] <= previous.transformed[3] {
-        temp.push(Self::get_boundary_intersection(index, previous, current, 1));
-      }
-    }
-
-    vertices.clear();
-
-    for i in 0..temp.len() {
-      let current = temp[i];
-      let previous_i = if i == 0 { temp.len() - 1} else { i - 1 };
-
-      let previous = temp[previous_i];
-
-      // current is inside negative part of plane
-      if current.transformed[index] >= -current.transformed[3] {
-        if previous.transformed[index] < -previous.transformed[3] {
-          // previous is outside negative part of plane
-          let vertex = Self::get_boundary_intersection(index, current, previous, -1);
-          vertices.push(vertex);
-        }
-        vertices.push(current.clone());
-      } else if previous.transformed[index] >= -previous.transformed[3] {
-
-        let vertex = Self::get_boundary_intersection(index, previous, current, -1);
-        vertices.push(vertex);
-      }
+    } else if first_inside {
+      clipped.push(Self::get_boundary_intersection(coordinate, first, second, sign));
     }
   }
 
