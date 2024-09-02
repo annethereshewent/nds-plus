@@ -1370,14 +1370,16 @@ impl Engine3d {
     let numerator = b.transformed[3] as i64 * sign - b.transformed[coordinate] as i64;
     let denominator = a.transformed[coordinate] as i64 + sign * (b.transformed[3] as i64 - a.transformed[3] as i64) - b.transformed[coordinate] as i64;
 
+    let alpha = numerator as f64 / denominator as f64;
+
     macro_rules! interpolate {
       ($prop:ident $subprop: ident) => {{
-        // alpha * a.$prop.$subprop as i64 + (1 - alpha) * b.$prop.$subprop as i64
-        b.$prop.$subprop as i64 + (a.$prop.$subprop as i64 - b.$prop.$subprop as i64) * numerator / denominator
+        (alpha * a.$prop.$subprop as f64 + (1.0 - alpha) * b.$prop.$subprop as f64) as i64
+        // b.$prop.$subprop as i64 + (a.$prop.$subprop as i64 - b.$prop.$subprop as i64) * numerator / denominator
       }};
       (coordinates $coordinate:expr) => {{
-        // alpha * a.transformed[$coordinate] as i64 + (1 - alpha) * b.transformed[$coordinate] as i64
-        b.transformed[$coordinate] as i64 + (a.transformed[$coordinate] as i64 - b.transformed[$coordinate] as i64) * numerator / denominator
+        (alpha * a.transformed[$coordinate] as f64 + (1.0 - alpha) * b.transformed[$coordinate] as f64) as i64
+        // b.transformed[$coordinate] as i64 + (a.transformed[$coordinate] as i64 - b.transformed[$coordinate] as i64) * numerator / denominator
       }}
     }
 
