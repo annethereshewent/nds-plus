@@ -429,8 +429,8 @@ impl Engine3d {
       let boundary2_u32 = boundary2 as u32;
 
       while x < boundary2_u32 && x < SCREEN_WIDTH as u32 {
-        let curr_u = u_d.next() as u32 >> 4;
-        let curr_v = v_d.next() as u32 >> 4;
+        let curr_u = u_d.next() as i32 >> 4;
+        let curr_v = v_d.next() as i32 >> 4;
 
         let mut vertex_color = rgb_d.next_color();
 
@@ -582,42 +582,42 @@ impl Engine3d {
     })
   }
 
-  fn check_if_texture_repeated(val: u32, repeat: bool, flip: bool, mask: u32, shift: u32) -> u32 {
-    let mut return_val = val;
+  fn check_if_texture_repeated(val: i32, repeat: bool, flip: bool, mask: u32, shift: u32) -> u32 {
+    let mut return_val = val as u32;
     if repeat {
       return_val &= mask;
-      if flip && (val >> shift) % 2 == 1 {
+      if flip && (val as u32 >> shift) % 2 == 1 {
         return_val ^= mask;
       }
+    } else if val < 0 {
+      return_val = 0;
+    } else if val as u32 >= mask {
+      return_val = mask;
     }
 
     return_val
   }
 
-  fn get_texel_color(polygon: &Polygon, curr_u: u32, curr_v: u32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> Option<Color> {
-    let mut u = curr_u;
+  fn get_texel_color(polygon: &Polygon, curr_u: i32, curr_v: i32, vram: &VRam, debug_on: bool, found: &mut HashSet<String>) -> Option<Color> {
+    let u = curr_u;
 
-    u = Self::check_if_texture_repeated(
+    let u = Self::check_if_texture_repeated(
       u,
       polygon.tex_params.repeat_s,
       polygon.tex_params.flip_s,
-      polygon.tex_params.texture_s_size -1,
+      polygon.tex_params.texture_s_size - 1,
       polygon.tex_params.size_s_shift
     );
 
-    u = u.clamp(0, polygon.tex_params.texture_s_size - 1);
+    let v = curr_v;
 
-    let mut v = curr_v;
-
-    v = Self::check_if_texture_repeated(
+    let v = Self::check_if_texture_repeated(
       v,
       polygon.tex_params.repeat_t,
       polygon.tex_params.flip_t,
       polygon.tex_params.texture_t_size -1,
       polygon.tex_params.size_t_shift
     );
-
-    v = v.clamp(0, polygon.tex_params.texture_t_size - 1);
 
     // println!("got {u},{v}");
 
