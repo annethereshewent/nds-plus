@@ -1359,6 +1359,7 @@ impl Engine3d {
   }
 
   fn get_boundary_intersection(coordinate: usize, a: Vertex, b: Vertex, sign: i64) -> Vertex {
+    // per https://www.cs.ucr.edu/~shinar/courses/cs130-winter-2021/content/clipping.pdf:
     // intersecting point can be found by formula p(alpha) = alpha * [x,y,z,w](a) + (1 - alpha) * [x,y,z,w](b)
     // solving for alpha w.r.t. x you get the formula alpha = (w(b) - x(b)) / (x(a) - w(a) + w(b) - x(b))
     // (the above can be generalized for the other coordinates)
