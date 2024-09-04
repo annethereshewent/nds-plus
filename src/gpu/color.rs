@@ -34,6 +34,14 @@ impl Color {
     Self::upscale(return_alpha)
   }
 
+  pub fn write_fog(&mut self, value: u32) {
+    self.r = (value & 0x1f) as u8;
+    self.g = ((value >> 5) & 0x1f) as u8;
+    self.b = ((value >> 10) & 0x1f) as u8;
+
+    self.alpha = Some(((value >> 16) & 0x1f) as u8);
+  }
+
   pub fn write(&mut self, value: u16) {
     self.r = (value & 0x1f) as u8;
     self.g = ((value >> 5) & 0x1f) as u8;

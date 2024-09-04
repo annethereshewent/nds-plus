@@ -5,7 +5,18 @@ use cartridge_control_register::CartridgeControlRegister;
 use key1_encryption::Key1Encryption;
 use spicnt::SPICNT;
 
-use crate::{cpu::{bus::backup_file::BackupFile, dma::dma_channels::DmaChannels, registers::interrupt_request_register::InterruptRequestRegister}, scheduler::{EventType, Scheduler}, util};
+use crate::{
+  cpu::{
+    bus::backup_file::BackupFile,
+    dma::dma_channels::DmaChannels,
+    registers::interrupt_request_register::InterruptRequestRegister
+  },
+  scheduler::{
+    EventType,
+    Scheduler
+  },
+  util
+};
 
 use super::{eeprom::Eeprom, flash::Flash};
 

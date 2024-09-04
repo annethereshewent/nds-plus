@@ -31,8 +31,6 @@ impl Bus {
     } else if dtcm_ranges.contains(&address) && !self.arm9.cp15.control.contains(CP15ControlRegister::DTCM_LOAD_MODE) {
       let actual_addr = (address + self.arm9.cp15.dtcm_control.base_address()) & (DTCM_SIZE as u32 - 1);
 
-      // return self.dtcm[actual_addr as usize];
-      // unsafe { *(&bank[address as usize] as *const u8 as *const u16) }
       return unsafe { *(&self.dtcm[actual_addr as usize] as *const u8 as *const T) }
     }
 

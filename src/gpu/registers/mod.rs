@@ -16,4 +16,3 @@ pub mod display_capture_control_register;
 pub mod display_3d_control_register;
 pub mod geometry_status_register;
 pub mod clear_color_register;
-pub mod fog_color_register;

@@ -1,9 +1,24 @@
 use std::{cmp, collections::HashSet};
 
-use crate::gpu::{color::Color, registers::display_3d_control_register::Display3dControlRegister, vram::VRam, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gpu::{
+  color::Color,
+  registers::display_3d_control_register::Display3dControlRegister,
+  vram::VRam,
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH
+};
 
-use super::{polygon::Polygon, polygon_attributes::{PolygonAttributes, PolygonMode}, texture_params::TextureFormat, vertex::Vertex, Engine3d, Pixel3d};
-
+use super::{
+  polygon::Polygon,
+  polygon_attributes::{
+    PolygonAttributes,
+    PolygonMode
+  },
+  texture_params::TextureFormat,
+  vertex::Vertex,
+  Engine3d,
+  Pixel3d
+};
 
 pub struct Deltas {
   pub dw: f32,
@@ -27,7 +42,6 @@ impl Deltas {
     Self::new(dz, dw)
   }
 }
-
 
 #[derive(Debug)]
 pub struct Slope {
@@ -175,19 +189,55 @@ impl Engine3d {
 
         for polygon in opaque {
           let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+          Self::render_polygon(
+            &polygon,
+            vertices,
+            vram,
+            &mut self.frame_buffer,
+            &self.toon_table,
+            &self.disp3dcnt,
+            &mut self.fog_color,
+            self.fog_offset,
+            &self.fog_table,
+            self.debug_on,
+            &mut self.found
+          );
         }
 
         for polygon in translucent {
           let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+          Self::render_polygon(
+            &polygon,
+            vertices,
+            vram,
+            &mut self.frame_buffer,
+            &self.toon_table,
+            &self.disp3dcnt,
+            &mut self.fog_color,
+            self.fog_offset,
+            &self.fog_table,
+            self.debug_on,
+            &mut self.found
+          );
         }
 
 
       } else {
         for polygon in self.polygon_buffer.drain(..) {
           let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(&polygon, vertices, vram, &mut self.frame_buffer, &self.toon_table, &self.disp3dcnt, self.debug_on, &mut self.found);
+          Self::render_polygon(
+            &polygon,
+            vertices,
+            vram,
+            &mut self.frame_buffer,
+            &self.toon_table,
+            &self.disp3dcnt,
+            &mut self.fog_color,
+            self.fog_offset,
+            &self.fog_table,
+            self.debug_on,
+            &mut self.found
+          );
         }
       }
 
@@ -231,6 +281,9 @@ impl Engine3d {
     frame_buffer: &mut [Pixel3d],
     toon_table: &[Color],
     disp3dcnt: &Display3dControlRegister,
+    fog_color: &mut Color,
+    fog_offset: u16,
+    fog_table: &[u8],
     debug_on: bool,
     found: &mut HashSet<String>
   ) {
@@ -513,6 +566,22 @@ impl Engine3d {
               pixel.depth = z as u32;
             }
           }
+          if disp3dcnt.contains(Display3dControlRegister::FOG_MASTER_ENABLE) &&
+            polygon.attributes.contains(PolygonAttributes::FOG_ENABLE)
+          {
+            let mut pixel_color = pixel.color.unwrap();
+            let old_pixel_color = pixel.color.unwrap();
+            Self::apply_fog(
+              &mut pixel_color.to_rgb6(),
+              fog_color,
+              fog_offset,
+              fog_table,
+              disp3dcnt,
+              z as u32
+            );
+
+            pixel.color = Some(pixel_color.to_rgb5());
+          }
         }
         z += dzdx;
         x += 1;
@@ -521,6 +590,43 @@ impl Engine3d {
       boundary2 += right_slope;
       y += 1;
     }
+  }
+
+  fn apply_fog(
+    color: &mut Color,
+    fog_color: &mut Color,
+    fog_offset: u16,
+    fog_table: &[u8],
+    disp3dcnt: &Display3dControlRegister,
+    z: u32
+  ) {
+    let fog_step = 0x400 << disp3dcnt.fog_depth_shift();
+
+    let n = if z < fog_offset as u32 {
+      (z - fog_offset as u32) / fog_step - 1
+    } else {
+      0
+    };
+
+    let mut density = fog_table[n as usize];
+
+    if density == 127 {
+      density = 128;
+    }
+
+    fog_color.to_rgb6();
+
+    // apply fog formula
+
+    if !disp3dcnt.contains(Display3dControlRegister::FOG_ALPHA_ONLY) {
+      color.r = ((fog_color.r as u16 * density as u16 + color.r as u16 * (128 - density as u16)) / 128) as u8;
+      color.g = ((fog_color.g as u16 * density as u16 + color.g as u16 * (128 - density as u16)) / 128) as u8;
+      color.b = ((fog_color.b as u16 * density as u16 + color.b as u16 * (128 - density as u16)) / 128) as u8;
+    }
+
+    color.alpha = Some(
+      ((fog_color.alpha6() as u16 * density as u16 + color.alpha6() as u16 * (128 - density as u16)) / 128) as u8
+    );
   }
 
   fn apply_polygon_shading(blended: Color, toon_color: Color) -> Option<Color> {

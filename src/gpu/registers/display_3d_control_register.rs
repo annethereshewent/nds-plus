@@ -21,7 +21,7 @@ bitflags! {
     const ALPHA_BLENDING_ENABLE = 1 << 3;
     const ANTI_ALIASING_ENABLE = 1 << 4;
     const EDGE_MARKING_ENABLE = 1 << 5;
-    const FOG_MODE = 1 << 6;
+    const FOG_ALPHA_ONLY = 1 << 6;
     const FOG_MASTER_ENABLE = 1 << 7;
     const COLOR_BUFFER_UNDERFLOW_ACKNOWLEDGE = 1 << 12;
     const POLYGON_OVERFLOW_ACKNOWLEDGE = 1 << 13;

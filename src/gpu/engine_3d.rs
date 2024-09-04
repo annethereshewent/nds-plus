@@ -17,7 +17,12 @@ use crate::cpu::registers::interrupt_request_register::InterruptRequestRegister;
 use super::{
   color::Color,
   registers::{
-    clear_color_register::ClearColorRegister, display_3d_control_register::Display3dControlRegister, fog_color_register::FogColorRegister, geometry_status_register::{GeometryIrq, GeometryStatusRegister}
+    clear_color_register::ClearColorRegister,
+    display_3d_control_register::Display3dControlRegister,
+    geometry_status_register::{
+      GeometryIrq,
+      GeometryStatusRegister
+    }
   }, SCREEN_HEIGHT, SCREEN_WIDTH
 };
 
@@ -299,7 +304,7 @@ pub struct Engine3d {
   clear_depth: u32,
   clear_offset_x: u16,
   clear_offset_y: u16,
-  fog_color: FogColorRegister,
+  fog_color: Color,
   fog_offset: u16,
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
@@ -370,7 +375,7 @@ impl Engine3d {
       clear_depth: 0,
       clear_offset_x: 0,
       clear_offset_y: 0,
-      fog_color: FogColorRegister::new(),
+      fog_color: Color::new(),
       fog_offset: 0,
       edge_colors:  [Color::new(); 8],
       toon_table: [Color::new(); 32],
@@ -493,7 +498,7 @@ impl Engine3d {
   }
 
   pub fn write_fog_color(&mut self, value: u32) {
-    self.fog_color.write(value);
+    self.fog_color.write_fog(value);
   }
 
   pub fn write_fog_offset(&mut self, value: u16) {
