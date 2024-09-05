@@ -567,10 +567,11 @@ impl Engine3d {
             }
           }
           if disp3dcnt.contains(Display3dControlRegister::FOG_MASTER_ENABLE) &&
-            polygon.attributes.contains(PolygonAttributes::FOG_ENABLE)
+            polygon.attributes.contains(PolygonAttributes::FOG_ENABLE) &&
+            pixel.color.is_some()
           {
             let mut pixel_color = pixel.color.unwrap();
-            let old_pixel_color = pixel.color.unwrap();
+
             Self::apply_fog(
               &mut pixel_color.to_rgb6(),
               fog_color,
@@ -603,7 +604,7 @@ impl Engine3d {
     let fog_step = 0x400 << disp3dcnt.fog_depth_shift();
 
     let n = if z < fog_offset as u32 {
-      (z - fog_offset as u32) / fog_step - 1
+      (((z - fog_offset as u32) / fog_step - 1) >> 17) & 0x1f
     } else {
       0
     };
