@@ -804,7 +804,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
                 // println!("pushing from register {i}");
                 self.r[i as usize]
               }
-            } else if is_first_register {
+            } else if is_first_register || IS_ARM9 {
               old_base
             } else {
               // println!("using old base +- offset");
