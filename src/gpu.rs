@@ -335,14 +335,18 @@ impl GPU {
         for address in start_address..start_address+width {
           let pixel = source_a(address, &self.engine_a, &self.engine3d);
 
-          self.vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
-          self.vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
+          if self.vram.lcdc.contains(&Bank::new(write_block)) {
+            self.vram.banks[write_block][write_offset + 2 * index] = pixel as u8;
+            self.vram.banks[write_block][write_offset + 2 * index + 1] = (pixel >> 8) as u8;
+          }
 
           index += 1;
         }
       }
       CaptureSource::SourceB => {
-        self.vram.banks[write_block][write_offset..write_offset + 2 * width].copy_from_slice(&source_b[..2 * width]);
+        if self.vram.lcdc.contains(&Bank::new(write_block)) {
+         self.vram.banks[write_block][write_offset..write_offset + 2 * width].copy_from_slice(&source_b[..2 * width]);
+        }
       }
       CaptureSource::Blended => {
         let mut index: usize = 0;
@@ -399,8 +403,10 @@ impl GPU {
 
           let new_color = (new_r as u16) & 0x1f | ((new_g as u16) & 0x1f) << 5 | ((new_b as u16) & 0x1f) << 10 | (alpha as u16) << 15;
 
-          self.vram.banks[write_block][write_offset + 2 * index] = new_color as u8;
-          self.vram.banks[write_block][write_offset + 2 * index + 1] = (new_color >> 8) as u8;
+          if self.vram.lcdc.contains(&Bank::new(write_block)) {
+            self.vram.banks[write_block][write_offset + 2 * index] = new_color as u8;
+            self.vram.banks[write_block][write_offset + 2 * index + 1] = (new_color >> 8) as u8;
+          }
 
           index += 1;
         }

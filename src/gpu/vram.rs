@@ -17,6 +17,24 @@ pub enum Bank {
   BankI = 8
 }
 
+impl Bank {
+  pub fn new(value: usize) -> Self {
+    use Bank::*;
+    match value {
+      0 => BankA,
+      1 => BankB,
+      2 => BankC,
+      3 => BankD,
+      4 => BankE,
+      5 => BankF,
+      6 => BankG,
+      7 => BankH,
+      8 => BankI,
+      _ => unreachable!()
+    }
+  }
+}
+
 const ENGINE_A_OBJ_BLOCKS: usize = 256 / 16;
 const ENGINE_A_BG_BLOCKS: usize = 512 / 16;
 const ENGINE_B_BG_BLOCKS: usize = 128 / 16;
@@ -32,7 +50,7 @@ const BLOCK_SIZE: usize = 16 * 1024;
 
 pub struct VRam {
   pub banks: [Vec<u8>; 9],
-  lcdc: HashSet<Bank>,
+  pub lcdc: HashSet<Bank>,
   engine_a_obj: Vec<HashSet<Bank>>,
   engine_b_obj: Vec<HashSet<Bank>>,
   engine_a_bg: Vec<HashSet<Bank>>,
