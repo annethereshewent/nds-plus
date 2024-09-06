@@ -6,6 +6,7 @@ use light::Light;
 use matrix::Matrix;
 use polygon::Polygon;
 use polygon_attributes::PolygonAttributes;
+use rendering_attributes::RenderingAttributes;
 use specular_color::SpecularColor;
 use texcoord::Texcoord;
 use texture_params::{TextureParams, TransformationMode};
@@ -38,6 +39,7 @@ pub mod vertex;
 pub mod texcoord;
 pub mod polygon;
 pub mod box_test;
+pub mod rendering_attributes;
 
 pub const FIFO_CAPACITY: usize = 256;
 pub const POLYGON_BUFFER_SIZE: usize = 2048;
@@ -353,6 +355,7 @@ pub struct Engine3d {
   polygon_buffer: Vec<Polygon>,
   scale_vector: [i32; 3],
   pub frame_buffer: Box<[Pixel3d]>,
+  attributes_buffer: Box<[RenderingAttributes]>,
   alpha_ref: u8,
   max_params: usize,
   swap_vertices: bool,
@@ -424,6 +427,7 @@ impl Engine3d {
       vertices_buffer: Vec::new(),
       polygon_buffer: Vec::new(),
       frame_buffer: vec![Pixel3d::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
+      attributes_buffer: vec![RenderingAttributes::new(); SCREEN_HEIGHT as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
       alpha_ref: 0,
       max_params: 0,
       swap_vertices: false,
@@ -438,6 +442,12 @@ impl Engine3d {
     for pixel in self.frame_buffer.iter_mut() {
       *pixel = Pixel3d::new();
       pixel.depth = self.clear_depth as u32;
+    }
+  }
+
+  pub fn clear_attributes_buffer(&mut self) {
+    for attr in self.attributes_buffer.iter_mut() {
+      *attr = RenderingAttributes::new();
     }
   }
 
@@ -1324,7 +1334,7 @@ impl Engine3d {
         1
       };
 
-      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200) & 0xffffff) as u32;
+      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200)).clamp(0, 0xff_ffff) as u32;
       temp.normalized_w = if size < 16 {
         transformed[3] << (16 - size)
       } else {

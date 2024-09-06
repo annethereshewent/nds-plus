@@ -14,6 +14,7 @@ use super::{
     PolygonAttributes,
     PolygonMode
   },
+  rendering_attributes::RenderingAttributes,
   texture_params::TextureFormat,
   vertex::Vertex,
   Engine3d,
@@ -168,6 +169,7 @@ impl RgbSlopes {
 impl Engine3d {
   pub fn start_rendering(&mut self, vram: &VRam) {
     if self.polygons_ready {
+      self.clear_attributes_buffer();
       if self.clear_color.alpha != 0 {
         for pixel in self.frame_buffer.iter_mut() {
           pixel.color = Some(Color {
@@ -182,62 +184,41 @@ impl Engine3d {
         self.clear_frame_buffer();
       }
 
+      let mut render = |polygon, vertices| Self::render_polygon(
+        &polygon,
+        vertices,
+        vram,
+        &mut self.frame_buffer,
+        &self.toon_table,
+        &self.disp3dcnt,
+        &mut self.fog_color,
+        self.fog_offset,
+        &self.fog_table,
+        &mut self.attributes_buffer,
+        self.debug_on,
+        &mut self.found
+      );
+
 
       if self.disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) {
         let (opaque, translucent): (Vec<Polygon>, Vec<Polygon>) =
           self.polygon_buffer.drain(..).partition(|polygon| polygon.attributes.alpha() == 0x1f);
 
         for polygon in opaque {
-          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(
-            &polygon,
-            vertices,
-            vram,
-            &mut self.frame_buffer,
-            &self.toon_table,
-            &self.disp3dcnt,
-            &mut self.fog_color,
-            self.fog_offset,
-            &self.fog_table,
-            self.debug_on,
-            &mut self.found
-          );
+          let vertices = &self.vertices_buffer[polygon.start..polygon.end];
+          render(polygon, vertices);
         }
 
         for polygon in translucent {
-          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(
-            &polygon,
-            vertices,
-            vram,
-            &mut self.frame_buffer,
-            &self.toon_table,
-            &self.disp3dcnt,
-            &mut self.fog_color,
-            self.fog_offset,
-            &self.fog_table,
-            self.debug_on,
-            &mut self.found
-          );
+          let vertices = &self.vertices_buffer[polygon.start..polygon.end];
+          render(polygon, vertices);
         }
 
 
       } else {
         for polygon in self.polygon_buffer.drain(..) {
-          let vertices = &mut self.vertices_buffer[polygon.start..polygon.end];
-          Self::render_polygon(
-            &polygon,
-            vertices,
-            vram,
-            &mut self.frame_buffer,
-            &self.toon_table,
-            &self.disp3dcnt,
-            &mut self.fog_color,
-            self.fog_offset,
-            &self.fog_table,
-            self.debug_on,
-            &mut self.found
-          );
+          let vertices = &self.vertices_buffer[polygon.start..polygon.end];
+          render(polygon, vertices);
         }
       }
 
@@ -276,7 +257,7 @@ impl Engine3d {
 
   fn render_polygon(
     polygon: &Polygon,
-    vertices: &mut [Vertex],
+    vertices: &[Vertex],
     vram: &VRam,
     frame_buffer: &mut [Pixel3d],
     toon_table: &[Color],
@@ -284,6 +265,7 @@ impl Engine3d {
     fog_color: &mut Color,
     fog_offset: u16,
     fog_table: &[u8],
+    attributes_buffer: &mut [RenderingAttributes],
     debug_on: bool,
     found: &mut HashSet<String>
   ) {
@@ -491,6 +473,7 @@ impl Engine3d {
 
         // render the pixel!
         let pixel = &mut frame_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
+        let prev_attributes = attributes_buffer[(x + y * SCREEN_WIDTH as u32) as usize];
 
         let mut color: Option<Color> = None;
 
@@ -545,8 +528,15 @@ impl Engine3d {
         if let Some(mut color) = color {
           let fb_color = pixel.color.unwrap_or(Color::new());
           let fb_alpha = fb_color.alpha.unwrap_or(0x1f);
+
           let polygon_alpha = color.alpha.unwrap();
-          if Self::check_polygon_depth(polygon, pixel.depth, z as u32) {
+
+          if Self::check_polygon_depth(
+            polygon,
+            pixel.depth,
+            z as u32,
+            prev_attributes
+          ) {
             if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && fb_alpha != 0 && polygon_alpha != 0x1f {
               let pixel_color = pixel.color.unwrap().to_rgb6();
               let mut color = Self::blend_colors3d(pixel_color, color, 0x1f - polygon_alpha as u16, (polygon_alpha + 1) as u16);
@@ -556,6 +546,7 @@ impl Engine3d {
               color.to_rgb5();
 
               pixel.color = Some(color);
+
             } else if polygon_alpha != 0 {
               color.to_rgb5();
               pixel.color = Some(color);
@@ -565,23 +556,29 @@ impl Engine3d {
             if polygon_alpha != 0x1f && polygon.attributes.contains(PolygonAttributes::UPDATE_DEPTH_FOR_TRANSLUCENT) {
               pixel.depth = z as u32;
             }
-          }
-          if disp3dcnt.contains(Display3dControlRegister::FOG_MASTER_ENABLE) &&
-            polygon.attributes.contains(PolygonAttributes::FOG_ENABLE) &&
-            pixel.color.is_some()
-          {
-            let mut pixel_color = pixel.color.unwrap();
 
-            Self::apply_fog(
-              &mut pixel_color.to_rgb6(),
-              fog_color,
-              fog_offset,
-              fog_table,
-              disp3dcnt,
-              z as u32
-            );
+            attributes_buffer[(x + y * SCREEN_WIDTH as u32) as usize] = RenderingAttributes {
+              is_translucent: polygon_alpha != 0x1f,
+              front_facing: polygon.is_front,
+              fog_enabled: polygon.attributes.contains(PolygonAttributes::FOG_ENABLE)
+            };
 
-            pixel.color = Some(pixel_color.to_rgb5());
+            if disp3dcnt.contains(Display3dControlRegister::FOG_MASTER_ENABLE) &&
+              polygon.attributes.contains(PolygonAttributes::FOG_ENABLE)
+            {
+              let mut pixel_color = pixel.color.unwrap();
+
+              Self::apply_fog(
+                &mut pixel_color.to_rgb6(),
+                fog_color,
+                fog_offset,
+                fog_table,
+                disp3dcnt,
+                z as u32
+              );
+
+              pixel.color = Some(pixel_color.to_rgb5());
+            }
           }
         }
         z += dzdx;
@@ -644,13 +641,22 @@ impl Engine3d {
     })
   }
 
-  fn check_polygon_depth(polygon: &Polygon, current_depth: u32, new_depth: u32) -> bool {
+  fn check_polygon_depth(
+    polygon: &Polygon,
+    current_depth: u32,
+    new_depth: u32,
+    prev_attributes: RenderingAttributes
+  ) -> bool {
     if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
       new_depth >= current_depth - 0x200 && new_depth <= current_depth + 0x200
     } else if !polygon.is_front {
       new_depth < current_depth
     } else {
-      new_depth <= current_depth
+      if !prev_attributes.is_translucent && !prev_attributes.front_facing {
+        new_depth <= current_depth
+      } else {
+        new_depth < current_depth
+      }
     }
   }
 
