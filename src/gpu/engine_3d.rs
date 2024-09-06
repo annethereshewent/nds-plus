@@ -1290,6 +1290,14 @@ impl Engine3d {
     }
     let (mut top, mut bottom) = (191, 0);
 
+    let mut w_leading_zeros = 32;
+
+    for vertex in &self.current_vertices {
+      w_leading_zeros = w_leading_zeros.min(vertex.transformed[3].leading_zeros());
+    }
+
+    w_leading_zeros &= !3;
+
     for vertex in self.current_vertices.drain(..) {
       let mut temp = vertex.clone();
 
@@ -1334,7 +1342,11 @@ impl Engine3d {
         1
       };
 
-      temp.z_depth = ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200)).clamp(0, 0xff_ffff) as u32;
+      temp.z_depth = if self.depth_buffering_with_w {
+        w as u32 & !((((1_u64 << (32 - w_leading_zeros)) - 1) as u32) >> 16)
+      } else {
+        ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200)).clamp(0, 0xff_ffff) as u32
+      };
       temp.normalized_w = if size < 16 {
         transformed[3] << (16 - size)
       } else {
