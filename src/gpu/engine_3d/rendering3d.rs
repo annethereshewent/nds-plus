@@ -49,18 +49,14 @@ pub struct Slope {
   current: usize,
   start: f32,
   num_steps: f32,
-  w_start: f32,
-  w_end: f32,
   diff: f32
 }
 
 impl Slope {
-  pub fn new(start: f32, w_start: f32, w_end: f32, diff: f32, num_steps: f32) -> Self {
+  pub fn new(start: f32, diff: f32, num_steps: f32) -> Self {
     Self {
       start,
       current: 0,
-      w_start,
-      w_end,
       diff,
       num_steps
     }
@@ -82,8 +78,6 @@ impl Slope {
 
     Slope::new(
       start_fp,
-      start.normalized_w as f32,
-      end.normalized_w as f32,
       end_fp - start_fp,
       (end.screen_y - start.screen_y) as f32
     )
@@ -109,27 +103,21 @@ impl RgbSlopes {
       b_slope
     }
   }
-  pub fn new(start: Color, end: Color, w_start: f32, w_end: f32, num_steps: f32) -> Self {
+  pub fn new(start: Color, end: Color, num_steps: f32) -> Self {
     let r_slope = Slope::new(
       start.r as f32,
-      w_start,
-      w_end,
       (end.r as i32 - start.r as i32) as f32,
       num_steps
     );
 
     let g_slope = Slope::new(
       start.g as f32,
-      w_start,
-      w_end,
       (end.g as i32 - start.g as i32) as f32,
       num_steps
     );
 
     let b_slope = Slope::new(
       start.b as f32,
-      w_start,
-      w_end,
       (end.b as i32 - start.b as i32) as f32,
       num_steps
     );
@@ -144,8 +132,6 @@ impl RgbSlopes {
   pub fn new_slope(start: Vertex, end: Vertex, start_fp: f32, end_fp: f32) -> Slope {
     Slope::new(
       start_fp,
-      start.normalized_w as f32,
-      end.normalized_w as f32,
       end_fp - start_fp,
       (end.screen_y - start.screen_y) as f32
     )
@@ -209,12 +195,9 @@ impl Engine3d {
           render(polygon, vertices);
         }
 
-        let mut i = 0;
         for polygon in translucent {
           let vertices = &self.vertices_buffer[polygon.start..polygon.end];
           render(polygon, vertices);
-
-          i += 1;
         }
 
 
@@ -366,17 +349,11 @@ impl Engine3d {
     let mut y = min_y;
     let mut x = min_x;
 
-    let mut w_start = left_start.normalized_w as f32;
-    let mut w_end = right_start.normalized_w as f32;
-
     let mut z_start = left_start.z_depth as f32;
     let mut z_end = right_start.z_depth as f32;
 
     let mut boundary1 = left_start.screen_x as f32;
     let mut boundary2 = right_start.screen_x as f32;
-
-    // println!("z start = {} z end = {}", left_start.z_depth, right_start.z_depth);
-    // println!("left_start = {},{} right_start = {},{}", left_start.screen_x, left_start.screen_y, right_start.screen_x, right_start.screen_y);
 
     while y < max_y {
       while y >= left_end.screen_y {
@@ -400,7 +377,6 @@ impl Engine3d {
           boundary1 = left_start.screen_x as f32;
 
           z_start = left_start.z_depth as f32;
-          w_start = left_start.normalized_w as f32;
         }
       }
       while y >= right_end.screen_y {
@@ -424,7 +400,6 @@ impl Engine3d {
           boundary2 = right_start.screen_x as f32;
 
           z_end = right_start.z_depth as f32;
-          w_end = right_start.normalized_w as f32;
         }
       }
 
@@ -439,27 +414,17 @@ impl Engine3d {
 
       x = boundary1 as u32;
 
-      w_start += left_vertical_delta.dw;
-      w_end += right_vertical_delta.dw;
-
       z_start += left_vertical_delta.dz;
       z_end += right_vertical_delta.dz;
 
-      // println!("z start = {z_start} z_end = {z_end} left dzdy = {} right dzdy = {}", left_vertical_delta.dz, right_vertical_delta.dz);
-      // println!("left start = {},{} left end = {},{} right start = {},{}, right end = {},{}", left_start.screen_x, left_start.screen_y, left_end.screen_x, left_end.screen_y, right_start.screen_x, right_start.screen_y, right_end.screen_x, right_end.screen_y);
-
       let mut u_d = Slope::new(
         left_u,
-        w_start as f32,
-        w_end as f32,
         right_u - left_u,
         boundary2 - boundary1
       );
 
       let mut v_d = Slope::new(
         left_v,
-        w_start,
-        w_end,
         right_v - left_v,
         boundary2 - boundary1
       );
@@ -467,8 +432,6 @@ impl Engine3d {
       let mut rgb_d = RgbSlopes::new(
         left_rgb,
         right_rgb,
-        w_start,
-        w_end,
         boundary2 - boundary1
       );
 
@@ -546,17 +509,11 @@ impl Engine3d {
 
           let polygon_alpha = color.alpha.unwrap();
 
-          if z < 0.0 {
-            let depths: Vec<u32> = vertices.iter().map(|vertex| vertex.z_depth).collect();
-            panic!("polygon depth = {:?}, dzdx = {dzdx}", depths);
-          }
-
           if Self::check_polygon_depth(
             polygon,
             pixel.depth,
             z as u32,
-            prev_attributes,
-            debug_on
+            prev_attributes
           ) {
             if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && fb_alpha != 0 && polygon_alpha != 0x1f {
               let pixel_color = pixel.color.unwrap().to_rgb6();
@@ -667,7 +624,6 @@ impl Engine3d {
     current_depth: u32,
     new_depth: u32,
     prev_attributes: RenderingAttributes,
-    debug_on: bool
   ) -> bool {
     if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
       new_depth >= current_depth - 0x200 && new_depth <= current_depth + 0x200
@@ -675,7 +631,7 @@ impl Engine3d {
       new_depth < current_depth
     } else {
       if !prev_attributes.front_facing && !prev_attributes.is_translucent {
-        new_depth <= current_depth || debug_on
+        new_depth <= current_depth
       } else {
         new_depth < current_depth
       }
@@ -754,16 +710,12 @@ impl Engine3d {
       polygon.tex_params.size_t_shift
     );
 
-    // println!("got {u},{v}");
-
     let texel = u + v * polygon.tex_params.texture_s_size;
     let vram_offset = polygon.tex_params.vram_offset;
 
     let address = vram_offset + texel;
 
     let palette_base = polygon.palette_base;
-
-    // println!("vram offset = {:x} palette base = {:x}", vram_offset, palette_base);
 
     match polygon.tex_params.texture_format {
       TextureFormat::None => None,

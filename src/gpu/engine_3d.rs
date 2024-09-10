@@ -1344,7 +1344,8 @@ impl Engine3d {
         1
       };
 
-      temp.z_depth = if self.depth_buffering_with_w {
+      // TODO: get depth buffering with z working properly
+      temp.z_depth = if self.depth_buffering_with_w && false {
         w as u32 // & !((((1_u64 << (32 - w_leading_zeros)) - 1) as u32) >> 16)
       } else {
         ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200)).clamp(0, 0xff_ffff) as u32
