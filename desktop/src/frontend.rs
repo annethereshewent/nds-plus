@@ -9,6 +9,11 @@ use std::{
   }
 };
 
+use imgui_glow_renderer::glow::HasContext;
+use imgui::Context;
+
+use imgui_sdl2_support::SdlPlatform;
+
 use ds_emulator::{
   apu::Sample,
   cpu::{
@@ -21,6 +26,7 @@ use ds_emulator::{
     registers::power_control_register1::PowerControlRegister1, GPU, SCREEN_HEIGHT, SCREEN_WIDTH
   }
 };
+use imgui_glow_renderer::AutoRenderer;
 use sdl2::{
   audio::{
     AudioCallback,
@@ -37,7 +43,7 @@ use sdl2::{
   pixels::PixelFormatEnum,
   rect::Rect,
   render::Canvas,
-  video::Window,
+  video::{GLProfile, Window},
   EventPump,
   Sdl
 };
@@ -79,7 +85,7 @@ impl AudioCallback for DsAudioCallback {
 
 pub struct Frontend {
   event_pump: EventPump,
-  canvas: Canvas<Window>,
+  // canvas: Canvas<Window>,
   _controller: Option<GameController>,
   button_map: HashMap<Button, KeyInputRegister>,
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
@@ -88,21 +94,57 @@ pub struct Frontend {
   device: AudioDevice<DsAudioCallback>,
   use_control_stick: bool,
   controller_x: i16,
-  controller_y: i16
+  controller_y: i16,
+  platform: SdlPlatform,
+  renderer: AutoRenderer,
+  imgui: Context,
+  window: Window
 }
 
 impl Frontend {
+
+  fn glow_context(window: &Window) -> imgui_glow_renderer::glow::Context {
+    unsafe {
+      imgui_glow_renderer::glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as _)
+    }
+  }
   pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
+    let gl_attr = video_subsystem.gl_attr();
+
+    gl_attr.set_context_version(3, 3);
+    gl_attr.set_context_profile(GLProfile::Core);
+
     let window = video_subsystem
       .window("DS Emulator", (SCREEN_WIDTH * 2) as u32, (SCREEN_HEIGHT * 2 * 2) as u32)
+      .opengl()
       .position_centered()
       .build()
       .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    canvas.set_scale(2.0, 2.0).unwrap();
+    let gl_context = window.gl_create_context().unwrap();
+
+    window.gl_make_current(&gl_context).unwrap();
+
+    window.subsystem().gl_set_swap_interval(1).unwrap();
+
+    let gl = Self::glow_context(&window);
+
+    let mut imgui = Context::create();
+
+    imgui.set_ini_filename(None);
+    imgui.set_log_filename(None);
+
+    imgui
+      .fonts()
+      .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
+
+    let platform = SdlPlatform::init(&mut imgui);
+    let renderer = AutoRenderer::initialize(gl, &mut imgui).unwrap();
+
+    // let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    // canvas.set_scale(2.0, 2.0).unwrap();
 
     let event_pump = sdl_context.event_pump().unwrap();
 
@@ -187,7 +229,7 @@ impl Frontend {
 
     Self {
       event_pump,
-      canvas,
+      // canvas,
       _controller,
       button_map,
       ext_button_map,
@@ -196,7 +238,11 @@ impl Frontend {
       device,
       use_control_stick: false,
       controller_x: 0,
-      controller_y: 0
+      controller_y: 0,
+      platform,
+      renderer,
+      imgui,
+      window
     }
   }
 
@@ -290,30 +336,43 @@ impl Frontend {
   }
 
   pub fn render(&mut self, gpu: &mut GPU) {
-    let creator = self.canvas.texture_creator();
-    let mut texture_a = creator
-      .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
-      .unwrap();
+    // let creator = self.canvas.texture_creator();
+    // let mut texture_a = creator
+    //   .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
+    //   .unwrap();
 
-    let mut texture_b = creator
-      .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
-      .unwrap();
+    // let mut texture_b = creator
+    //   .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
+    //   .unwrap();
 
-    if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
-      texture_a.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-    } else {
-      texture_a.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-    }
+    // if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
+    //   texture_a.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    //   texture_b.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    // } else {
+    //   texture_a.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    //   texture_b.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    // }
 
 
-    let screen_a = Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
-    let screen_b = Rect::new(0, SCREEN_HEIGHT as i32, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
+    // let screen_a = Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
+    // let screen_b = Rect::new(0, SCREEN_HEIGHT as i32, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
 
-    self.canvas.copy(&texture_a, None, screen_a).unwrap();
-    self.canvas.copy(&texture_b, None, screen_b).unwrap();
+    // self.canvas.copy(&texture_a, None, screen_a).unwrap();
+    // self.canvas.copy(&texture_b, None, screen_b).unwrap();
 
-    self.canvas.present();
+    // self.canvas.present();
+
+    self.platform.prepare_frame(&mut self.imgui, &self.window, &mut self.event_pump);
+
+    let ui = self.imgui.new_frame();
+
+    ui.show_demo_window(&mut true);
+
+    let draw_data = self.imgui.render();
+
+    // unsafe { self.renderer.gl_context().clear(glow::COLOR_BUFFER_BIT) };
+    self.renderer.render(draw_data).unwrap();
+
+    // self.window.gl_swap_window();
   }
 }

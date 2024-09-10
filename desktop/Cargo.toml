@@ -7,6 +7,12 @@ edition = "2021"
 [dependencies.ds-emulator]
 path = "../"
 
+[dependencies]
+glow = "0.14.0"
+imgui-glow-renderer = { version = "0.12.0" }
+imgui = { version = "0.12.0" }
+imgui-sdl2-support = { version = "0.12.0" }
+
 [dependencies.sdl2]
-version = "0.35"
+version = "0.34.5"
 features=["gfx"]
