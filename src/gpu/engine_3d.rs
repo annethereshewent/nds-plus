@@ -362,7 +362,8 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>
+  pub found: HashSet<String>,
+  pub current_polygon: usize
 }
 
 impl Engine3d {
@@ -434,7 +435,8 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new()
+      found: HashSet::new(),
+      current_polygon: 0
     }
   }
 
@@ -1336,17 +1338,19 @@ impl Engine3d {
         (y_offset * self.viewport.height() / denominator + self.viewport.y1 as i32) as u32
       };
 
-      let w = if transformed[3] > 0 {
+      let w = if transformed[3] != 0 {
         transformed[3]
       } else {
         1
       };
 
       temp.z_depth = if self.depth_buffering_with_w {
-        w as u32 & !((((1_u64 << (32 - w_leading_zeros)) - 1) as u32) >> 16)
+        w as u32 // & !((((1_u64 << (32 - w_leading_zeros)) - 1) as u32) >> 16)
       } else {
         ((((transformed[2] as i64 * 0x4000 / w as i64) + 0x3fff) * 0x200)).clamp(0, 0xff_ffff) as u32
       };
+
+
       temp.normalized_w = if size < 16 {
         transformed[3] << (16 - size)
       } else {
@@ -1359,6 +1363,9 @@ impl Engine3d {
       if vertex.screen_y > bottom {
         bottom = vertex.screen_y;
       }
+
+
+
       self.vertices_buffer.push(temp);
     }
 

@@ -235,6 +235,10 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::T {
             self.use_control_stick = !self.use_control_stick;
             bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
+          } else if keycode.unwrap() == Keycode::E {
+            bus.gpu.engine3d.current_polygon -= 1;
+          } else if keycode.unwrap() == Keycode::R {
+            bus.gpu.engine3d.current_polygon += 1;
           }
         }
         Event::KeyUp { keycode, .. } => {

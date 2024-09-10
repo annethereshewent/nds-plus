@@ -68,7 +68,7 @@ impl Slope {
 
   pub fn next(&mut self) -> f32 {
     let current = self.current as f32;
-    let factor = (current * self.w_start) / (((self.num_steps - current) * self.w_end) + (current * self.w_start));
+    let factor = current  / ((self.num_steps - current) + (current));
     self.current += 1;
     self.start + factor * self.diff
   }
@@ -209,9 +209,12 @@ impl Engine3d {
           render(polygon, vertices);
         }
 
+        let mut i = 0;
         for polygon in translucent {
           let vertices = &self.vertices_buffer[polygon.start..polygon.end];
           render(polygon, vertices);
+
+          i += 1;
         }
 
 
@@ -372,6 +375,9 @@ impl Engine3d {
     let mut boundary1 = left_start.screen_x as f32;
     let mut boundary2 = right_start.screen_x as f32;
 
+    // println!("z start = {} z end = {}", left_start.z_depth, right_start.z_depth);
+    // println!("left_start = {},{} right_start = {},{}", left_start.screen_x, left_start.screen_y, right_start.screen_x, right_start.screen_y);
+
     while y < max_y {
       while y >= left_end.screen_y {
         // need to calculate a new left slope
@@ -392,6 +398,9 @@ impl Engine3d {
           left_vertical_delta = Deltas::get_deltas(left_start, left_end);
 
           boundary1 = left_start.screen_x as f32;
+
+          z_start = left_start.z_depth as f32;
+          w_start = left_start.normalized_w as f32;
         }
       }
       while y >= right_end.screen_y {
@@ -413,6 +422,9 @@ impl Engine3d {
           right_vertical_delta = Deltas::get_deltas(right_start, right_end);
 
           boundary2 = right_start.screen_x as f32;
+
+          z_end = right_start.z_depth as f32;
+          w_end = right_start.normalized_w as f32;
         }
       }
 
@@ -432,6 +444,9 @@ impl Engine3d {
 
       z_start += left_vertical_delta.dz;
       z_end += right_vertical_delta.dz;
+
+      // println!("z start = {z_start} z_end = {z_end} left dzdy = {} right dzdy = {}", left_vertical_delta.dz, right_vertical_delta.dz);
+      // println!("left start = {},{} left end = {},{} right start = {},{}, right end = {},{}", left_start.screen_x, left_start.screen_y, left_end.screen_x, left_end.screen_y, right_start.screen_x, right_start.screen_y, right_end.screen_x, right_end.screen_y);
 
       let mut u_d = Slope::new(
         left_u,
@@ -531,11 +546,17 @@ impl Engine3d {
 
           let polygon_alpha = color.alpha.unwrap();
 
+          if z < 0.0 {
+            let depths: Vec<u32> = vertices.iter().map(|vertex| vertex.z_depth).collect();
+            panic!("polygon depth = {:?}, dzdx = {dzdx}", depths);
+          }
+
           if Self::check_polygon_depth(
             polygon,
             pixel.depth,
             z as u32,
-            prev_attributes
+            prev_attributes,
+            debug_on
           ) {
             if disp3dcnt.contains(Display3dControlRegister::ALPHA_BLENDING_ENABLE) && pixel.color.is_some() && fb_alpha != 0 && polygon_alpha != 0x1f {
               let pixel_color = pixel.color.unwrap().to_rgb6();
@@ -645,15 +666,16 @@ impl Engine3d {
     polygon: &Polygon,
     current_depth: u32,
     new_depth: u32,
-    prev_attributes: RenderingAttributes
+    prev_attributes: RenderingAttributes,
+    debug_on: bool
   ) -> bool {
     if polygon.attributes.contains(PolygonAttributes::DRAW_PIXELS_WITH_DEPTH) {
       new_depth >= current_depth - 0x200 && new_depth <= current_depth + 0x200
     } else if !polygon.is_front {
       new_depth < current_depth
     } else {
-      if !prev_attributes.is_translucent && !prev_attributes.front_facing {
-        new_depth <= current_depth
+      if !prev_attributes.front_facing && !prev_attributes.is_translucent {
+        new_depth <= current_depth || debug_on
       } else {
         new_depth < current_depth
       }
