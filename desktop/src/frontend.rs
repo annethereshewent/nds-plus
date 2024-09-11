@@ -48,41 +48,6 @@ use sdl2::{
   Sdl
 };
 
-struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<f32>>>
-}
-
-impl AudioCallback for DsAudioCallback {
-  type Channel = f32;
-
-  fn callback(&mut self, buf: &mut [Self::Channel]) {
-    let mut audio_samples = self.audio_samples.lock().unwrap();
-    let len = audio_samples.len();
-
-    let mut last_sample = Sample { left: 0.0, right: 0.0 };
-
-    if len > 2 {
-      last_sample.left = audio_samples[len - 2];
-      last_sample.right = audio_samples[len - 1];
-    }
-
-    let mut is_left_sample = true;
-
-    for b in buf.iter_mut() {
-      *b = if let Some(sample) = audio_samples.pop_front() {
-        sample
-      } else {
-        if is_left_sample {
-          last_sample.left
-        } else {
-          last_sample.right
-        }
-      };
-      is_left_sample = !is_left_sample;
-    }
-  }
-}
-
 pub struct Frontend {
   event_pump: EventPump,
   // canvas: Canvas<Window>,
@@ -373,6 +338,6 @@ impl Frontend {
     // unsafe { self.renderer.gl_context().clear(glow::COLOR_BUFFER_BIT) };
     self.renderer.render(draw_data).unwrap();
 
-    // self.window.gl_swap_window();
+    self.window.gl_swap_window();
   }
 }
