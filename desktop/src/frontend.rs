@@ -64,6 +64,8 @@ use sdl2::{
   Sdl
 };
 
+use crate::cloud_service::CloudService;
+
 struct DsAudioCallback {
   audio_samples: Arc<Mutex<VecDeque<f32>>>
 }
@@ -114,14 +116,13 @@ pub struct Frontend {
   gl: imgui_glow_renderer::glow::Context,
   texture: NativeTexture,
   platform: SdlPlatform,
-  email: String,
-  password: String,
   show_menu: bool,
-  show_popup: bool,
   imgui: imgui::Context,
   window: Window,
   textures: Textures<NativeTexture>,
-  _gl_context: GLContext
+  _gl_context: GLContext,
+  cloud_service: CloudService,
+  logged_in: bool
 }
 
 impl Frontend {
@@ -290,17 +291,16 @@ impl Frontend {
       use_control_stick: false,
       controller_x: 0,
       controller_y: 0,
-      email: String::new(),
-      password: String::new(),
       show_menu: true,
-      show_popup: false,
       renderer,
       gl,
       texture,
       platform,
       imgui,
       textures,
-      _gl_context: gl_context
+      _gl_context: gl_context,
+      cloud_service: CloudService::new(),
+      logged_in: false
     }
   }
 
@@ -332,7 +332,7 @@ impl Frontend {
       self.platform.handle_event(&mut self.imgui, &event);
       match event {
         Event::Quit { .. } => std::process::exit(0),
-        Event::KeyDown { keycode, .. } if !self.show_popup => {
+        Event::KeyDown { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, false);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
@@ -350,7 +350,7 @@ impl Frontend {
             self.show_menu = !self.show_menu;
           }
         }
-        Event::KeyUp { keycode, .. } if !self.show_popup => {
+        Event::KeyUp { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, true);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
@@ -459,31 +459,6 @@ impl Frontend {
 
     let ui = self.imgui.new_frame();
 
-    if let Some(token) = ui.begin_popup("cloud_modal") {
-      ui.text("Please enter your credentials");
-
-      ui.separator();
-
-      ui.input_text("E-mail", &mut self.email).build();
-      ui.input_text("Password", &mut self.password).password(true).build();
-
-      ui.separator();
-
-      if ui.button("Ok") && self.email != "" && self.password != "" {
-        println!("logging in with credentials {} and {}", self.email, self.password);
-      }
-
-      ui.same_line();
-
-      if ui.button("Cancel") {
-        self.show_popup = false;
-        ui.close_current_popup();
-      }
-
-
-      token.end();
-    }
-
     if self.show_menu {
       ui.main_menu_bar(|| {
         if let Some(menu) = ui.begin_menu("File") {
@@ -493,17 +468,18 @@ impl Frontend {
           if ui.menu_item("Reset") {
 
           }
-          if ui.menu_item("Cloud saves") {
-            self.show_popup = true;
+          if let Some(menu) = ui.begin_menu("Cloud saves") {
+            if !self.logged_in && ui.menu_item("Log in to Google Cloud") {
+              self.cloud_service.login();
+            } else if self.logged_in && ui.menu_item("Log out of Google Cloud") {
 
+            }
+
+            menu.end();
           }
           menu.end();
         }
       });
-    }
-
-    if self.show_popup {
-      ui.open_popup("cloud_modal");
     }
 
     let draw_data = self.imgui.render();

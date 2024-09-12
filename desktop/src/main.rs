@@ -18,6 +18,7 @@ use frontend::Frontend;
 extern crate ds_emulator;
 
 pub mod frontend;
+pub mod cloud_service;
 
 fn main() {
   let args: Vec<String> = env::args().collect();
