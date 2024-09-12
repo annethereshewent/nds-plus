@@ -37,21 +37,7 @@ use ds_emulator::{
 };
 
 use glow::{
-  NativeTexture,
-  PixelUnpackData,
-  Texture,
-  COLOR_ATTACHMENT0,
-  DEBUG_OUTPUT,
-  DEBUG_OUTPUT_SYNCHRONOUS,
-  LINEAR,
-  NEAREST,
-  READ_FRAMEBUFFER,
-  RGB8,
-  RGBA,
-  RGBA8,
-  TEXTURE_2D,
-  TEXTURE_MAG_FILTER,
-  TEXTURE_MIN_FILTER, UNSIGNED_BYTE
+  NativeTexture, PixelUnpackData, Texture, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, DEBUG_OUTPUT, DEBUG_OUTPUT_SYNCHRONOUS, LINEAR, NEAREST, READ_FRAMEBUFFER, RGB8, RGBA, RGBA8, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, UNSIGNED_BYTE
 };
 
 use imgui::{
@@ -99,52 +85,76 @@ fn render(
   // renderer: &mut AutoRenderer,
   // imgui: &mut Context,
   window: &Window,
+  texture: &mut NativeTexture
 ) {
-  /*
-                gl::GenFramebuffers(1, &mut fbo as *mut u32);
-            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
-            gl::FramebufferTexture2D(
-                gl::READ_FRAMEBUFFER,
-                gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
-                screen_tex,
-                0,
-            );
-  */
-
-  let texture = unsafe { gl2.create_texture().unwrap() };
-
-  // let framebuffer = unsafe { gl2.create_framebuffer().unwrap() };
-
   unsafe {
-    // gl2.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
-    // gl2.clear_color(0.0, 0.0, 0.0, 0.0);
-    // gl2.framebuffer_texture_2d(READ_FRAMEBUFFER, COLOR_ATTACHMENT0, TEXTURE_2D, Some(texture), 0);
-
-    // gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR as i32);
-    // gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
-    // gl2.tex_storage_2d(
-    //   TEXTURE_2D,
-    //   1,
-    //   RGBA8,
-    //   SCREEN_WIDTH as i32,
-    //   SCREEN_HEIGHT as i32
-    // );
-    gl2.bind_texture(TEXTURE_2D, Some(texture));
+    gl2.clear(glow::COLOR_BUFFER_BIT);
+    gl2.bind_texture(TEXTURE_2D, Some(*texture));
 
     gl2.tex_sub_image_2d(
       TEXTURE_2D,
       0,
       0,
       0,
-      SCREEN_WIDTH.into(),
-      SCREEN_HEIGHT.into(),
+      SCREEN_WIDTH as i32,
+      SCREEN_HEIGHT as i32,
       RGBA,
       UNSIGNED_SHORT_1_5_5_5_REV,
       PixelUnpackData::Slice(&gpu.engine_a.pixels)
     );
 
-    gl2.clear(glow::COLOR_BUFFER_BIT);
+    gl2.tex_sub_image_2d(
+      TEXTURE_2D,
+      0,
+      0,
+      SCREEN_HEIGHT as i32,
+      SCREEN_WIDTH as i32,
+      SCREEN_HEIGHT as i32,
+      RGBA,
+      UNSIGNED_SHORT_1_5_5_5_REV,
+      PixelUnpackData::Slice(&gpu.engine_b.pixels)
+    );
+
+    //   gl::BlitFramebuffer(
+    //     0,
+    //     Display::HEIGHT as i32,
+    //     Display::WIDTH as i32,
+    //     0,
+    //     x_start,
+    //     y_start,
+    //     x_end,
+    //     y_end,
+    //     gl::COLOR_BUFFER_BIT,
+    //     gl::NEAREST,
+    // );
+
+    /*
+
+        let (tex_x, tex_y) = if width * Display::HEIGHT as i32 > height * Display::WIDTH as i32 {
+            let scaled_width =
+                (Display::WIDTH as f32 / Display::HEIGHT as f32 * height as f32) as i32;
+            ((width - scaled_width) / 2, 0)
+        } else if width * (Display::HEIGHT as i32) < height * Display::WIDTH as i32 {
+            let scaled_height =
+                (Display::HEIGHT as f32 / Display::WIDTH as f32 * width as f32) as i32;
+            (0, (height - scaled_height) / 2)
+        } else {
+            (0, 0)
+        };
+    */
+
+    gl2.blit_framebuffer(
+      0,
+      SCREEN_HEIGHT as i32 * 4,
+      SCREEN_WIDTH as i32 * 2,
+      0,
+      0,
+      0,
+      SCREEN_WIDTH as i32 * 2,
+      SCREEN_HEIGHT as i32 * 4,
+      COLOR_BUFFER_BIT,
+      NEAREST
+    );
   }
 
   // platform.prepare_frame(imgui, window, event_pump);
@@ -373,30 +383,33 @@ fn main() {
     glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as *const _)
   };
 
-  let program = unsafe { gl2.create_program().expect("Cannot create program") };
-
-  let texture = unsafe { gl2.create_texture().unwrap() };
+  let mut texture = unsafe { gl2.create_texture().unwrap() };
+  let framebuffer = unsafe { gl2.create_framebuffer().unwrap() };
 
   unsafe {
-    // gl2.enable(DEBUG_OUTPUT);
-    // gl2.enable(DEBUG_OUTPUT_SYNCHRONOUS);
-    // gl2.debug_message_callback(gl_debug_callback);
-    gl2.use_program(Some(program));
     gl2.bind_texture(TEXTURE_2D, Some(texture));
 
-    gl2.tex_sub_image_2d(
+    gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as i32);
+    gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as i32);
+
+    gl2.tex_storage_2d(
       TEXTURE_2D,
-      0,
-      0,
-      0,
-      SCREEN_WIDTH.into(),
-      SCREEN_HEIGHT.into(),
-      RGBA,
-      UNSIGNED_SHORT_1_5_5_5_REV,
-      PixelUnpackData::Slice(&vec![0xff; (SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize) * 3].into_boxed_slice())
+      1,
+      RGBA8,
+      SCREEN_WIDTH as i32 * 2,
+      SCREEN_HEIGHT as i32 * 2
     );
 
-    gl2.clear(glow::COLOR_BUFFER_BIT);
+    gl2.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
+    gl2.framebuffer_texture_2d(
+      READ_FRAMEBUFFER,
+      COLOR_ATTACHMENT0,
+      TEXTURE_2D,
+      Some(texture),
+      0
+    );
+
+    gl2.clear_color(0.0, 0.0, 0.0, 0.0);
   }
 
   // let mut imgui = Context::create();
@@ -528,6 +541,7 @@ fn main() {
       // &mut renderer,
       // &mut imgui,
       &window,
+      &mut texture
     );
 
     handle_events(
