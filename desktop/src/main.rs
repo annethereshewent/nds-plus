@@ -29,15 +29,23 @@ use ds_emulator::{
     }
   },
   gpu::{
-    GPU,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH
+    registers::power_control_register1::PowerControlRegister1, GPU, SCREEN_HEIGHT, SCREEN_WIDTH
   },
   nds::Nds
 };
 
 use glow::{
-  NativeTexture, PixelUnpackData, Texture, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, DEBUG_OUTPUT, DEBUG_OUTPUT_SYNCHRONOUS, LINEAR, NEAREST, READ_FRAMEBUFFER, RGB8, RGBA, RGBA8, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, UNSIGNED_BYTE
+  NativeTexture,
+  PixelUnpackData,
+  COLOR_ATTACHMENT0,
+  COLOR_BUFFER_BIT,
+  NEAREST,
+  READ_FRAMEBUFFER,
+  RGBA,
+  RGBA8,
+  TEXTURE_2D,
+  TEXTURE_MAG_FILTER,
+  TEXTURE_MIN_FILTER
 };
 
 use imgui::{
@@ -87,6 +95,13 @@ fn render(
   window: &Window,
   texture: &mut NativeTexture
 ) {
+
+  let (top, bottom) = if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
+    (&gpu.engine_a.pixels, &gpu.engine_b.pixels)
+  } else {
+    (&gpu.engine_b.pixels, &gpu.engine_a.pixels)
+  };
+
   unsafe {
     gl2.clear(glow::COLOR_BUFFER_BIT);
     gl2.bind_texture(TEXTURE_2D, Some(*texture));
@@ -100,7 +115,7 @@ fn render(
       SCREEN_HEIGHT as i32,
       RGBA,
       UNSIGNED_SHORT_1_5_5_5_REV,
-      PixelUnpackData::Slice(&gpu.engine_a.pixels)
+      PixelUnpackData::Slice(&top)
     );
 
     gl2.tex_sub_image_2d(
@@ -112,41 +127,13 @@ fn render(
       SCREEN_HEIGHT as i32,
       RGBA,
       UNSIGNED_SHORT_1_5_5_5_REV,
-      PixelUnpackData::Slice(&gpu.engine_b.pixels)
+      PixelUnpackData::Slice(&bottom)
     );
-
-    //   gl::BlitFramebuffer(
-    //     0,
-    //     Display::HEIGHT as i32,
-    //     Display::WIDTH as i32,
-    //     0,
-    //     x_start,
-    //     y_start,
-    //     x_end,
-    //     y_end,
-    //     gl::COLOR_BUFFER_BIT,
-    //     gl::NEAREST,
-    // );
-
-    /*
-
-        let (tex_x, tex_y) = if width * Display::HEIGHT as i32 > height * Display::WIDTH as i32 {
-            let scaled_width =
-                (Display::WIDTH as f32 / Display::HEIGHT as f32 * height as f32) as i32;
-            ((width - scaled_width) / 2, 0)
-        } else if width * (Display::HEIGHT as i32) < height * Display::WIDTH as i32 {
-            let scaled_height =
-                (Display::HEIGHT as f32 / Display::WIDTH as f32 * width as f32) as i32;
-            (0, (height - scaled_height) / 2)
-        } else {
-            (0, 0)
-        };
-    */
 
     gl2.blit_framebuffer(
       0,
-      SCREEN_HEIGHT as i32 * 4,
-      SCREEN_WIDTH as i32 * 2,
+      SCREEN_HEIGHT as i32 * 2,
+      SCREEN_WIDTH as i32,
       0,
       0,
       0,
@@ -397,7 +384,7 @@ fn main() {
       1,
       RGBA8,
       SCREEN_WIDTH as i32 * 2,
-      SCREEN_HEIGHT as i32 * 2
+      SCREEN_HEIGHT as i32 * 4
     );
 
     gl2.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
