@@ -87,14 +87,8 @@ extern crate ds_emulator;
 
 fn render(
   gpu: &mut GPU,
-  platform: &mut SdlPlatform,
   gl: &imgui_glow_renderer::glow::Context,
-  renderer: &mut Renderer,
-  imgui: &mut Context,
-  window: &Window,
-  event_pump: &EventPump,
-  texture: &mut NativeTexture,
-  textures: &mut Textures<NativeTexture>
+  texture: &mut NativeTexture
 ) {
 
   let (top, bottom) = if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
@@ -144,18 +138,77 @@ fn render(
       NEAREST
     );
   }
+}
 
+// TODO: move this back to frontend struct
+fn render_ui(
+  platform: &mut SdlPlatform,
+  imgui: &mut Context,
+  renderer: &mut Renderer,
+  window: &Window,
+  event_pump: &EventPump,
+  gl: &imgui_glow_renderer::glow::Context,
+  textures: &mut Textures<NativeTexture>,
+  show_menu: bool,
+  email: &mut String,
+  password: &mut String
+) {
   platform.prepare_frame(imgui, window, event_pump);
 
   let ui = imgui.new_frame();
 
-  ui.show_demo_window(&mut true);
+  let mut show_popup = false;
+
+  if let Some(token) = ui.begin_popup("cloud_modal") {
+    ui.text("Please enter your credentials");
+
+    ui.separator();
+
+    ui.input_text("E-mail", email).build();
+    ui.input_text("Password", password).password(true).build();
+
+    ui.separator();
+
+    if ui.button("Ok") && email != "" && password != "" {
+      // need to log in to google cloud!
+      println!("loggin in with credentials {email} and {password}");
+    }
+
+    ui.same_line();
+
+    if ui.button("Cancel") {
+      ui.close_current_popup();
+    }
+
+
+    token.end();
+  }
+
+  if show_menu {
+    ui.main_menu_bar(|| {
+      if let Some(menu) = ui.begin_menu("File") {
+        if ui.menu_item("Open") {
+
+        }
+        if ui.menu_item("Reset") {
+
+        }
+        if ui.menu_item("Cloud saves") {
+          show_popup = true;
+
+        }
+        menu.end();
+      }
+    });
+  }
+
+  if show_popup {
+    ui.open_popup("cloud_modal");
+  }
 
   let draw_data = imgui.render();
 
-  renderer.render(&gl, textures, draw_data);
-
-  window.gl_swap_window();
+  renderer.render(&gl, textures, draw_data).unwrap();
 }
 
 fn handle_events(
@@ -167,9 +220,13 @@ fn handle_events(
   ext_button_map: &HashMap<Button, ExternalKeyInputRegister>,
   use_control_stick: &mut bool,
   controller_x: &mut i16,
-  controller_y: &mut i16
+  controller_y: &mut i16,
+  platform: &mut SdlPlatform,
+  imgui: &mut imgui::Context,
+  show_menu: &mut bool
 ) {
   for event in event_pump.poll_iter() {
+    platform.handle_event(imgui, &event);
     match event {
       Event::Quit { .. } => std::process::exit(0),
       Event::KeyDown { keycode, .. } => {
@@ -190,6 +247,8 @@ fn handle_events(
           bus.gpu.engine3d.current_polygon -= 1;
         } else if keycode.unwrap() == Keycode::R {
           bus.gpu.engine3d.current_polygon += 1;
+        } else if keycode.unwrap() == Keycode::Escape {
+          *show_menu = !*show_menu;
         }
       }
       Event::KeyUp { keycode, .. } => {
@@ -364,7 +423,7 @@ fn main() {
 
   window.subsystem().gl_set_swap_interval(1).unwrap();
 
-  let mut gl = glow_context(&window);
+  let gl = glow_context(&window);
 
   let mut texture = unsafe { gl.create_texture().unwrap() };
   let framebuffer = unsafe { gl.create_framebuffer().unwrap() };
@@ -509,6 +568,10 @@ fn main() {
   // let texture_id_a = textures.insert(dummy);
   // let texture_id_b = textures.insert(dummy);
 
+  let mut show_menu = true;
+  let mut email = String::new();
+  let mut password = String::new();
+
   loop {
     while !frame_finished {
       frame_finished = nds.step();
@@ -524,18 +587,28 @@ fn main() {
     // render stuff
     render(
       &mut bus.gpu,
-      &mut platform,
       &gl,
-      &mut renderer,
-      &mut imgui,
-      &window,
-      &event_pump,
-      &mut texture,
-      &mut textures
+      &mut texture
     );
 
+    render_ui(
+      &mut platform,
+      &mut imgui,
+      &mut renderer,
+      &window,
+      &event_pump,
+      &gl,
+      &mut textures,
+      show_menu,
+      &mut email,
+      &mut password
+    );
+
+    window.gl_swap_window();
+
     handle_events(
-      bus, &mut event_pump,
+      bus,
+      &mut event_pump,
       &key_map,
       &ext_key_map,
       &button_map,
@@ -543,6 +616,9 @@ fn main() {
       &mut use_control_stick,
       &mut controller_x,
       &mut controller_y,
+      &mut platform,
+      &mut imgui,
+      &mut show_menu
     );
 
     handle_touchscreen(bus, &event_pump, use_control_stick);
