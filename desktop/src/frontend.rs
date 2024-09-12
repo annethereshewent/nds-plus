@@ -121,8 +121,7 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  cloud_service: CloudService,
-  logged_in: bool
+  cloud_service: CloudService
 }
 
 impl Frontend {
@@ -299,8 +298,7 @@ impl Frontend {
       imgui,
       textures,
       _gl_context: gl_context,
-      cloud_service: CloudService::new(),
-      logged_in: false
+      cloud_service: CloudService::new()
     }
   }
 
@@ -469,10 +467,10 @@ impl Frontend {
 
           }
           if let Some(menu) = ui.begin_menu("Cloud saves") {
-            if !self.logged_in && ui.menu_item("Log in to Google Cloud") {
+            if !self.cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
               self.cloud_service.login();
-            } else if self.logged_in && ui.menu_item("Log out of Google Cloud") {
-
+            } else if self.cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
+              self.cloud_service.logout();
             }
 
             menu.end();

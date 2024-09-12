@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 
 use reqwest::blocking::Body;
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,8 @@ use tiny_http::{Response, Server};
 const CLIENT_ID: &str = "353451169812-gf5j4nmiosovv7sendcanjmmcumoq0dl.apps.googleusercontent.com";
 
 // according to google, since you can't keep secrets in desktop apps, keeping it in the source could should be ok.
+// furthermore, google treats client secrets in native apps as extensions of the client ID, and not really a secret,
+// and things like incremental login will not work with desktop apps, which is what the secret is used for on web
 const CLIENT_SECRET: &str = "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";
 
 const BASE_LOGIN_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -26,15 +28,33 @@ struct TokenResponse {
 pub struct CloudService {
   access_token: String,
   refresh_token: String,
-  auth_code: String
+  auth_code: String,
+  pub logged_in: bool
 }
 
 impl CloudService {
   pub fn new() -> Self {
+    let mut access_token = "".to_string();
+
+    let access_token_path = Path::new("./.access_token");
+    if access_token_path.is_file() {
+      access_token = fs::read_to_string("./.access_token").unwrap();
+    }
+
+    let refresh_token_path = Path::new("./.refresh_token");
+
+    let mut refresh_token = "".to_string();
+
+    if refresh_token_path.is_file() {
+      refresh_token = fs::read_to_string("./.refresh_token").unwrap();
+    }
+
+
     Self {
-      access_token: String::new(),
-      refresh_token: String::new(),
-      auth_code: String::new()
+      access_token: access_token.to_string(),
+      refresh_token: refresh_token.to_string(),
+      auth_code: String::new(),
+      logged_in: access_token != ""
     }
   }
 
@@ -111,6 +131,17 @@ impl CloudService {
     self.access_token = json.access_token;
     self.refresh_token = json.refresh_token;
 
-    println!("received access token {} and refresh token {}", self.access_token, self.refresh_token);
+    // store these in files for use later
+    fs::write("./.access_token", self.access_token.clone()).unwrap();
+    fs::write("./.refresh_token", self.refresh_token.clone()).unwrap();
+
+  }
+
+  pub fn logout(&mut self) {
+    fs::remove_file("./.access_token").unwrap();
+    fs::remove_file("./.refresh_token").unwrap();
+
+    self.access_token = String::new();
+    self.refresh_token = String::new();
   }
 }
