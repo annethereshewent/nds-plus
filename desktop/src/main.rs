@@ -45,7 +45,8 @@ use glow::{
   RGBA8,
   TEXTURE_2D,
   TEXTURE_MAG_FILTER,
-  TEXTURE_MIN_FILTER
+  TEXTURE_MIN_FILTER,
+  UNSIGNED_BYTE
 };
 
 use imgui::{
@@ -55,9 +56,6 @@ use imgui::{
 };
 
 use imgui_glow_renderer::{
-  glow::{
-    UNSIGNED_SHORT_1_5_5_5_REV
-  },
   AutoRenderer,
   Renderer
 };
@@ -73,8 +71,7 @@ use sdl2::{
   },
   event::Event,
   keyboard::Keycode,
-  pixels::PixelFormatEnum,
-  rect::Rect, video::{
+  video::{
     GLProfile,
     Window
   },
@@ -114,7 +111,7 @@ fn render(
       SCREEN_WIDTH as i32,
       SCREEN_HEIGHT as i32,
       RGBA,
-      UNSIGNED_SHORT_1_5_5_5_REV,
+      UNSIGNED_BYTE,
       PixelUnpackData::Slice(&top)
     );
 
@@ -126,7 +123,7 @@ fn render(
       SCREEN_WIDTH as i32,
       SCREEN_HEIGHT as i32,
       RGBA,
-      UNSIGNED_SHORT_1_5_5_5_REV,
+      UNSIGNED_BYTE,
       PixelUnpackData::Slice(&bottom)
     );
 
