@@ -29,14 +29,15 @@ use ds_emulator::{
     }
   },
   gpu::{
-    registers::power_control_register1::PowerControlRegister1, GPU, SCREEN_HEIGHT, SCREEN_WIDTH
+    registers::power_control_register1::PowerControlRegister1,
+    GPU,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
   },
   nds::Nds
 };
 
 use glow::{
-  NativeTexture,
-  PixelUnpackData,
   COLOR_ATTACHMENT0,
   COLOR_BUFFER_BIT,
   NEAREST,
@@ -51,12 +52,15 @@ use glow::{
 
 use imgui::{
   Context,
-  TextureId,
   Textures
 };
 
 use imgui_glow_renderer::{
-  AutoRenderer,
+  glow::{
+    HasContext,
+    NativeTexture,
+    PixelUnpackData
+  },
   Renderer
 };
 use imgui_sdl2_support::SdlPlatform;
@@ -77,20 +81,20 @@ use sdl2::{
   },
   EventPump
 };
-// use imgui_glow_renderer::glow::HasContext;
-use glow::HasContext;
 
 extern crate ds_emulator;
 
 
 fn render(
   gpu: &mut GPU,
-  //platform: &mut SdlPlatform,
-  gl2: &glow::Context,
-  // renderer: &mut AutoRenderer,
-  // imgui: &mut Context,
+  platform: &mut SdlPlatform,
+  gl: &imgui_glow_renderer::glow::Context,
+  renderer: &mut Renderer,
+  imgui: &mut Context,
   window: &Window,
-  texture: &mut NativeTexture
+  event_pump: &EventPump,
+  texture: &mut NativeTexture,
+  textures: &mut Textures<NativeTexture>
 ) {
 
   let (top, bottom) = if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
@@ -100,10 +104,10 @@ fn render(
   };
 
   unsafe {
-    gl2.clear(glow::COLOR_BUFFER_BIT);
-    gl2.bind_texture(TEXTURE_2D, Some(*texture));
+    gl.clear(glow::COLOR_BUFFER_BIT);
+    gl.bind_texture(TEXTURE_2D, Some(*texture));
 
-    gl2.tex_sub_image_2d(
+    gl.tex_sub_image_2d(
       TEXTURE_2D,
       0,
       0,
@@ -115,7 +119,7 @@ fn render(
       PixelUnpackData::Slice(&top)
     );
 
-    gl2.tex_sub_image_2d(
+    gl.tex_sub_image_2d(
       TEXTURE_2D,
       0,
       0,
@@ -127,7 +131,7 @@ fn render(
       PixelUnpackData::Slice(&bottom)
     );
 
-    gl2.blit_framebuffer(
+    gl.blit_framebuffer(
       0,
       SCREEN_HEIGHT as i32 * 2,
       SCREEN_WIDTH as i32,
@@ -141,17 +145,15 @@ fn render(
     );
   }
 
-  // platform.prepare_frame(imgui, window, event_pump);
+  platform.prepare_frame(imgui, window, event_pump);
 
-  // let ui = imgui.new_frame();
+  let ui = imgui.new_frame();
 
-  // ui.show_demo_window(&mut true);
+  ui.show_demo_window(&mut true);
 
-  // imgui::Image::new(texture_id, [SCREEN_WIDTH as f32 * 2.0, SCREEN_HEIGHT as f32 * 2.0]).build(ui);
+  let draw_data = imgui.render();
 
-  // let draw_data = imgui.render();
-
-  // renderer.render(draw_data);
+  renderer.render(&gl, textures, draw_data);
 
   window.gl_swap_window();
 }
@@ -362,21 +364,18 @@ fn main() {
 
   window.subsystem().gl_set_swap_interval(1).unwrap();
 
-  //let mut gl = glow_context(&window);
-  let mut gl2 = unsafe {
-    glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as *const _)
-  };
+  let mut gl = glow_context(&window);
 
-  let mut texture = unsafe { gl2.create_texture().unwrap() };
-  let framebuffer = unsafe { gl2.create_framebuffer().unwrap() };
+  let mut texture = unsafe { gl.create_texture().unwrap() };
+  let framebuffer = unsafe { gl.create_framebuffer().unwrap() };
 
   unsafe {
-    gl2.bind_texture(TEXTURE_2D, Some(texture));
+    gl.bind_texture(TEXTURE_2D, Some(texture));
 
-    gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as i32);
-    gl2.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as i32);
+    gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as i32);
+    gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as i32);
 
-    gl2.tex_storage_2d(
+    gl.tex_storage_2d(
       TEXTURE_2D,
       1,
       RGBA8,
@@ -384,8 +383,8 @@ fn main() {
       SCREEN_HEIGHT as i32 * 4
     );
 
-    gl2.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
-    gl2.framebuffer_texture_2d(
+    gl.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
+    gl.framebuffer_texture_2d(
       READ_FRAMEBUFFER,
       COLOR_ATTACHMENT0,
       TEXTURE_2D,
@@ -393,23 +392,28 @@ fn main() {
       0
     );
 
-    gl2.clear_color(0.0, 0.0, 0.0, 0.0);
+    gl.clear_color(0.0, 0.0, 0.0, 0.0);
   }
 
-  // let mut imgui = Context::create();
+  let mut imgui = Context::create();
 
-  // imgui.set_ini_filename(None);
-  // imgui.set_log_filename(None);
+  imgui.set_ini_filename(None);
+  imgui.set_log_filename(None);
 
-  // imgui
-  //   .fonts()
-  //   .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
+  imgui
+    .fonts()
+    .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
 
-  // let mut platform = SdlPlatform::init(&mut imgui);
-  // let mut renderer = AutoRenderer::initialize(gl, &mut imgui).unwrap();
+  let mut platform = SdlPlatform::init(&mut imgui);
 
-  // let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-  // canvas.set_scale(2.0, 2.0).unwrap();
+  let mut textures = Textures::<NativeTexture>::new();
+
+  let mut renderer = Renderer::initialize(
+    &gl,
+    &mut imgui,
+    &mut textures,
+    false
+  ).unwrap();
 
   let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -520,12 +524,14 @@ fn main() {
     // render stuff
     render(
       &mut bus.gpu,
-      //&mut platform,
-      &gl2,
-      // &mut renderer,
-      // &mut imgui,
+      &mut platform,
+      &gl,
+      &mut renderer,
+      &mut imgui,
       &window,
-      &mut texture
+      &event_pump,
+      &mut texture,
+      &mut textures
     );
 
     handle_events(
