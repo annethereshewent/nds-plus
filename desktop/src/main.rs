@@ -58,7 +58,6 @@ fn main() {
 
   let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone());
 
-
   let mut frame_finished = false;
 
   loop {

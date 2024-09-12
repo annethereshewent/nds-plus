@@ -454,7 +454,6 @@ impl Frontend {
     self.window.gl_swap_window();
   }
 
-  // TODO: move this back to frontend struct
   pub fn render_ui(&mut self) {
     self.platform.prepare_frame(&mut self.imgui, &mut self.window, &self.event_pump);
 
@@ -471,8 +470,7 @@ impl Frontend {
       ui.separator();
 
       if ui.button("Ok") && self.email != "" && self.password != "" {
-        // need to log in to gooself.gle cloud!
-        println!("loggin in with credentials {} and {}", self.email, self.password);
+        println!("logging in with credentials {} and {}", self.email, self.password);
       }
 
       ui.same_line();
