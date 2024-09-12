@@ -1,136 +1,23 @@
 use std::{
-  collections::{
-    HashMap,
-    VecDeque
-  },
+  collections::VecDeque,
   env,
   fs::{
     self,
-    File
   },
   path::Path,
-  rc::Rc,
   sync::{
     Arc,
     Mutex
   }
 };
 
-use ds_emulator::{
-  apu::{
-    Sample,
-    APU
-  },
-  cpu::{
-    bus::Bus,
-    registers::{
-      external_key_input_register::ExternalKeyInputRegister,
-      key_input_register::KeyInputRegister
-    }
-  },
-  gpu::{
-    registers::power_control_register1::PowerControlRegister1,
-    GPU,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH
-  },
-  nds::Nds
-};
+use ds_emulator::nds::Nds;
 
 use frontend::Frontend;
-use glow::{
-  COLOR_ATTACHMENT0,
-  COLOR_BUFFER_BIT,
-  NEAREST,
-  READ_FRAMEBUFFER,
-  RGBA,
-  RGBA8,
-  TEXTURE_2D,
-  TEXTURE_MAG_FILTER,
-  TEXTURE_MIN_FILTER,
-  UNSIGNED_BYTE
-};
-
-use imgui::{
-  Context,
-  Textures
-};
-
-use imgui_glow_renderer::{
-  glow::{
-    HasContext,
-    NativeTexture,
-    PixelUnpackData
-  },
-  Renderer
-};
-use imgui_sdl2_support::SdlPlatform;
-use sdl2::{
-  audio::{
-    AudioCallback,
-    AudioSpecDesired
-  },
-  controller::{
-    Axis,
-    Button
-  },
-  event::Event,
-  keyboard::Keycode,
-  video::{
-    GLProfile,
-    Window
-  },
-  EventPump
-};
 
 extern crate ds_emulator;
 
 pub mod frontend;
-
-struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<f32>>>
-}
-
-impl AudioCallback for DsAudioCallback {
-  type Channel = f32;
-
-  fn callback(&mut self, buf: &mut [Self::Channel]) {
-    let mut audio_samples = self.audio_samples.lock().unwrap();
-    let len = audio_samples.len();
-
-    let mut last_sample = Sample { left: 0.0, right: 0.0 };
-
-    if len > 2 {
-      last_sample.left = audio_samples[len - 2];
-      last_sample.right = audio_samples[len - 1];
-    }
-
-    let mut is_left_sample = true;
-
-    for b in buf.iter_mut() {
-      *b = if let Some(sample) = audio_samples.pop_front() {
-        sample
-      } else {
-        if is_left_sample {
-          last_sample.left
-        } else {
-          last_sample.right
-        }
-      };
-      is_left_sample = !is_left_sample;
-    }
-  }
-}
-
-fn gl_debug_callback(
-  _source: u32,
-  _type: u32,
-  _id: u32,
-  sev: u32,
-  message: &str,
-) {
-  println!("{message}");
-}
 
 fn main() {
   let args: Vec<String> = env::args().collect();

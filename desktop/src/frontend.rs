@@ -18,14 +18,28 @@ use ds_emulator::{
     }
   },
   gpu::{
-    registers::power_control_register1::PowerControlRegister1, GPU, SCREEN_HEIGHT, SCREEN_WIDTH
+    registers::power_control_register1::PowerControlRegister1,
+    GPU,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
   }
 };
 use glow::RGBA;
 use imgui::{Context, Textures};
 use imgui_glow_renderer::{
   glow::{
-    HasContext, NativeTexture, PixelUnpackData, COLOR_ATTACHMENT0, COLOR_BUFFER_BIT, NEAREST, READ_FRAMEBUFFER, RGBA8, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, UNSIGNED_BYTE
+    HasContext,
+    NativeTexture,
+    PixelUnpackData,
+    COLOR_ATTACHMENT0,
+    COLOR_BUFFER_BIT,
+    NEAREST,
+    READ_FRAMEBUFFER,
+    RGBA8,
+    TEXTURE_2D,
+    TEXTURE_MAG_FILTER,
+    TEXTURE_MIN_FILTER,
+    UNSIGNED_BYTE
   },
   Renderer
 };
@@ -103,6 +117,7 @@ pub struct Frontend {
   email: String,
   password: String,
   show_menu: bool,
+  show_popup: bool,
   imgui: imgui::Context,
   window: Window,
   textures: Textures<NativeTexture>,
@@ -278,6 +293,7 @@ impl Frontend {
       email: String::new(),
       password: String::new(),
       show_menu: true,
+      show_popup: false,
       renderer,
       gl,
       texture,
@@ -316,7 +332,7 @@ impl Frontend {
       self.platform.handle_event(&mut self.imgui, &event);
       match event {
         Event::Quit { .. } => std::process::exit(0),
-        Event::KeyDown { keycode, .. } => {
+        Event::KeyDown { keycode, .. } if !self.show_popup => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, false);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
@@ -330,13 +346,11 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::T {
             self.use_control_stick = !self.use_control_stick;
             bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
-          } else if keycode.unwrap() == Keycode::E {
-            bus.gpu.engine3d.current_polygon -= 1;
-          } else if keycode.unwrap() == Keycode::R {
-            bus.gpu.engine3d.current_polygon += 1;
+          } else if keycode.unwrap() == Keycode::Escape {
+            self.show_menu = !self.show_menu;
           }
         }
-        Event::KeyUp { keycode, .. } => {
+        Event::KeyUp { keycode, .. } if !self.show_popup => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
             bus.key_input_register.set(*button, true);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
@@ -446,8 +460,6 @@ impl Frontend {
 
     let ui = self.imgui.new_frame();
 
-    let mut show_popup = false;
-
     if let Some(token) = ui.begin_popup("cloud_modal") {
       ui.text("Please enter your credentials");
 
@@ -466,6 +478,7 @@ impl Frontend {
       ui.same_line();
 
       if ui.button("Cancel") {
+        self.show_popup = false;
         ui.close_current_popup();
       }
 
@@ -483,7 +496,7 @@ impl Frontend {
 
           }
           if ui.menu_item("Cloud saves") {
-            show_popup = true;
+            self.show_popup = true;
 
           }
           menu.end();
@@ -491,7 +504,7 @@ impl Frontend {
       });
     }
 
-    if show_popup {
+    if self.show_popup {
       ui.open_popup("cloud_modal");
     }
 
