@@ -17,9 +17,9 @@ impl Color {
   }
 
   pub fn convert(&mut self) -> Self {
-    self.r = (self.r << 3) | (self.r >> 2);
-    self.g = (self.g << 3) | (self.g >> 2);
-    self.b = (self.b << 3) | (self.b >> 2);
+    // self.r = (self.r << 3) | (self.r >> 2);
+    // self.g = (self.g << 3) | (self.g >> 2);
+    // self.b = (self.b << 3) | (self.b >> 2);
 
     *self
   }
