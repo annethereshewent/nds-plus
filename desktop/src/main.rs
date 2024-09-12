@@ -1,11 +1,91 @@
-use std::{collections::{HashMap, VecDeque}, env, fs::{self, File}, num::NonZero, path::Path, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+  collections::{
+    HashMap,
+    VecDeque
+  },
+  env,
+  fs::{
+    self,
+    File
+  },
+  path::Path,
+  rc::Rc,
+  sync::{
+    Arc,
+    Mutex
+  }
+};
 
-use ds_emulator::{apu::{Sample, APU}, cpu::{bus::Bus, registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}}, gpu::{GPU, SCREEN_HEIGHT, SCREEN_WIDTH}, nds::Nds};
-use glow::{NativeTexture, PixelUnpackData, Texture, COLOR_ATTACHMENT0, DEBUG_OUTPUT, DEBUG_OUTPUT_SYNCHRONOUS, LINEAR, NEAREST, READ_FRAMEBUFFER, RGB8, RGBA, RGBA8, TEXTURE_2D, TEXTURE_MAG_FILTER, TEXTURE_MIN_FILTER, TRIANGLES, UNSIGNED_BYTE};
-use imgui::{Context, TextureId, Textures};
-use imgui_glow_renderer::{glow::{UNSIGNED_SHORT_1_5_5_5_REV}, AutoRenderer, Renderer};
+use ds_emulator::{
+  apu::{
+    Sample,
+    APU
+  },
+  cpu::{
+    bus::Bus,
+    registers::{
+      external_key_input_register::ExternalKeyInputRegister,
+      key_input_register::KeyInputRegister
+    }
+  },
+  gpu::{
+    GPU,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
+  },
+  nds::Nds
+};
+
+use glow::{
+  NativeTexture,
+  PixelUnpackData,
+  Texture,
+  COLOR_ATTACHMENT0,
+  DEBUG_OUTPUT,
+  DEBUG_OUTPUT_SYNCHRONOUS,
+  LINEAR,
+  NEAREST,
+  READ_FRAMEBUFFER,
+  RGB8,
+  RGBA,
+  RGBA8,
+  TEXTURE_2D,
+  TEXTURE_MAG_FILTER,
+  TEXTURE_MIN_FILTER, UNSIGNED_BYTE
+};
+
+use imgui::{
+  Context,
+  TextureId,
+  Textures
+};
+
+use imgui_glow_renderer::{
+  glow::{
+    UNSIGNED_SHORT_1_5_5_5_REV
+  },
+  AutoRenderer,
+  Renderer
+};
 use imgui_sdl2_support::SdlPlatform;
-use sdl2::{audio::{AudioCallback, AudioSpecDesired}, controller::{Axis, Button}, event::Event, keyboard::Keycode, pixels::PixelFormatEnum, rect::Rect, video::{GLProfile, Window}, EventPump};
+use sdl2::{
+  audio::{
+    AudioCallback,
+    AudioSpecDesired
+  },
+  controller::{
+    Axis,
+    Button
+  },
+  event::Event,
+  keyboard::Keycode,
+  pixels::PixelFormatEnum,
+  rect::Rect, video::{
+    GLProfile,
+    Window
+  },
+  EventPump
+};
 // use imgui_glow_renderer::glow::HasContext;
 use glow::HasContext;
 
