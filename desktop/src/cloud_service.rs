@@ -43,7 +43,8 @@ pub struct CloudService {
   auth_code: String,
   pub logged_in: bool,
   client: Client,
-  ds_folder_id: String
+  ds_folder_id: String,
+  game_name: String
 }
 
 impl CloudService {
@@ -70,7 +71,8 @@ impl CloudService {
       auth_code: String::new(),
       logged_in: access_token != "",
       client: Client::new(),
-      ds_folder_id: String::new()
+      ds_folder_id: String::new(),
+      game_name: String::new()
     }
   }
 
@@ -106,6 +108,10 @@ impl CloudService {
 
         panic!("{:?}", error);
       }
+    } else {
+      self.logout();
+
+      panic!("{}", token_response.text().unwrap());
     }
   }
 
@@ -141,7 +147,7 @@ impl CloudService {
       if response.status() == StatusCode::OK {
        self.process_folder_response(response);
       } else {
-        panic!("Could not refresh token with Google API");
+        panic!("Could not fetch ds folder information");
       }
     } else if response.status() == StatusCode::OK {
       self.process_folder_response(response);
@@ -206,7 +212,13 @@ impl CloudService {
     }
   }
 
+  pub fn upload_save(&mut self) {
+
+  }
+
   pub fn get_save(&mut self, game_name: &str) -> Vec<u8> {
+    self.game_name = game_name.to_string();
+
     self.check_for_ds_folder();
 
     let json = self.get_save_info(game_name);
