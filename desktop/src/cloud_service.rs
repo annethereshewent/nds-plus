@@ -18,7 +18,7 @@ const BASE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 #[derive(Serialize, Deserialize)]
 struct TokenResponse {
   access_token: String,
-  refresh_token: String,
+  refresh_token: Option<String>,
   token_type: String,
   expires_in: usize,
   scope: String
@@ -29,7 +29,7 @@ struct DriveResponse {
   files: Vec<File>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct File {
   id: String,
   name: String,
@@ -74,42 +74,6 @@ impl CloudService {
     }
   }
 
-  pub fn cloud_request<F>(&mut self, request: F) -> Response
-    where F: Fn() -> Response
-  {
-    let response = request();
-
-    if response.status() == StatusCode::UNAUTHORIZED {
-      // refresh token and try again
-      let mut body_params: Vec<[&str; 2]> = Vec::new();
-
-      body_params.push(["client_id", CLIENT_ID]);
-      body_params.push(["client_secret", CLIENT_SECRET]);
-      body_params.push(["grant_type", "refresh_token"]);
-      body_params.push(["refresh_token", &self.refresh_token]);
-
-      let params_arr: Vec<String> = body_params.iter().map(|param| format!("{}={}", param[0], param[1])).collect();
-
-      let params = params_arr.join("&");
-
-      let token_response = self.client.post(BASE_TOKEN_URL)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(Body::from(params))
-        .send()
-        .unwrap();
-
-      if token_response.status() == StatusCode::OK {
-        let json: TokenResponse = token_response.json().unwrap();
-
-        self.access_token = json.access_token;
-        self.refresh_token = json.refresh_token;
-
-        return request();
-      }
-    }
-    return response;
-  }
-
   fn refresh_login(&mut self) {
     let mut body_params: Vec<[&str; 2]> = Vec::new();
 
@@ -133,7 +97,8 @@ impl CloudService {
         let json = json.unwrap();
 
         self.access_token = json.access_token;
-        self.refresh_token = json.refresh_token;
+
+        fs::write("./.access_token", self.access_token.clone()).unwrap();
       } else {
         let error = json.err().unwrap();
 
@@ -266,11 +231,9 @@ impl CloudService {
           .unwrap();
 
         if response.status() == StatusCode::OK {
-          println!("successfully received some bytes!!!!!");
           return response.bytes().unwrap().to_vec();
         }
       } else if response.status() == StatusCode::OK {
-        println!("successfully received some bytes!!!!!");
         return response.bytes().unwrap().to_vec();
       }
     }
@@ -283,7 +246,10 @@ impl CloudService {
 
     let query = &format!("name = \"{game_name}\" and parents in \"{}\"", self.ds_folder_id);
 
-    query_params.push(["q", query]);
+    // rust ONCE AGAIN trying to protect me from something that will never happen but makes me write shitty code.
+    let mut _useless = String::new();
+
+    query_params.push(["q", url_escape::encode_component_to_string(query, &mut _useless)]);
     query_params.push(["fields", "files/id,files/parents,files/name"]);
 
     let query_string = Self::generate_params_string(query_params);
@@ -314,7 +280,7 @@ impl CloudService {
     } else if response.status() == StatusCode::OK {
       return response.json::<DriveResponse>().unwrap();
     } else {
-      panic!("Could not get save info");
+      panic!("{:?}", response.text());
     }
   }
 
@@ -385,7 +351,7 @@ impl CloudService {
       let json: TokenResponse = response.json().unwrap();
 
       self.access_token = json.access_token;
-      self.refresh_token = json.refresh_token;
+      self.refresh_token = json.refresh_token.unwrap();
 
       // store these in files for use later
       fs::write("./.access_token", self.access_token.clone()).unwrap();

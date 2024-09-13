@@ -67,6 +67,9 @@ fn main() {
     // as opposed to doing it all at once.
     let save_path = Path::new(&args[1]).with_extension("sav");
     let game_name = save_path.to_str().unwrap();
+
+    let game_name = game_name.split("/").last().unwrap();
+
     let bytes = frontend.cloud_service.get_save(game_name);
 
     nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
