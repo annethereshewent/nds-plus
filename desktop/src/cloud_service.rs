@@ -16,6 +16,13 @@ const BASE_LOGIN_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const BASE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 
 #[derive(Serialize, Deserialize)]
+struct FileJson {
+  name: String,
+  // this needs to be in camel case for use with google API
+  mimeType: String
+}
+
+#[derive(Serialize, Deserialize)]
 struct TokenResponse {
   access_token: String,
   refresh_token: Option<String>,
@@ -63,7 +70,6 @@ impl CloudService {
     if refresh_token_path.is_file() {
       refresh_token = fs::read_to_string("./.refresh_token").unwrap();
     }
-
 
     Self {
       access_token: access_token.to_string(),
@@ -212,8 +218,110 @@ impl CloudService {
     }
   }
 
-  pub fn upload_save(&mut self) {
+  // TODO: Fix this really long unfortunate method
+  pub fn upload_save(&mut self, bytes: Vec<u8>) {
+    if self.game_name == "" {
+      return;
+    }
 
+    if self.ds_folder_id == "" {
+      self.check_for_ds_folder();
+    }
+
+    let json = self.get_save_info();
+
+    if let Some(file) = json.files.get(0) {
+      let url = format!("https://www.googleapis.com/upload/drive/v3/files/{}?uploadType=media", file.id);
+
+      let response = self.client
+        .patch(url.clone())
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .header("Content-Type", "application/octet-stream")
+        .header("Content-Length", format!("{}", bytes.len()))
+        .body(bytes.clone())
+        .send()
+        .unwrap();
+
+      if response.status() == StatusCode::UNAUTHORIZED {
+        self.refresh_login();
+
+        let response = self.client
+          .patch(url)
+          .header("Authorization", format!("Bearer {}", self.access_token))
+          .header("Content-Type", "application/octet-stream")
+          .header("Content-Length", format!("{}", bytes.len()))
+          .body(bytes)
+          .send()
+          .unwrap();
+
+        if response.status() != StatusCode::OK {
+          println!("Warning: Couldn't upload save to cloud!");
+        }
+      } else if response.status() != StatusCode::OK {
+        println!("Warning: Couldn't upload save to cloud!");
+      }
+
+      return;
+    }
+
+    let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media&fields=id,name,parents";
+
+    let response = self.client
+      .post(url)
+      .header("Authorization", format!("Bearer {}", self.access_token))
+      .header("Content-Type", "application/octet-stream")
+      .header("Content-Length", format!("{}", bytes.len()))
+      .body(bytes)
+      .send()
+      .unwrap();
+
+    if response.status() == StatusCode::OK {
+      // move and rename file
+      let json: DriveResponse = response.json().unwrap();
+
+
+      if let Some(file) = json.files.get(0) {
+        let mut query_params: Vec<[&str; 2]> = Vec::new();
+
+        query_params.push(["uploadType", "media"]);
+        query_params.push(["addParents", &self.ds_folder_id]);
+
+        let query_string = Self::generate_params_string(query_params);
+
+        let url = format!("https://www.googleapis.com/drive/v3/files/{}?{}", file.id, query_string);
+
+        let json = FileJson {
+          name: self.game_name.clone(),
+          mimeType: "application/octet-stream".to_string()
+        };
+
+        let json_str = serde_json::to_string(&json).unwrap();
+
+        let response = self.client
+          .patch(url.clone())
+          .header("Authorization", format!("Bearer {}", self.access_token))
+          .body(json_str.clone())
+          .send()
+          .unwrap();
+
+        if response.status() == StatusCode::UNAUTHORIZED {
+          let response = self.client
+            .patch(url)
+            .header("Authorization", format!("Bearer {}", self.access_token))
+            .body(json_str)
+            .send()
+            .unwrap();
+
+          if response.status() != StatusCode::OK {
+            println!("Warning: Couldn't rename save!");
+          }
+        } else if response.status() != StatusCode::OK {
+          println!("Warning: Couldn't rename save!");
+        }
+      }
+    } else {
+      println!("Warning: Couldn't upload save to cloud!");
+    }
   }
 
   pub fn get_save(&mut self, game_name: &str) -> Vec<u8> {
@@ -221,7 +329,7 @@ impl CloudService {
 
     self.check_for_ds_folder();
 
-    let json = self.get_save_info(game_name);
+    let json = self.get_save_info();
 
     if let Some(file) = json.files.get(0) {
       let url = format!("https://www.googleapis.com/drive/v3/files/{}?alt=media", file.id);
@@ -253,10 +361,10 @@ impl CloudService {
     return Vec::new();
   }
 
-  fn get_save_info(&mut self, game_name: &str) -> DriveResponse {
+  fn get_save_info(&mut self) -> DriveResponse {
     let mut query_params: Vec<[&str; 2]> = Vec::new();
 
-    let query = &format!("name = \"{game_name}\" and parents in \"{}\"", self.ds_folder_id);
+    let query = &format!("name = \"{}\" and parents in \"{}\"", self.game_name, self.ds_folder_id);
 
     // rust ONCE AGAIN trying to protect me from something that will never happen but makes me write shitty code.
     let mut _useless = String::new();
