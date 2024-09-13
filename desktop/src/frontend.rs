@@ -63,7 +63,6 @@ use sdl2::{
   EventPump,
   Sdl
 };
-use tokio::spawn;
 
 use crate::cloud_service::CloudService;
 
@@ -122,7 +121,7 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  pub cloud_service: CloudService,
+  pub cloud_service: Arc<Mutex<CloudService>>,
   last_save_time: u128
 }
 
@@ -300,37 +299,9 @@ impl Frontend {
       imgui,
       textures,
       _gl_context: gl_context,
-      cloud_service: CloudService::new(),
+      cloud_service: Arc::new(Mutex::new(CloudService::new())),
       last_save_time: 0
     }
-  }
-
-  pub fn update_save(&mut self, bytes: &[u8]) -> bool {
-    if self.last_save_time == 0 {
-      self.last_save_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("an error occurred")
-        .as_millis();
-    } else {
-      let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("an error occurred")
-        .as_millis();
-
-      let diff = current_time - self.last_save_time;
-
-      if diff > 1000 {
-        println!("ayyyy im finally uploading the stupid save lmao");
-        self.cloud_service.upload_save(bytes);
-        self.last_save_time = 0;
-
-        return true;
-      } else {
-        self.last_save_time = current_time;
-      }
-    }
-
-    false
   }
 
   fn glow_context(window: &Window) -> imgui_glow_renderer::glow::Context {
@@ -503,10 +474,12 @@ impl Frontend {
           menu.end();
         }
         if let Some(menu) = ui.begin_menu("Cloud saves") {
-          if !self.cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
-            self.cloud_service.login();
-          } else if self.cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
-            self.cloud_service.logout();
+          let mut cloud_service = self.cloud_service.lock().unwrap();
+
+          if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
+            cloud_service.login();
+          } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
+            cloud_service.logout();
           }
 
           menu.end();

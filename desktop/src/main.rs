@@ -57,7 +57,7 @@ fn main() {
     audio_buffer.clone()
   );
 
-  if frontend.cloud_service.logged_in {
+  if frontend.cloud_service.lock().unwrap().logged_in {
      // fetch the game's save from the cloud
 
     // rust once again making me do really stupid fucking shit.
@@ -68,7 +68,7 @@ fn main() {
 
     let game_name = game_name.split("/").last().unwrap();
 
-    let bytes = frontend.cloud_service.get_save(game_name);
+    let bytes = frontend.cloud_service.lock().unwrap().get_save(game_name);
 
     nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
   } else {
@@ -79,6 +79,8 @@ fn main() {
   }
 
   let mut frame_finished = false;
+
+  let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
 
   loop {
     while !frame_finished {
@@ -98,7 +100,7 @@ fn main() {
 
     frontend.handle_events(bus);
     frontend.handle_touchscreen(bus);
-    if frontend.cloud_service.logged_in {
+    if logged_in {
       let has_backup = match &bus.cartridge.backup {
         BackupType::Eeprom(_) | BackupType::Flash(_) => true,
         BackupType::None => false
@@ -118,8 +120,14 @@ fn main() {
 
 
         if file.last_write != 0 && current_time - file.last_write > 1000 {
-          println!("ayyy im finally uploading the save!!!!");
-          frontend.cloud_service.upload_save(&file.buffer);
+          let cloud_service = frontend.cloud_service.clone();
+          let bytes = file.buffer.clone();
+          std::thread::spawn(move || {
+            let mut cloud_service = cloud_service.lock().unwrap();
+            println!("saving file....");
+            cloud_service.upload_save(&bytes);
+            println!("finished saving!");
+          });
           file.last_write = 0;
         }
       }
