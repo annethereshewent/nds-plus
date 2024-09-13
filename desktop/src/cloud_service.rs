@@ -43,7 +43,6 @@ struct File {
   parents: Vec<String>
 }
 
-#[derive(Clone)]
 pub struct CloudService {
   access_token: String,
   refresh_token: String,
@@ -219,7 +218,7 @@ impl CloudService {
   }
 
   // TODO: Fix this really long unfortunate method
-  pub fn upload_save(&mut self, bytes: Vec<u8>) {
+  pub fn upload_save(&mut self, bytes: &[u8]) {
     if self.game_name == "" {
       return;
     }
@@ -238,7 +237,7 @@ impl CloudService {
         .header("Authorization", format!("Bearer {}", self.access_token))
         .header("Content-Type", "application/octet-stream")
         .header("Content-Length", format!("{}", bytes.len()))
-        .body(bytes.clone())
+        .body(bytes.to_vec())
         .send()
         .unwrap();
 
@@ -250,7 +249,7 @@ impl CloudService {
           .header("Authorization", format!("Bearer {}", self.access_token))
           .header("Content-Type", "application/octet-stream")
           .header("Content-Length", format!("{}", bytes.len()))
-          .body(bytes)
+          .body(bytes.to_vec())
           .send()
           .unwrap();
 
@@ -271,53 +270,50 @@ impl CloudService {
       .header("Authorization", format!("Bearer {}", self.access_token))
       .header("Content-Type", "application/octet-stream")
       .header("Content-Length", format!("{}", bytes.len()))
-      .body(bytes)
+      .body(bytes.to_vec())
       .send()
       .unwrap();
 
     if response.status() == StatusCode::OK {
       // move and rename file
-      let json: DriveResponse = response.json().unwrap();
+      let file: File = response.json().unwrap();
 
+      let mut query_params: Vec<[&str; 2]> = Vec::new();
 
-      if let Some(file) = json.files.get(0) {
-        let mut query_params: Vec<[&str; 2]> = Vec::new();
+      query_params.push(["uploadType", "media"]);
+      query_params.push(["addParents", &self.ds_folder_id]);
 
-        query_params.push(["uploadType", "media"]);
-        query_params.push(["addParents", &self.ds_folder_id]);
+      let query_string = Self::generate_params_string(query_params);
 
-        let query_string = Self::generate_params_string(query_params);
+      let url = format!("https://www.googleapis.com/drive/v3/files/{}?{}", file.id, query_string);
 
-        let url = format!("https://www.googleapis.com/drive/v3/files/{}?{}", file.id, query_string);
+      let json = FileJson {
+        name: self.game_name.clone(),
+        mimeType: "application/octet-stream".to_string()
+      };
 
-        let json = FileJson {
-          name: self.game_name.clone(),
-          mimeType: "application/octet-stream".to_string()
-        };
+      let json_str = serde_json::to_string(&json).unwrap();
 
-        let json_str = serde_json::to_string(&json).unwrap();
+      let response = self.client
+        .patch(url.clone())
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .body(json_str.clone())
+        .send()
+        .unwrap();
 
+      if response.status() == StatusCode::UNAUTHORIZED {
         let response = self.client
-          .patch(url.clone())
+          .patch(url)
           .header("Authorization", format!("Bearer {}", self.access_token))
-          .body(json_str.clone())
+          .body(json_str)
           .send()
           .unwrap();
 
-        if response.status() == StatusCode::UNAUTHORIZED {
-          let response = self.client
-            .patch(url)
-            .header("Authorization", format!("Bearer {}", self.access_token))
-            .body(json_str)
-            .send()
-            .unwrap();
-
-          if response.status() != StatusCode::OK {
-            println!("Warning: Couldn't rename save!");
-          }
-        } else if response.status() != StatusCode::OK {
+        if response.status() != StatusCode::OK {
           println!("Warning: Couldn't rename save!");
         }
+      } else if response.status() != StatusCode::OK {
+        println!("Warning: Couldn't rename save!");
       }
     } else {
       println!("Warning: Couldn't upload save to cloud!");

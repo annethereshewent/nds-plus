@@ -3,7 +3,8 @@ use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 pub struct BackupFile {
   pub buffer: Vec<u8>,
   file: Option<File>,
-  pub has_written: bool
+  pub has_written: bool,
+  pub last_write: u128
 }
 
 impl BackupFile {
@@ -28,7 +29,8 @@ impl BackupFile {
       Self {
         file: Some(file),
         buffer,
-        has_written: false
+        has_written: false,
+        last_write: 0
       }
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
@@ -42,7 +44,8 @@ impl BackupFile {
       Self {
         file: None,
         buffer,
-        has_written: false
+        has_written: false,
+        last_write: 0
       }
     } else {
       panic!("Neither bytes nor path provided!");

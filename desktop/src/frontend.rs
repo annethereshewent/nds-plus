@@ -1,18 +1,17 @@
 use std::{
-  collections::{
+  borrow::BorrowMut, collections::{
     HashMap,
     VecDeque
-  },
-  sync::{
+  }, sync::{
     Arc,
     Mutex
-  }
+  }, time::{Duration, SystemTime, UNIX_EPOCH}
 };
 
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::Bus, registers::{
+    bus::{cartridge::BackupType, Bus}, registers::{
       external_key_input_register::ExternalKeyInputRegister,
       key_input_register::KeyInputRegister
     }
@@ -24,6 +23,7 @@ use ds_emulator::{
     SCREEN_WIDTH
   }
 };
+
 use glow::RGBA;
 use imgui::{Context, Textures};
 use imgui_glow_renderer::{
@@ -63,6 +63,7 @@ use sdl2::{
   EventPump,
   Sdl
 };
+use tokio::spawn;
 
 use crate::cloud_service::CloudService;
 
@@ -108,7 +109,7 @@ pub struct Frontend {
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
-  device: AudioDevice<DsAudioCallback>,
+  _device: AudioDevice<DsAudioCallback>,
   use_control_stick: bool,
   controller_x: i16,
   controller_y: i16,
@@ -121,7 +122,8 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  pub cloud_service: CloudService
+  pub cloud_service: CloudService,
+  last_save_time: u128
 }
 
 impl Frontend {
@@ -286,7 +288,7 @@ impl Frontend {
       ext_button_map,
       key_map,
       ext_key_map,
-      device,
+      _device: device,
       use_control_stick: false,
       controller_x: 0,
       controller_y: 0,
@@ -298,8 +300,37 @@ impl Frontend {
       imgui,
       textures,
       _gl_context: gl_context,
-      cloud_service: CloudService::new()
+      cloud_service: CloudService::new(),
+      last_save_time: 0
     }
+  }
+
+  pub fn update_save(&mut self, bytes: &[u8]) -> bool {
+    if self.last_save_time == 0 {
+      self.last_save_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("an error occurred")
+        .as_millis();
+    } else {
+      let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("an error occurred")
+        .as_millis();
+
+      let diff = current_time - self.last_save_time;
+
+      if diff > 1000 {
+        println!("ayyyy im finally uploading the stupid save lmao");
+        self.cloud_service.upload_save(bytes);
+        self.last_save_time = 0;
+
+        return true;
+      } else {
+        self.last_save_time = current_time;
+      }
+    }
+
+    false
   }
 
   fn glow_context(window: &Window) -> imgui_glow_renderer::glow::Context {
