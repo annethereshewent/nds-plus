@@ -334,8 +334,10 @@ impl Frontend {
         Event::Quit { .. } => std::process::exit(0),
         Event::KeyDown { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            self.show_menu = false;
             bus.key_input_register.set(*button, false);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            self.show_menu = false;
             bus.arm7.extkeyin.set(*button, false);
           } else if keycode.unwrap() == Keycode::G {
             bus.debug_on = !bus.debug_on
@@ -358,6 +360,7 @@ impl Frontend {
           }
         }
         Event::ControllerButtonDown { button, .. } => {
+          self.show_menu = false;
           if let Some(button) = self.ext_button_map.get(&button) {
             bus.arm7.extkeyin.set(*button, false);
           } else if let Some(button) = self.button_map.get(&button) {
