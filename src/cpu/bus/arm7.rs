@@ -376,6 +376,7 @@ impl Bus {
       0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0304 => self.gpu.powcnt2 = PowerControlRegister2::from_bits_retain(value),
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, &mut self.scheduler, BitLength::Bit16),
+      0x400_0500 => self.arm7.apu.soundcnt.write(value, None),
       0x400_0504 => self.arm7.apu.write_sound_bias(value, None),
       0x400_0508 => {
         self.arm7_io_write_8(address, value as u8);

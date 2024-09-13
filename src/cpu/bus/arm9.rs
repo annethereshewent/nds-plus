@@ -104,6 +104,7 @@ impl Bus {
       0x400_0640..=0x400_067f => self.gpu.engine3d.read_clip_matrix(address),
       0x400_0680..=0x400_06a3 => self.gpu.engine3d.read_vector_matrix(address),
       0x400_1000 => self.gpu.engine_b.dispcnt.read(),
+      0x400_1008..=0x400_105f => self.arm9_io_read_16(address) as u32 | (self.arm9_io_read_16(address + 2) as u32) << 16,
       0x400_4000..=0x400_4010 => 0, // DSi I/O ports
       0x410_0000 => self.receive_from_fifo(true),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
@@ -224,7 +225,8 @@ impl Bus {
       0x400_0290 => self.arm9.div_numerator as u16,
       0x400_02b0 => self.arm9.sqrtcnt.read(),
       0x400_0304 => self.gpu.powcnt1.bits() as u16,
-      0x400_0604 => self.gpu.engine3d.read_ram_count(),
+      0x400_0604 => self.gpu.engine3d.read_ram_count() as u16,
+      0x400_0606 => (self.gpu.engine3d.read_ram_count() >> 16) as u16,
       0x400_0630..=0x400_0636 => 0, // unimplemented vectest
       0x400_1000 => self.gpu.engine_b.dispcnt.read() as u16,
       0x400_1002 => (self.gpu.engine_b.dispcnt.read() >> 16) as u16,

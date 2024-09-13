@@ -453,8 +453,8 @@ impl Engine3d {
     }
   }
 
-  pub fn read_ram_count(&self) -> u16 {
-    self.polygon_buffer.len() as u16 | (self.vertices_buffer.len() << 16) as u16
+  pub fn read_ram_count(&self) -> u32 {
+    self.polygon_buffer.len() as u32 | (self.vertices_buffer.len() as u32) << 16
   }
 
   pub fn read_clip_matrix(&mut self, address: u32) -> u32 {
