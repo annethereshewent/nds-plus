@@ -276,47 +276,69 @@ impl CloudService {
 
     if response.status() == StatusCode::OK {
       // move and rename file
-      let file: File = response.json().unwrap();
+      self.rename_save(response);
+    } else if response.status() == StatusCode::UNAUTHORIZED {
+      self.refresh_login();
 
-      let mut query_params: Vec<[&str; 2]> = Vec::new();
-
-      query_params.push(["uploadType", "media"]);
-      query_params.push(["addParents", &self.ds_folder_id]);
-
-      let query_string = Self::generate_params_string(query_params);
-
-      let url = format!("https://www.googleapis.com/drive/v3/files/{}?{}", file.id, query_string);
-
-      let json = FileJson {
-        name: self.game_name.clone(),
-        mimeType: "application/octet-stream".to_string()
-      };
-
-      let json_str = serde_json::to_string(&json).unwrap();
-
+      // repeat the above all over! because rust is just looking out for what's best for you, duh.
       let response = self.client
-        .patch(url.clone())
+        .post(url)
         .header("Authorization", format!("Bearer {}", self.access_token))
-        .body(json_str.clone())
+        .header("Content-Type", "application/octet-stream")
+        .header("Content-Length", format!("{}", bytes.len()))
+        .body(bytes.to_vec())
         .send()
         .unwrap();
 
-      if response.status() == StatusCode::UNAUTHORIZED {
-        let response = self.client
-          .patch(url)
-          .header("Authorization", format!("Bearer {}", self.access_token))
-          .body(json_str)
-          .send()
-          .unwrap();
-
-        if response.status() != StatusCode::OK {
-          println!("Warning: Couldn't rename save!");
-        }
-      } else if response.status() != StatusCode::OK {
-        println!("Warning: Couldn't rename save!");
+      if response.status() == StatusCode::OK {
+        self.rename_save(response);
+      } else {
+        println!("Warning: Couldn't upload save to cloud!");
       }
     } else {
       println!("Warning: Couldn't upload save to cloud!");
+    }
+  }
+
+  fn rename_save(&mut self, response: Response) {
+    let file: File = response.json().unwrap();
+
+    let mut query_params: Vec<[&str; 2]> = Vec::new();
+
+    query_params.push(["uploadType", "media"]);
+    query_params.push(["addParents", &self.ds_folder_id]);
+
+    let query_string = Self::generate_params_string(query_params);
+
+    let url = format!("https://www.googleapis.com/drive/v3/files/{}?{}", file.id, query_string);
+
+    let json = FileJson {
+      name: self.game_name.clone(),
+      mimeType: "application/octet-stream".to_string()
+    };
+
+    let json_str = serde_json::to_string(&json).unwrap();
+
+    let response = self.client
+      .patch(url.clone())
+      .header("Authorization", format!("Bearer {}", self.access_token))
+      .body(json_str.clone())
+      .send()
+      .unwrap();
+
+    if response.status() == StatusCode::UNAUTHORIZED {
+      let response = self.client
+        .patch(url)
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .body(json_str)
+        .send()
+        .unwrap();
+
+      if response.status() != StatusCode::OK {
+        println!("Warning: Couldn't rename save!");
+      }
+    } else if response.status() != StatusCode::OK {
+      println!("Warning: Couldn't rename save!");
     }
   }
 
