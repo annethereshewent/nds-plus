@@ -44,6 +44,10 @@ fn main() {
   let rom_bytes = fs::read(&args[1]).unwrap();
   let firmware_path = Path::new(firmware_path);
 
+  let sdl_context = sdl2::init().unwrap();
+
+  let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone());
+
   let mut nds = Nds::new(
     Some(args[1].to_string()),
     Some(firmware_path.to_path_buf()),
@@ -55,9 +59,23 @@ fn main() {
     audio_buffer.clone()
   );
 
-  let sdl_context = sdl2::init().unwrap();
+  if frontend.cloud_service.logged_in {
+     // fetch the game's save from the cloud
 
-  let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone());
+    // rust once again making me do really stupid fucking shit.
+    // i have to do things in two steps (create path and save to variable, then convert to string)
+    // as opposed to doing it all at once.
+    let save_path = Path::new(&args[1]).with_extension("sav");
+    let game_name = save_path.to_str().unwrap();
+    let bytes = frontend.cloud_service.get_save(game_name);
+
+    nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
+  } else {
+    let path = Path::new(&args[1]).with_extension("sav");
+
+    nds.bus.borrow_mut().cartridge.detect_backup_type(path);
+
+  }
 
   let mut frame_finished = false;
 

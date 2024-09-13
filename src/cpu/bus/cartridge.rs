@@ -105,8 +105,8 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(rom: Vec<u8>, bios7: &[u8], file_path: Option<String>) -> Self {
-    let mut cartridge = Self {
+  pub fn new(rom: Vec<u8>, bios7: &[u8]) -> Self {
+    Self {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
       header: Header::new(&rom),
@@ -119,16 +119,7 @@ impl Cartridge {
       current_word: 0,
       backup: BackupType::None,
       main_area_load: false
-    };
-
-    if file_path.is_some() {
-      let file_path = file_path.as_ref().unwrap();
-      let path = Path::new(file_path).with_extension("sav");
-
-      cartridge.detect_backup_type(path);
     }
-
-    cartridge
   }
 
   pub fn detect_backup_type(&mut self, save_filename: PathBuf) {
@@ -140,33 +131,27 @@ impl Cartridge {
 
       println!("detected backup type {}", entry.save_type);
 
-      match entry.save_type.as_str() {
-        "eeprom_small" => {
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 1));
-        }
-        "eeprom" => {
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 2));
-        }
-        "eeprom_large" => {
-          let address_width = if entry.ram_capacity > 0x1_0000 {
-            3
-          } else {
-            2
-          };
-          self.backup = BackupType::Eeprom(Eeprom::new(backup_file, address_width));
-        }
-        "flash" => {
-          self.backup = BackupType::Flash(Flash::new(backup_file));
-        }
-        _ => panic!("backup type not supported: {}", entry.save_type)
-      }
+      self.set_backup(backup_file, entry.ram_capacity, entry.save_type.clone())
     } else {
       println!("warning: game not found in database, resorting to no save");
     }
   }
 
-  pub fn set_backup_wasm(&mut self, bytes: &[u8], save_type: String, ram_capacity: usize) {
-    let backup_file = BackupFile::new(None, Some(bytes.to_vec()), ram_capacity);
+  pub fn detect_cloud_backup_type(&mut self, bytes: Vec<u8>) {
+    let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
+
+    if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
+      let backup_file = BackupFile::new(None, Some(bytes), entry.ram_capacity);
+
+      println!("detected backup type {}", entry.save_type);
+
+      self.set_backup(backup_file, entry.ram_capacity, entry.save_type.clone())
+    } else {
+      println!("warning: game not found in database, resorting to no save");
+    }
+  }
+
+  fn set_backup(&mut self, backup_file: BackupFile, ram_capacity: usize, save_type: String) {
     match save_type.as_str() {
       "eeprom_small" => {
         self.backup = BackupType::Eeprom(Eeprom::new(backup_file, 1));
@@ -187,6 +172,11 @@ impl Cartridge {
       }
       _ => panic!("backup type not supported: {}", save_type)
     }
+  }
+
+  pub fn set_backup_wasm(&mut self, bytes: &[u8], save_type: String, ram_capacity: usize) {
+    let backup_file = BackupFile::new(None, Some(bytes.to_vec()), ram_capacity);
+    self.set_backup(backup_file, ram_capacity, save_type);
   }
 
   pub fn read_gamecard_bus(&mut self, scheduler: &mut Scheduler, has_access: bool, is_arm9: bool) -> u32 {

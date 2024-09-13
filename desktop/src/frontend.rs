@@ -121,7 +121,7 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  cloud_service: CloudService
+  pub cloud_service: CloudService
 }
 
 impl Frontend {
@@ -466,15 +466,18 @@ impl Frontend {
           if ui.menu_item("Reset") {
 
           }
-          if let Some(menu) = ui.begin_menu("Cloud saves") {
-            if !self.cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
-              self.cloud_service.login();
-            } else if self.cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
-              self.cloud_service.logout();
-            }
-
-            menu.end();
+          if ui.menu_item("Quit") {
+            std::process::exit(0);
           }
+          menu.end();
+        }
+        if let Some(menu) = ui.begin_menu("Cloud saves") {
+          if !self.cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
+            self.cloud_service.login();
+          } else if self.cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
+            self.cloud_service.logout();
+          }
+
           menu.end();
         }
       });

@@ -1,9 +1,8 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 
-use reqwest::blocking::Body;
+use reqwest::{blocking::{Body, Client, Response}, Error, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tiny_http::{Response, Server};
+use tiny_http::Server;
 
 const CLIENT_ID: &str = "353451169812-gf5j4nmiosovv7sendcanjmmcumoq0dl.apps.googleusercontent.com";
 
@@ -25,11 +24,26 @@ struct TokenResponse {
   scope: String
 }
 
+#[derive(Serialize, Deserialize)]
+struct DriveResponse {
+  files: Vec<File>
+}
+
+#[derive(Serialize, Deserialize)]
+struct File {
+  id: String,
+  name: String,
+  parents: Vec<String>
+}
+
+#[derive(Clone)]
 pub struct CloudService {
   access_token: String,
   refresh_token: String,
   auth_code: String,
-  pub logged_in: bool
+  pub logged_in: bool,
+  client: Client,
+  ds_folder_id: String
 }
 
 impl CloudService {
@@ -54,8 +68,266 @@ impl CloudService {
       access_token: access_token.to_string(),
       refresh_token: refresh_token.to_string(),
       auth_code: String::new(),
-      logged_in: access_token != ""
+      logged_in: access_token != "",
+      client: Client::new(),
+      ds_folder_id: String::new()
     }
+  }
+
+  pub fn cloud_request<F>(&mut self, request: F) -> Response
+    where F: Fn() -> Response
+  {
+    let response = request();
+
+    if response.status() == StatusCode::UNAUTHORIZED {
+      // refresh token and try again
+      let mut body_params: Vec<[&str; 2]> = Vec::new();
+
+      body_params.push(["client_id", CLIENT_ID]);
+      body_params.push(["client_secret", CLIENT_SECRET]);
+      body_params.push(["grant_type", "refresh_token"]);
+      body_params.push(["refresh_token", &self.refresh_token]);
+
+      let params_arr: Vec<String> = body_params.iter().map(|param| format!("{}={}", param[0], param[1])).collect();
+
+      let params = params_arr.join("&");
+
+      let token_response = self.client.post(BASE_TOKEN_URL)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(Body::from(params))
+        .send()
+        .unwrap();
+
+      if token_response.status() == StatusCode::OK {
+        let json: TokenResponse = token_response.json().unwrap();
+
+        self.access_token = json.access_token;
+        self.refresh_token = json.refresh_token;
+
+        return request();
+      }
+    }
+    return response;
+  }
+
+  fn refresh_login(&mut self) {
+    let mut body_params: Vec<[&str; 2]> = Vec::new();
+
+    body_params.push(["client_id", CLIENT_ID]);
+    body_params.push(["client_secret", CLIENT_SECRET]);
+    body_params.push(["grant_type", "refresh_token"]);
+    body_params.push(["refresh_token", &self.refresh_token]);
+
+    let params = Self::generate_params_string(body_params);
+
+    let token_response = self.client.post(BASE_TOKEN_URL)
+      .header("Content-Type", "application/x-www-form-urlencoded")
+      .body(Body::from(params))
+      .send()
+      .unwrap();
+
+    if token_response.status() == StatusCode::OK {
+      let json: Result<TokenResponse, Error> = token_response.json();
+
+      if json.is_ok() {
+        let json = json.unwrap();
+
+        self.access_token = json.access_token;
+        self.refresh_token = json.refresh_token;
+      } else {
+        let error = json.err().unwrap();
+
+        self.logout();
+
+        panic!("{:?}", error);
+      }
+    }
+  }
+
+  pub fn check_for_ds_folder(&mut self) {
+    let mut query_params: Vec<[&str; 2]> = Vec::new();
+
+    query_params.push(["q", "mimeType = \"application/vnd.google-apps.folder\" and name=\"ds-saves\""]);
+    query_params.push(["fields", "files/id,files/parents,files/name"]);
+
+    let query_string = Self::generate_params_string(query_params);
+
+    let url = format!("https://www.googleapis.com/drive/v3/files?{query_string}");
+
+    // I FUCKING HATE RUST FUCK YOU
+    // YOU MAKE IT ******** IMPOSSIBLE ******* TO WRITE DRY CODE
+    let response = self.client
+      .get(url.clone())
+      .header("Authorization", format!("Bearer {}", self.access_token))
+      .send()
+      .unwrap();
+
+    if response.status() == StatusCode::UNAUTHORIZED {
+      self.refresh_login();
+
+      // HERE I HAVE TO REPEAT THIS WHOLE CODE SNIPPET BECAUSE MUH MOVED BORROWED VALUES
+      // EAT A FUCKING DICK, RUST
+      let response = self.client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .send()
+        .unwrap();
+
+      if response.status() == StatusCode::OK {
+       self.process_folder_response(response);
+      } else {
+        panic!("Could not refresh token with Google API");
+      }
+    } else if response.status() == StatusCode::OK {
+      self.process_folder_response(response);
+    } else {
+      panic!("An unexpected error occurred while using Google API");
+    }
+  }
+
+  fn process_folder_response(&mut self, response: Response) {
+    let json: DriveResponse = response.json().unwrap();
+
+    if let Some(folder) = json.files.get(0) {
+      self.ds_folder_id = folder.id.clone();
+    } else {
+      // create the ds folder
+
+      // here's another painful API request because i can't DRY it up thanks to Rust
+      let url = "https://www.googleapis.com/drive/v3/files?uploadType=media";
+
+      let response = self.client
+        .post(url)
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .header("Content-Type", "application/vnd.google-apps.folder")
+        .send()
+        .unwrap();
+
+      // here's the annoying very unDRY part....
+      // TODO: **SOMEHOW** find a way to DRY this up.
+      if response.status() == StatusCode::UNAUTHORIZED {
+        self.refresh_login();
+
+        let response = self.client
+          .post(url)
+          .header("Authorization", format!("Bearer {}", self.access_token))
+          .header("Content-Type", "application/vnd.google-apps.folder")
+          .send()
+          .unwrap();
+
+
+        if response.status() == StatusCode::OK {
+          let json: DriveResponse = response.json().unwrap();
+
+          if let Some(folder) = json.files.get(0) {
+            self.ds_folder_id = folder.id.clone();
+          } else {
+            panic!("Could not create DS folder");
+          }
+        } else {
+          panic!("Could not create DS folder");
+        }
+      } else if response.status() == StatusCode::OK {
+        let json: DriveResponse = response.json().unwrap();
+
+        if let Some(folder) = json.files.get(0) {
+          self.ds_folder_id = folder.id.clone();
+        } else {
+          panic!("Could not create DS folder");
+        }
+      } else {
+        panic!("Could not create DS folder");
+      }
+    }
+  }
+
+  pub fn get_save(&mut self, game_name: &str) -> Vec<u8> {
+    self.check_for_ds_folder();
+
+    let json = self.get_save_info(game_name);
+
+    if let Some(file) = json.files.get(0) {
+      let url = format!("https://www.googleapis.com/drive/v3/files/{}?alt=media", file.id);
+
+      // time for some repetition! woo!
+      let response = self.client
+        .get(url.clone())
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .send()
+        .unwrap();
+
+      if response.status() == StatusCode::UNAUTHORIZED {
+        self.refresh_login();
+
+        let response = self.client
+          .get(url)
+          .header("Authorization", format!("Bearer {}", self.access_token))
+          .send()
+          .unwrap();
+
+        if response.status() == StatusCode::OK {
+          println!("successfully received some bytes!!!!!");
+          return response.bytes().unwrap().to_vec();
+        }
+      } else if response.status() == StatusCode::OK {
+        println!("successfully received some bytes!!!!!");
+        return response.bytes().unwrap().to_vec();
+      }
+    }
+
+    return Vec::new();
+  }
+
+  fn get_save_info(&mut self, game_name: &str) -> DriveResponse {
+    let mut query_params: Vec<[&str; 2]> = Vec::new();
+
+    let query = &format!("name = \"{game_name}\" and parents in \"{}\"", self.ds_folder_id);
+
+    query_params.push(["q", query]);
+    query_params.push(["fields", "files/id,files/parents,files/name"]);
+
+    let query_string = Self::generate_params_string(query_params);
+
+    let url = format!("https://www.googleapis.com/drive/v3/files?{query_string}");
+
+    // brace yourself for annoying unDRY code!
+    let response = self.client
+      .get(url.clone())
+      .header("Authorization", format!("Bearer {}", self.access_token))
+      .send()
+      .unwrap();
+
+    if response.status() == StatusCode::UNAUTHORIZED {
+      self.refresh_login();
+
+      let response = self.client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", self.access_token))
+        .send()
+        .unwrap();
+
+      if response.status() == StatusCode::OK {
+        return response.json::<DriveResponse>().unwrap();
+      } else {
+        panic!("Could not get save info");
+      }
+    } else if response.status() == StatusCode::OK {
+      return response.json::<DriveResponse>().unwrap();
+    } else {
+      panic!("Could not get save info");
+    }
+  }
+
+  pub fn generate_params_string(params: Vec<[&str; 2]>) -> String {
+    let param_arr: Vec<String> = params
+      .iter()
+      .map(|param| format!("{}={}", param[0], param[1]))
+      .collect();
+
+    // now after doing the collect we can finally actually create the query string
+    let string = param_arr.join("&");
+
+    string
   }
 
   pub fn login(&mut self) {
@@ -66,16 +338,7 @@ impl CloudService {
     query_params.push(["redirect_uri", "http://localhost:8090"]);
     query_params.push(["scope", "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email"]);
 
-    // ugh fuck you rust. have to do this in two steps
-    let query_string_arr: Vec<String> = query_params
-      .iter()
-      .map(|param| format!("{}={}", param[0], param[1]))
-      .collect();
-
-    // now after doing the collect we can finally actually create the query string
-    let query_string = query_string_arr.join("&");
-
-    println!("opening browser window");
+    let query_string = Self::generate_params_string(query_params);
 
     open::that(format!("{BASE_LOGIN_URL}?{query_string}")).unwrap();
 
@@ -90,9 +353,7 @@ impl CloudService {
             if key == "code" {
               self.auth_code = value.to_string();
 
-              println!("received auth code {}", self.auth_code);
-
-              request.respond(Response::from_string("Successfully logged in to Google! This tab can now be closed.")).unwrap();
+              request.respond(tiny_http::Response::from_string("Successfully logged in to Google! This tab can now be closed.")).unwrap();
               break 'outer;
             }
           }
@@ -101,8 +362,6 @@ impl CloudService {
     }
 
     // make a request to google to get an auth token and refresh token
-    let client = reqwest::blocking::Client::new();
-
     let mut body_params: Vec<[&str; 2]> = Vec::new();
 
     body_params.push(["code", &self.auth_code]);
@@ -111,14 +370,9 @@ impl CloudService {
     body_params.push(["redirect_uri", "http://localhost:8090"]);
     body_params.push(["grant_type", "authorization_code"]);
 
-    let params_arr: Vec<String> = body_params
-      .iter()
-      .map(|param| format!("{}={}", param[0], param[1]))
-      .collect();
+    let params = Self::generate_params_string(body_params);
 
-    let params = params_arr.join("&");
-
-    let response = client.post(BASE_TOKEN_URL)
+    let response = self.client.post(BASE_TOKEN_URL)
       .body(
         Body::from(format!("{params}"))
       )
@@ -126,15 +380,17 @@ impl CloudService {
       .send()
       .unwrap();
 
-    let json: TokenResponse = response.json().unwrap();
 
-    self.access_token = json.access_token;
-    self.refresh_token = json.refresh_token;
+    if response.status() == StatusCode::OK {
+      let json: TokenResponse = response.json().unwrap();
 
-    // store these in files for use later
-    fs::write("./.access_token", self.access_token.clone()).unwrap();
-    fs::write("./.refresh_token", self.refresh_token.clone()).unwrap();
+      self.access_token = json.access_token;
+      self.refresh_token = json.refresh_token;
 
+      // store these in files for use later
+      fs::write("./.access_token", self.access_token.clone()).unwrap();
+      fs::write("./.refresh_token", self.refresh_token.clone()).unwrap();
+    }
   }
 
   pub fn logout(&mut self) {
@@ -143,5 +399,6 @@ impl CloudService {
 
     self.access_token = String::new();
     self.refresh_token = String::new();
+    self.logged_in = false;
   }
 }

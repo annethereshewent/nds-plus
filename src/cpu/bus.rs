@@ -205,7 +205,7 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize)),
-      cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
+      cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
