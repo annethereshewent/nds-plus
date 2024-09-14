@@ -116,6 +116,14 @@ fn main() {
         nds.load_game(path);
         nds.reset();
         detect_backup_type(&mut frontend, &mut nds, rom_path, None);
+
+        has_backup = {
+          match &nds.bus.borrow().cartridge.backup {
+            BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+            BackupType::None => false
+          }
+        };
+
         continue;
       }
       UIAction::Reset(get_bytes) => {
