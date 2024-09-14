@@ -10,8 +10,8 @@ Web demo is now live! to test the latest version of the emulator, go to https://
 
 - Support for both web and desktop
 - Ability to use control stick in Super Mario 64 DS
-- Save management on the web client: upload, download and delete saves stored locally
-- Cloud saves are now available! Store saves in Google drive for use anywhere on the web client.
+- Save management on the web client: upload, download and delete saves
+- Cloud saves are now available! Store saves in Google drive for use anywhere on both web and desktop.
 
 ## TODO
 
@@ -19,8 +19,6 @@ Web demo is now live! to test the latest version of the emulator, go to https://
 - CPU bugs
 - Multithreading
 - iOS app
-- Cloud saves on desktop
-- UI for desktop
 
 ## Controls
 
