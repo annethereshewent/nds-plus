@@ -96,6 +96,8 @@ fn main() {
     }
   };
 
+  let mut rom_path = args[1].to_string();
+
   loop {
     while !frame_finished {
       frame_finished = nds.step();
@@ -116,10 +118,10 @@ fn main() {
     match frontend.render_ui() {
       UIAction::None => (),
       UIAction::LoadGame(path) => {
-        let rom_path = path.clone().to_string_lossy().to_string();
+        rom_path = path.clone().to_string_lossy().to_string();
         nds.load_game(path);
         nds.reset();
-        detect_backup_type(&mut frontend, &mut nds, rom_path, None);
+        detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
 
         has_backup = {
           match &nds.bus.borrow().cartridge.backup {
@@ -145,9 +147,11 @@ fn main() {
         };
 
         nds.reset();
-        detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), bytes);
 
         logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+
+        detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), bytes);
+
         has_backup = {
           match &nds.bus.borrow().cartridge.backup {
             BackupType::Eeprom(_) | BackupType::Flash(_) => true,
