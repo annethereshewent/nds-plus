@@ -362,8 +362,7 @@ pub struct Engine3d {
   pub disp3dcnt: Display3dControlRegister,
   pub debug_on: bool,
   box_test: BoxTest,
-  pub found: HashSet<String>,
-  pub current_polygon: usize
+  pub found: HashSet<String>
 }
 
 impl Engine3d {
@@ -435,8 +434,7 @@ impl Engine3d {
       disp3dcnt: Display3dControlRegister::from_bits_retain(0),
       debug_on: false,
       box_test: BoxTest::new(),
-      found: HashSet::new(),
-      current_polygon: 0
+      found: HashSet::new()
     }
   }
 
@@ -1292,13 +1290,14 @@ impl Engine3d {
     }
     let (mut top, mut bottom) = (191, 0);
 
-    let mut w_leading_zeros = 32;
+    // not sure if this is needed, but leaving it commented out for now
+    // let mut w_leading_zeros = 32;
 
-    for vertex in &self.current_vertices {
-      w_leading_zeros = w_leading_zeros.min(vertex.transformed[3].leading_zeros());
-    }
+    // for vertex in &self.current_vertices {
+    //   w_leading_zeros = w_leading_zeros.min(vertex.transformed[3].leading_zeros());
+    // }
 
-    w_leading_zeros &= !3;
+    // w_leading_zeros &= !3;
 
     for vertex in self.current_vertices.drain(..) {
       let mut temp = vertex.clone();

@@ -17,7 +17,6 @@ extern crate ds_emulator;
 pub mod frontend;
 pub mod cloud_service;
 
-
 fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, bytes: Option<Vec<u8>>) {
   if frontend.cloud_service.lock().unwrap().logged_in {
     // fetch the game's save from the cloud
@@ -86,6 +85,12 @@ fn main() {
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+  let mut has_backup = {
+    match &nds.bus.borrow().cartridge.backup {
+      BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+      BackupType::None => false
+    }
+  };
 
   loop {
     while !frame_finished {
@@ -103,7 +108,6 @@ fn main() {
 
       frontend.render(&mut bus.gpu);
     }
-
 
     match frontend.render_ui() {
       UIAction::None => (),
@@ -132,6 +136,12 @@ fn main() {
         detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), bytes);
 
         logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+        has_backup = {
+          match &nds.bus.borrow().cartridge.backup {
+            BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+            BackupType::None => false
+          }
+        };
 
         continue;
       }
@@ -143,35 +153,28 @@ fn main() {
 
     frontend.handle_events(bus);
     frontend.handle_touchscreen(bus);
-    if logged_in {
-      let has_backup = match &bus.cartridge.backup {
-        BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-        BackupType::None => false
+    if logged_in && has_backup {
+      let file = match &mut bus.cartridge.backup {
+        BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
+        BackupType::Flash(flash) => &mut flash.backup_file,
+        BackupType::None => unreachable!()
       };
 
-      if has_backup {
-        let file = match &mut bus.cartridge.backup {
-          BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
-          BackupType::Flash(flash) => &mut flash.backup_file,
-          BackupType::None => unreachable!()
-        };
+      let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("an error occurred")
+        .as_millis();
 
-        let current_time = SystemTime::now()
-          .duration_since(UNIX_EPOCH)
-          .expect("an error occurred")
-          .as_millis();
-
-        if file.last_write != 0 && current_time - file.last_write > 1000 {
-          let cloud_service = frontend.cloud_service.clone();
-          let bytes = file.buffer.clone();
-          std::thread::spawn(move || {
-            let mut cloud_service = cloud_service.lock().unwrap();
-            println!("saving file....");
-            cloud_service.upload_save(&bytes);
-            println!("finished saving!");
-          });
-          file.last_write = 0;
-        }
+      if file.last_write != 0 && current_time - file.last_write > 1000 {
+        let cloud_service = frontend.cloud_service.clone();
+        let bytes = file.buffer.clone();
+        std::thread::spawn(move || {
+          let mut cloud_service = cloud_service.lock().unwrap();
+          println!("saving file....");
+          cloud_service.upload_save(&bytes);
+          println!("finished saving!");
+        });
+        file.last_write = 0;
       }
     }
   }
