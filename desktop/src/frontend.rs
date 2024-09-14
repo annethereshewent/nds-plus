@@ -138,7 +138,7 @@ impl Frontend {
 
     let gl_attr = video_subsystem.gl_attr();
 
-    gl_attr.set_context_version(3, 2);
+    gl_attr.set_context_version(3, 3);
     gl_attr.set_context_profile(GLProfile::Core);
 
     let window = video_subsystem

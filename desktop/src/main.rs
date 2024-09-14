@@ -25,7 +25,13 @@ fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, 
       let save_path = Path::new(&rom_path).with_extension("sav");
       let game_name = save_path.to_str().unwrap();
 
-      let game_name = game_name.split("/").last().unwrap();
+      let game_name = if game_name.contains("/") {
+        game_name.split("/").last().unwrap()
+      } else if game_name.contains("\\") {
+        game_name.split("\\").last().unwrap()
+      } else {
+        game_name
+      };
 
       let bytes = if let Some(bytes) = bytes {
         bytes
