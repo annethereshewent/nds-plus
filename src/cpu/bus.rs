@@ -204,8 +204,8 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize)),
-      cartridge: Cartridge::new(rom_bytes, &bios7_bytes, file_path),
+      spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize, false)),
+      cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
@@ -235,6 +235,67 @@ impl Bus {
     if skip_bios {
       bus.skip_bios();
     }
+
+    bus
+  }
+
+  pub fn reset(&mut self) -> Self {
+    let mut scheduler = Scheduler::new();
+    let mut bus = Self {
+      arm9: Arm9Bus {
+        timers: Timers::new(true),
+        bios9: self.arm9.bios9.clone(),
+        dma: DmaChannels::new(true),
+        cp15: CP15::new(),
+        postflg: true,
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        sqrtcnt: SquareRootControlRegister::new(),
+        sqrt_param: 0,
+        sqrt_result: 0,
+        divcnt: DivisionControlRegister::new(),
+        div_denomenator: 0,
+        div_numerator: 0,
+        div_result: 0,
+        div_remainder: 0,
+        dma_fill: [0; 4],
+      },
+      shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
+      main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
+      itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
+      dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
+      spi: SPI::new(self.spi.firmware.backup_file.reset()),
+      cartridge: Cartridge::new(self.cartridge.rom.clone(), &self.arm7.bios7),
+      wramcnt: WRAMControlRegister::new(),
+      gpu: GPU::new(&mut scheduler),
+      key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
+      exmem: ExternalMemory::new(),
+      touchscreen: Touchscreen::new(),
+      arm7: Arm7Bus {
+        timers: Timers::new(false),
+        bios7: self.arm7.bios7.clone(),
+        dma: DmaChannels::new(false),
+        wram: vec![0; WRAM_SIZE].into_boxed_slice(),
+        postflg: true,
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        spicnt: SPIControlRegister::new(),
+        extkeyin: ExternalKeyInputRegister::new(),
+        haltcnt: HaltMode::None,
+        apu: APU::new(&mut scheduler, self.arm7.apu.audio_buffer.clone()),
+        rtc: RealTimeClockRegister::new()
+      },
+      scheduler,
+      debug_on: false
+    };
+
+    bus.skip_bios();
 
     bus
   }

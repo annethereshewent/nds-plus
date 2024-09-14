@@ -111,7 +111,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       dispcnt: DisplayControlRegister::new(),
       pixel_alphas: [false; SCREEN_WIDTH as usize],
       oam: [0; 0x400],
-      pixels: vec![0; 3 * SCREEN_HEIGHT  as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
+      pixels: vec![0; 4 * SCREEN_HEIGHT  as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
       bgxofs: [0; 4],
       bgyofs: [0; 4],
       bg_props: [BgProps::new(); 2],

@@ -98,13 +98,12 @@ export class Renderer {
 
     for (let y = 0; y < SCREEN_HEIGHT; y++) {
       for (let x = 0; x < SCREEN_WIDTH; x++) {
-        const rustIndex = x * 3 + y * 3 * SCREEN_WIDTH
         const imageIndex = x * 4 + y * 4 * SCREEN_WIDTH
 
-        imageData.data[imageIndex] = engineBuffer[rustIndex]
-        imageData.data[imageIndex+1] = engineBuffer[rustIndex+1]
-        imageData.data[imageIndex+2] = engineBuffer[rustIndex+2]
-        imageData.data[imageIndex+3] = 255
+        imageData.data[imageIndex] = engineBuffer[imageIndex]
+        imageData.data[imageIndex+1] = engineBuffer[imageIndex+1]
+        imageData.data[imageIndex+2] = engineBuffer[imageIndex+2]
+        imageData.data[imageIndex+3] = engineBuffer[imageIndex+3]
       }
     }
     currentContext.putImageData(imageData, 0, 0)

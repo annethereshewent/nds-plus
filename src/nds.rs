@@ -1,9 +1,5 @@
 use std::{
-  cell::RefCell,
-  collections::VecDeque,
-  path::PathBuf,
-  rc::Rc,
-  sync::{
+  cell::RefCell, collections::VecDeque, fs, path::PathBuf, rc::Rc, sync::{
     Arc,
     Mutex
   }
@@ -58,6 +54,32 @@ impl Nds {
     nds.arm9_cpu.reload_pipeline32();
 
     nds
+  }
+
+  pub fn load_game(&mut self, path: PathBuf) {
+    let bytes = fs::read(path).unwrap();
+
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.cartridge.rom = bytes;
+  }
+
+  pub fn reset(&mut self) {
+    {
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.arm7.apu.audio_buffer.lock().unwrap().drain(..);
+
+      let new_bus = Rc::new(RefCell::new(bus.reset()));
+
+      self.arm9_cpu = CPU::new(new_bus.clone(), true);
+      self.arm7_cpu = CPU::new(new_bus.clone(), true);
+
+      self.arm7_cpu.reload_pipeline32();
+      self.arm9_cpu.reload_pipeline32();
+    }
+
+    self.bus = self.arm9_cpu.bus.clone();
   }
 
   pub fn step(&mut self) -> bool {

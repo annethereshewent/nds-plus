@@ -744,11 +744,12 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   }
 
   pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-    let i: usize = 3 * (x + y * SCREEN_WIDTH as usize);
+    let i = 4 * (x + y * SCREEN_WIDTH as usize);
 
     self.pixels[i] = color.r;
     self.pixels[i + 1] = color.g;
     self.pixels[i + 2] = color.b;
+    self.pixels[i + 3] = 0xff;
   }
 
   fn get_extended_tilemap_address(tilemap_base: u32, transformed_x: i32, transformed_y: i32, texture_size: i32) -> u32 {

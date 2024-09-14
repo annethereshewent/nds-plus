@@ -47,10 +47,11 @@ export class CloudService {
         this.usingCloud = true
 
         signIn.style.display = "none"
-        const isLoggedIn = document.getElementById("cloud-logged-in")
+        const signOut = document.getElementById("cloud-logged-in")
 
-        if (isLoggedIn != null) {
-          isLoggedIn.style.display = "block"
+        if (signOut != null) {
+          signOut.style.display = "block"
+          signOut.addEventListener("click", () => this.logout())
         }
       } else {
         localStorage.removeItem("ds_access_token")
@@ -123,6 +124,30 @@ export class CloudService {
           location.reload()
         }
       }, 300)
+    }
+  }
+
+  logout() {
+    localStorage.removeItem("ds_access_token")
+    localStorage.removeItem("ds_access_expires")
+    localStorage.removeItem("ds_user_email")
+    localStorage.removeItem("ds_folder_id")
+
+    this.usingCloud = false
+    this.accessToken = ""
+
+    const signIn = document.getElementById("cloud-button")
+
+    if (signIn != null) {
+      signIn.style.display = "block"
+
+      signIn.addEventListener("click", () => this.oauthSignIn())
+
+      const signOut = document.getElementById("cloud-logged-in")
+
+      if (signOut != null) {
+        signOut.style.display = "none"
+      }
     }
   }
 

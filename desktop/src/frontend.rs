@@ -1,9 +1,8 @@
 use std::{
-  collections::{
+ collections::{
     HashMap,
     VecDeque
-  },
-  sync::{
+  }, path::PathBuf, sync::{
     Arc,
     Mutex
   }
@@ -12,15 +11,41 @@ use std::{
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::Bus, registers::{
+    bus::Bus,
+    registers::{
       external_key_input_register::ExternalKeyInputRegister,
       key_input_register::KeyInputRegister
     }
   },
   gpu::{
-    registers::power_control_register1::PowerControlRegister1, GPU, SCREEN_HEIGHT, SCREEN_WIDTH
+    registers::power_control_register1::PowerControlRegister1,
+    GPU,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
   }
 };
+
+use glow::RGBA;
+use imgui::{Context, Textures};
+use imgui_glow_renderer::{
+  glow::{
+    HasContext,
+    NativeTexture,
+    PixelUnpackData,
+    COLOR_ATTACHMENT0,
+    COLOR_BUFFER_BIT,
+    NEAREST,
+    READ_FRAMEBUFFER,
+    RGBA8,
+    TEXTURE_2D,
+    TEXTURE_MAG_FILTER,
+    TEXTURE_MIN_FILTER,
+    UNSIGNED_BYTE
+  },
+  Renderer
+};
+use imgui_sdl2_support::SdlPlatform;
+use native_dialog::FileDialog;
 use sdl2::{
   audio::{
     AudioCallback,
@@ -34,13 +59,20 @@ use sdl2::{
   },
   event::Event,
   keyboard::Keycode,
-  pixels::PixelFormatEnum,
-  rect::Rect,
-  render::Canvas,
-  video::Window,
+  video::{
+    GLContext, GLProfile, Window
+  },
   EventPump,
   Sdl
 };
+
+use crate::cloud_service::CloudService;
+
+pub enum UIAction {
+  None,
+  Reset(bool),
+  LoadGame(PathBuf)
+}
 
 struct DsAudioCallback {
   audio_samples: Arc<Mutex<VecDeque<f32>>>
@@ -79,30 +111,99 @@ impl AudioCallback for DsAudioCallback {
 
 pub struct Frontend {
   event_pump: EventPump,
-  canvas: Canvas<Window>,
   _controller: Option<GameController>,
   button_map: HashMap<Button, KeyInputRegister>,
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
-  device: AudioDevice<DsAudioCallback>,
+  _device: AudioDevice<DsAudioCallback>,
   use_control_stick: bool,
   controller_x: i16,
-  controller_y: i16
+  controller_y: i16,
+  renderer: Renderer,
+  gl: imgui_glow_renderer::glow::Context,
+  texture: NativeTexture,
+  platform: SdlPlatform,
+  show_menu: bool,
+  imgui: imgui::Context,
+  window: Window,
+  textures: Textures<NativeTexture>,
+  _gl_context: GLContext,
+  pub cloud_service: Arc<Mutex<CloudService>>
 }
 
 impl Frontend {
   pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
+    let gl_attr = video_subsystem.gl_attr();
+
+    gl_attr.set_context_version(3, 2);
+    gl_attr.set_context_profile(GLProfile::Core);
+
     let window = video_subsystem
-      .window("DS Emulator", (SCREEN_WIDTH * 2) as u32, (SCREEN_HEIGHT * 2 * 2) as u32)
+      .window("DS Emulator", SCREEN_WIDTH as u32 * 2, SCREEN_HEIGHT as u32 * 4)
+      .opengl()
       .position_centered()
       .build()
       .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    canvas.set_scale(2.0, 2.0).unwrap();
+    let gl_context = window.gl_create_context().unwrap();
+
+    window.gl_make_current(&gl_context).unwrap();
+
+    window.subsystem().gl_set_swap_interval(1).unwrap();
+
+    let gl = Self::glow_context(&window);
+
+    let texture = unsafe { gl.create_texture().unwrap() };
+    let framebuffer = unsafe { gl.create_framebuffer().unwrap() };
+
+    unsafe {
+      gl.bind_texture(TEXTURE_2D, Some(texture));
+
+      gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as i32);
+      gl.tex_parameter_i32(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as i32);
+
+      gl.tex_storage_2d(
+        TEXTURE_2D,
+        1,
+        RGBA8,
+        SCREEN_WIDTH as i32 * 2,
+        SCREEN_HEIGHT as i32 * 4
+      );
+
+      gl.bind_framebuffer(READ_FRAMEBUFFER, Some(framebuffer));
+      gl.framebuffer_texture_2d(
+        READ_FRAMEBUFFER,
+        COLOR_ATTACHMENT0,
+        TEXTURE_2D,
+        Some(texture),
+        0
+      );
+
+      gl.clear_color(0.0, 0.0, 0.0, 0.0);
+    }
+
+    let mut imgui = Context::create();
+
+    imgui.set_ini_filename(None);
+    imgui.set_log_filename(None);
+
+    imgui
+      .fonts()
+      .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
+
+    let platform = SdlPlatform::init(&mut imgui);
+
+    let mut textures = Textures::<NativeTexture>::new();
+
+    let renderer = Renderer::initialize(
+      &gl,
+      &mut imgui,
+      &mut textures,
+      false
+    ).unwrap();
 
     let event_pump = sdl_context.event_pump().unwrap();
 
@@ -187,16 +288,31 @@ impl Frontend {
 
     Self {
       event_pump,
-      canvas,
+      window,
       _controller,
       button_map,
       ext_button_map,
       key_map,
       ext_key_map,
-      device,
+      _device: device,
       use_control_stick: false,
       controller_x: 0,
-      controller_y: 0
+      controller_y: 0,
+      show_menu: true,
+      renderer,
+      gl,
+      texture,
+      platform,
+      imgui,
+      textures,
+      _gl_context: gl_context,
+      cloud_service: Arc::new(Mutex::new(CloudService::new()))
+    }
+  }
+
+  fn glow_context(window: &Window) -> imgui_glow_renderer::glow::Context {
+    unsafe {
+      imgui_glow_renderer::glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as _)
     }
   }
 
@@ -219,12 +335,15 @@ impl Frontend {
 
   pub fn handle_events(&mut self, bus: &mut Bus) {
     for event in self.event_pump.poll_iter() {
+      self.platform.handle_event(&mut self.imgui, &event);
       match event {
         Event::Quit { .. } => std::process::exit(0),
         Event::KeyDown { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            self.show_menu = false;
             bus.key_input_register.set(*button, false);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            self.show_menu = false;
             bus.arm7.extkeyin.set(*button, false);
           } else if keycode.unwrap() == Keycode::G {
             bus.debug_on = !bus.debug_on
@@ -235,10 +354,8 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::T {
             self.use_control_stick = !self.use_control_stick;
             bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
-          } else if keycode.unwrap() == Keycode::E {
-            bus.gpu.engine3d.current_polygon -= 1;
-          } else if keycode.unwrap() == Keycode::R {
-            bus.gpu.engine3d.current_polygon += 1;
+          } else if keycode.unwrap() == Keycode::Escape {
+            self.show_menu = !self.show_menu;
           }
         }
         Event::KeyUp { keycode, .. } => {
@@ -249,6 +366,7 @@ impl Frontend {
           }
         }
         Event::ControllerButtonDown { button, .. } => {
+          self.show_menu = false;
           if let Some(button) = self.ext_button_map.get(&button) {
             bus.arm7.extkeyin.set(*button, false);
           } else if let Some(button) = self.button_map.get(&button) {
@@ -290,30 +408,109 @@ impl Frontend {
   }
 
   pub fn render(&mut self, gpu: &mut GPU) {
-    let creator = self.canvas.texture_creator();
-    let mut texture_a = creator
-      .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
-      .unwrap();
 
-    let mut texture_b = creator
-      .create_texture_target(PixelFormatEnum::RGB24, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
-      .unwrap();
-
-    if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
-      texture_a.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+    let (top, bottom) = if gpu.powcnt1.contains(PowerControlRegister1::TOP_A) {
+      (&gpu.engine_a.pixels, &gpu.engine_b.pixels)
     } else {
-      texture_a.update(None, &gpu.engine_b.pixels, SCREEN_WIDTH as usize * 3).unwrap();
-      texture_b.update(None, &gpu.engine_a.pixels, SCREEN_WIDTH as usize * 3).unwrap();
+      (&gpu.engine_b.pixels, &gpu.engine_a.pixels)
+    };
+
+    unsafe {
+      self.gl.clear(glow::COLOR_BUFFER_BIT);
+      self.gl.bind_texture(TEXTURE_2D, Some(self.texture));
+
+      self.gl.tex_sub_image_2d(
+        TEXTURE_2D,
+        0,
+        0,
+        0,
+        SCREEN_WIDTH as i32,
+        SCREEN_HEIGHT as i32,
+        RGBA,
+        UNSIGNED_BYTE,
+        PixelUnpackData::Slice(&top)
+      );
+
+      self.gl.tex_sub_image_2d(
+        TEXTURE_2D,
+        0,
+        0,
+        SCREEN_HEIGHT as i32,
+        SCREEN_WIDTH as i32,
+        SCREEN_HEIGHT as i32,
+        RGBA,
+        UNSIGNED_BYTE,
+        PixelUnpackData::Slice(&bottom)
+      );
+
+      self.gl.blit_framebuffer(
+        0,
+        SCREEN_HEIGHT as i32 * 2,
+        SCREEN_WIDTH as i32,
+        0,
+        0,
+        0,
+        SCREEN_WIDTH as i32 * 2,
+        SCREEN_HEIGHT as i32 * 4,
+        COLOR_BUFFER_BIT,
+        NEAREST
+      );
+    }
+  }
+
+
+  pub fn end_frame(&mut self) {
+    self.window.gl_swap_window();
+  }
+
+  pub fn render_ui(&mut self) -> UIAction {
+    self.platform.prepare_frame(&mut self.imgui, &mut self.window, &self.event_pump);
+
+    let ui = self.imgui.new_frame();
+
+    let mut action = UIAction::None;
+
+    if self.show_menu {
+      ui.main_menu_bar(|| {
+        if let Some(menu) = ui.begin_menu("File") {
+          if ui.menu_item("Open") {
+            match FileDialog::new()
+              .add_filter("NDS Rom file", &["nds"])
+              .show_open_single_file() {
+                Ok(path) => if let Some(path) = path {
+                  action = UIAction::LoadGame(path);
+                }
+                Err(_) => ()
+              }
+          }
+          if ui.menu_item("Reset") {
+            action = UIAction::Reset(true);
+          }
+          if ui.menu_item("Quit") {
+            std::process::exit(0);
+          }
+          menu.end();
+        }
+        if let Some(menu) = ui.begin_menu("Cloud saves") {
+          let mut cloud_service = self.cloud_service.lock().unwrap();
+
+          if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
+            action = UIAction::Reset(false);
+            cloud_service.login();
+          } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
+            action = UIAction::Reset(false);
+            cloud_service.logout();
+          }
+
+          menu.end();
+        }
+      });
     }
 
+    let draw_data = self.imgui.render();
 
-    let screen_a = Rect::new(0, 0, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
-    let screen_b = Rect::new(0, SCREEN_HEIGHT as i32, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
+    self.renderer.render(&self.gl, &mut self.textures, draw_data).unwrap();
 
-    self.canvas.copy(&texture_a, None, screen_a).unwrap();
-    self.canvas.copy(&texture_b, None, screen_b).unwrap();
-
-    self.canvas.present();
+    action
   }
 }

@@ -234,11 +234,6 @@ export class UI {
 
   async deleteSave(gameName: string) {
     if (confirm("are you sure you want to delete this save?")) {
-      // if (!this.cloudService.usingCloud) {
-      //   await this.db.deleteSave(gameName)
-      // } else {
-      //   await this.cloudService.deleteSave(gameName)
-      // }
       const result = !this.cloudService.usingCloud ? await this.db.deleteSave(gameName) : await this.cloudService.deleteSave(gameName)
 
       if (result) {

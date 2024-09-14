@@ -7,3 +7,5 @@ firmware.bin
 game_db_old.json
 fileConverter.js
 profile.json
+.refresh_token
+.access_token

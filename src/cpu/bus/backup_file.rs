@@ -3,17 +3,27 @@ use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 pub struct BackupFile {
   pub buffer: Vec<u8>,
   file: Option<File>,
-  pub has_written: bool
+  pub has_written: bool,
+  pub last_write: u128,
+  pub is_desktop_cloud: bool,
+  path: Option<PathBuf>
 }
 
 impl BackupFile {
-  pub fn new(path: Option<PathBuf>, bytes: Option<Vec<u8>>, capacity: usize) -> Self {
+  pub fn new(
+    path: Option<PathBuf>,
+    bytes: Option<Vec<u8>>,
+    capacity: usize,
+    is_desktop_cloud: bool
+  ) -> Self {
     if path.is_some() {
       let path = path.unwrap();
       if !path.is_file() {
         let mut file = File::create(&path).unwrap();
         file.write_all(&vec![0xff; capacity]).unwrap();
       }
+
+      let path_clone = path.clone();
 
       let mut file = fs::OpenOptions::new()
         .read(true)
@@ -28,7 +38,10 @@ impl BackupFile {
       Self {
         file: Some(file),
         buffer,
-        has_written: false
+        has_written: false,
+        last_write: 0,
+        path: Some(path_clone),
+        is_desktop_cloud
       }
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
@@ -42,12 +55,35 @@ impl BackupFile {
       Self {
         file: None,
         buffer,
-        has_written: false
+        has_written: false,
+        last_write: 0,
+        path,
+        is_desktop_cloud
       }
     } else {
       panic!("Neither bytes nor path provided!");
     }
+  }
 
+  pub fn reset(&mut self) -> Self {
+    let path = self.path.clone().unwrap();
+
+    let file = fs::OpenOptions::new()
+      .read(true)
+      .write(true)
+      .open(path)
+      .unwrap();
+
+    self.flush();
+
+    Self {
+      buffer: self.buffer.clone(),
+      file: Some(file),
+      has_written: false,
+      last_write: 0,
+      path: self.path.clone(),
+      is_desktop_cloud: self.is_desktop_cloud
+    }
   }
 
   pub fn read(&self, address: usize) -> u8 {

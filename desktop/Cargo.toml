@@ -7,6 +7,20 @@ edition = "2021"
 [dependencies.ds-emulator]
 path = "../"
 
+[dependencies]
+glow = "0.14.0"
+imgui-glow-renderer = { version = "0.12.0" }
+imgui = { version = "0.12.0" }
+imgui-sdl2-support = { version = "0.12.0" }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+tokio = { version = "1", features = ["full"] }
+open = "5.3.0"
+tiny_http = "0.12.0"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+url-escape = "0.1.1"
+native-dialog = "0.7.0"
+
 [dependencies.sdl2]
-version = "0.35"
+version = "0.34.5"
 features=["gfx"]
