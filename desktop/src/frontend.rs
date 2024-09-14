@@ -70,7 +70,7 @@ use crate::cloud_service::CloudService;
 
 pub enum UIAction {
   None,
-  Reset,
+  Reset(bool),
   LoadGame(PathBuf)
 }
 
@@ -484,7 +484,7 @@ impl Frontend {
               }
           }
           if ui.menu_item("Reset") {
-            action = UIAction::Reset;
+            action = UIAction::Reset(true);
           }
           if ui.menu_item("Quit") {
             std::process::exit(0);
@@ -495,10 +495,10 @@ impl Frontend {
           let mut cloud_service = self.cloud_service.lock().unwrap();
 
           if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
-            action = UIAction::Reset;
+            action = UIAction::Reset(false);
             cloud_service.login();
           } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
-            action = UIAction::Reset;
+            action = UIAction::Reset(false);
             cloud_service.logout();
           }
 

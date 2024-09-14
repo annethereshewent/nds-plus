@@ -18,7 +18,7 @@ pub mod frontend;
 pub mod cloud_service;
 
 
-fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, rom_bytes: Option<Vec<u8>>) {
+fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, bytes: Option<Vec<u8>>) {
   if frontend.cloud_service.lock().unwrap().logged_in {
     // fetch the game's save from the cloud
 
@@ -27,8 +27,8 @@ fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, 
 
    let game_name = game_name.split("/").last().unwrap();
 
-   let bytes = if let Some(rom_bytes) = rom_bytes {
-    rom_bytes
+   let bytes = if let Some(bytes) = bytes {
+    bytes
    } else {
     frontend.cloud_service.lock().unwrap().get_save(game_name)
    };
@@ -81,32 +81,11 @@ fn main() {
     audio_buffer.clone()
   );
 
-  // if frontend.cloud_service.lock().unwrap().logged_in {
-  //    // fetch the game's save from the cloud
-
-  //   // rust once again making me do really stupid fucking shit.
-  //   // i have to do things in two steps (create path and save to variable, then convert to string)
-  //   // as opposed to doing it all at once.
-  //   let save_path = Path::new(&args[1]).with_extension("sav");
-  //   let game_name = save_path.to_str().unwrap();
-
-  //   let game_name = game_name.split("/").last().unwrap();
-
-  //   let bytes = frontend.cloud_service.lock().unwrap().get_save(game_name);
-
-  //   nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
-  // } else {
-  //   let path = Path::new(&args[1]).with_extension("sav");
-
-  //   nds.bus.borrow_mut().cartridge.detect_backup_type(path);
-
-  // }
   detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), None);
 
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-  let mut reset = false;
 
   loop {
     while !frame_finished {
@@ -135,9 +114,9 @@ fn main() {
         detect_backup_type(&mut frontend, &mut nds, rom_path, None);
         continue;
       }
-      UIAction::Reset => {
+      UIAction::Reset(get_bytes) => {
         // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
-        let rom_bytes = if frontend.cloud_service.lock().unwrap().logged_in {
+        let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
           let ref bus = *nds.bus.borrow();
 
           match &bus.cartridge.backup {
@@ -150,7 +129,10 @@ fn main() {
         };
 
         nds.reset();
-        detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), rom_bytes);
+        detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), bytes);
+
+        logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+
         continue;
       }
     }

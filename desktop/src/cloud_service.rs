@@ -491,6 +491,8 @@ impl CloudService {
       self.access_token = json.access_token;
       self.refresh_token = json.refresh_token.unwrap();
 
+      self.logged_in = true;
+
       // store these in files for use later
       fs::write("./.access_token", self.access_token.clone()).unwrap();
       fs::write("./.refresh_token", self.refresh_token.clone()).unwrap();
