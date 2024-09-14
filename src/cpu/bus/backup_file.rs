@@ -5,11 +5,17 @@ pub struct BackupFile {
   file: Option<File>,
   pub has_written: bool,
   pub last_write: u128,
+  pub is_desktop_cloud: bool,
   path: Option<PathBuf>
 }
 
 impl BackupFile {
-  pub fn new(path: Option<PathBuf>, bytes: Option<Vec<u8>>, capacity: usize) -> Self {
+  pub fn new(
+    path: Option<PathBuf>,
+    bytes: Option<Vec<u8>>,
+    capacity: usize,
+    is_desktop_cloud: bool
+  ) -> Self {
     if path.is_some() {
       let path = path.unwrap();
       if !path.is_file() {
@@ -34,7 +40,8 @@ impl BackupFile {
         buffer,
         has_written: false,
         last_write: 0,
-        path: Some(path_clone)
+        path: Some(path_clone),
+        is_desktop_cloud
       }
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
@@ -50,7 +57,8 @@ impl BackupFile {
         buffer,
         has_written: false,
         last_write: 0,
-        path
+        path,
+        is_desktop_cloud
       }
     } else {
       panic!("Neither bytes nor path provided!");
@@ -71,7 +79,8 @@ impl BackupFile {
       file: Some(file),
       has_written: false,
       last_write: 0,
-      path: self.path.clone()
+      path: self.path.clone(),
+      is_desktop_cloud: self.is_desktop_cloud
     }
   }
 

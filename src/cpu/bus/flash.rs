@@ -127,10 +127,12 @@ impl Flash {
     if !hold {
       if self.command == Command::PW {
         self.backup_file.has_written = true;
-        self.backup_file.last_write = SystemTime::now()
-          .duration_since(UNIX_EPOCH)
-          .expect("an error occurred")
-          .as_millis();
+        if self.backup_file.is_desktop_cloud {
+          self.backup_file.last_write = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("an error occurred")
+            .as_millis();
+        }
       }
        self.mode = CommandMode::AwaitingCommand;
     }
