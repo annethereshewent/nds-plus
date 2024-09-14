@@ -65,7 +65,7 @@ impl BackupFile {
     }
   }
 
-  pub fn reset(&self) -> Self {
+  pub fn reset(&mut self) -> Self {
     let path = self.path.clone().unwrap();
 
     let file = fs::OpenOptions::new()
@@ -73,6 +73,8 @@ impl BackupFile {
       .write(true)
       .open(path)
       .unwrap();
+
+    self.flush();
 
     Self {
       buffer: self.buffer.clone(),
