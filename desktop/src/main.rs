@@ -19,26 +19,30 @@ pub mod cloud_service;
 
 fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, bytes: Option<Vec<u8>>) {
   if frontend.cloud_service.lock().unwrap().logged_in {
-    // fetch the game's save from the cloud
+    let ref mut bus = *nds.bus.borrow_mut();
 
-   let save_path = Path::new(&rom_path).with_extension("sav");
-   let game_name = save_path.to_str().unwrap();
+    if let Some(entry) = bus.cartridge.detect_backup_type() {
+      let save_path = Path::new(&rom_path).with_extension("sav");
+      let game_name = save_path.to_str().unwrap();
 
-   let game_name = game_name.split("/").last().unwrap();
+      let game_name = game_name.split("/").last().unwrap();
 
-   let bytes = if let Some(bytes) = bytes {
-    bytes
-   } else {
-    frontend.cloud_service.lock().unwrap().get_save(game_name)
-   };
+      let bytes = if let Some(bytes) = bytes {
+        bytes
+      } else {
+        frontend.cloud_service.lock().unwrap().get_save(game_name)
+      };
 
-   nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
- } else {
-   let path = Path::new(&rom_path).with_extension("sav");
+      bus.cartridge.set_cloud_backup(bytes, entry);
+    }
+  } else {
+    let ref mut bus = *nds.bus.borrow_mut();
 
-   nds.bus.borrow_mut().cartridge.detect_backup_type(path);
-
- }
+    if let Some(entry) = bus.cartridge.detect_backup_type() {
+      let path = Path::new(&rom_path).with_extension("sav");
+      bus.cartridge.set_backup(path, entry);
+    }
+  }
 }
 
 fn main() {
