@@ -129,11 +129,15 @@ fn main() {
     match frontend.render_ui() {
       UIAction::None => (),
       UIAction::LoadGame(path) => {
-
+        let rom_path = path.clone().to_string_lossy().to_string();
+        nds.load_game(path);
+        nds.reset();
+        detect_backup_type(&mut frontend, &mut nds, rom_path, None);
+        continue;
       }
       UIAction::Reset => {
         // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
-        let rom_bytes = {
+        let rom_bytes = if frontend.cloud_service.lock().unwrap().logged_in {
           let ref bus = *nds.bus.borrow();
 
           match &bus.cartridge.backup {
@@ -141,6 +145,8 @@ fn main() {
             BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
             BackupType::None => None
           }
+        } else {
+          None
         };
 
         nds.reset();

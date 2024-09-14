@@ -1,9 +1,5 @@
 use std::{
-  cell::RefCell,
-  collections::VecDeque,
-  path::PathBuf,
-  rc::Rc,
-  sync::{
+  cell::RefCell, collections::VecDeque, fs, path::PathBuf, rc::Rc, sync::{
     Arc,
     Mutex
   }
@@ -61,7 +57,11 @@ impl Nds {
   }
 
   pub fn load_game(&mut self, path: PathBuf) {
+    let bytes = fs::read(path).unwrap();
 
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.cartridge.rom = bytes;
   }
 
   pub fn reset(&mut self) {
