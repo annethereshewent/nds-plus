@@ -21,3 +21,4 @@ export function wasmemulator_touch_screen_controller(a: number, b: number, c: nu
 export function wasmemulator_step_frame(a: number): void;
 export function __wbindgen_malloc(a: number, b: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number, d: number): number;
+export function __wbindgen_free(a: number, b: number, c: number): void;
