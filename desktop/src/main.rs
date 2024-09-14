@@ -73,11 +73,11 @@ fn main() {
     Some(args[1].to_string()),
     Some(firmware_path.to_path_buf()),
     None,
-    bios7_bytes.clone(),
-    bios9_bytes.clone(),
-    rom_bytes.clone(),
+    bios7_bytes,
+    bios9_bytes,
+    rom_bytes,
     skip_bios,
-    audio_buffer.clone()
+    audio_buffer
   );
 
   detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), None);
