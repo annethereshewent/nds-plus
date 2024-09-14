@@ -19,6 +19,7 @@ tiny_http = "0.12.0"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 url-escape = "0.1.1"
+native-dialog = "0.7.0"
 
 [dependencies.sdl2]
 version = "0.34.5"

@@ -60,6 +60,28 @@ impl Nds {
     nds
   }
 
+  pub fn load_game(&mut self, path: PathBuf) {
+
+  }
+
+  pub fn reset(&mut self) {
+    {
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.arm7.apu.audio_buffer.lock().unwrap().drain(..);
+
+      let new_bus = Rc::new(RefCell::new(bus.reset()));
+
+      self.arm9_cpu = CPU::new(new_bus.clone(), true);
+      self.arm7_cpu = CPU::new(new_bus.clone(), true);
+
+      self.arm7_cpu.reload_pipeline32();
+      self.arm9_cpu.reload_pipeline32();
+    }
+
+    self.bus = self.arm9_cpu.bus.clone();
+  }
+
   pub fn step(&mut self) -> bool {
     let (cycles, scheduler_cycles) = {
       let ref mut bus = *self.bus.borrow_mut();

@@ -1,17 +1,18 @@
 use std::{
-  borrow::BorrowMut, collections::{
+ collections::{
     HashMap,
     VecDeque
-  }, sync::{
+  }, path::PathBuf, sync::{
     Arc,
     Mutex
-  }, time::{Duration, SystemTime, UNIX_EPOCH}
+  }
 };
 
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::{cartridge::BackupType, Bus}, registers::{
+    bus::Bus,
+    registers::{
       external_key_input_register::ExternalKeyInputRegister,
       key_input_register::KeyInputRegister
     }
@@ -44,6 +45,7 @@ use imgui_glow_renderer::{
   Renderer
 };
 use imgui_sdl2_support::SdlPlatform;
+use native_dialog::FileDialog;
 use sdl2::{
   audio::{
     AudioCallback,
@@ -65,6 +67,12 @@ use sdl2::{
 };
 
 use crate::cloud_service::CloudService;
+
+pub enum UIAction {
+  None,
+  Reset,
+  LoadGame(PathBuf)
+}
 
 struct DsAudioCallback {
   audio_samples: Arc<Mutex<VecDeque<f32>>>
@@ -121,8 +129,7 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  pub cloud_service: Arc<Mutex<CloudService>>,
-  last_save_time: u128
+  pub cloud_service: Arc<Mutex<CloudService>>
 }
 
 impl Frontend {
@@ -299,8 +306,7 @@ impl Frontend {
       imgui,
       textures,
       _gl_context: gl_context,
-      cloud_service: Arc::new(Mutex::new(CloudService::new())),
-      last_save_time: 0
+      cloud_service: Arc::new(Mutex::new(CloudService::new()))
     }
   }
 
@@ -457,19 +463,28 @@ impl Frontend {
     self.window.gl_swap_window();
   }
 
-  pub fn render_ui(&mut self) {
+  pub fn render_ui(&mut self) -> UIAction {
     self.platform.prepare_frame(&mut self.imgui, &mut self.window, &self.event_pump);
 
     let ui = self.imgui.new_frame();
+
+    let mut action = UIAction::None;
 
     if self.show_menu {
       ui.main_menu_bar(|| {
         if let Some(menu) = ui.begin_menu("File") {
           if ui.menu_item("Open") {
-
+            match FileDialog::new()
+              .add_filter("NDS Rom file", &["nds"])
+              .show_open_single_file() {
+                Ok(path) => if let Some(path) = path {
+                  action = UIAction::LoadGame(path);
+                }
+                Err(_) => ()
+              }
           }
           if ui.menu_item("Reset") {
-
+            action = UIAction::Reset;
           }
           if ui.menu_item("Quit") {
             std::process::exit(0);
@@ -480,8 +495,10 @@ impl Frontend {
           let mut cloud_service = self.cloud_service.lock().unwrap();
 
           if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
+            action = UIAction::Reset;
             cloud_service.login();
           } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
+            action = UIAction::Reset;
             cloud_service.logout();
           }
 
@@ -493,5 +510,7 @@ impl Frontend {
     let draw_data = self.imgui.render();
 
     self.renderer.render(&self.gl, &mut self.textures, draw_data).unwrap();
+
+    action
   }
 }

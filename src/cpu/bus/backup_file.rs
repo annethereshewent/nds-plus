@@ -4,7 +4,8 @@ pub struct BackupFile {
   pub buffer: Vec<u8>,
   file: Option<File>,
   pub has_written: bool,
-  pub last_write: u128
+  pub last_write: u128,
+  path: Option<PathBuf>
 }
 
 impl BackupFile {
@@ -15,6 +16,8 @@ impl BackupFile {
         let mut file = File::create(&path).unwrap();
         file.write_all(&vec![0xff; capacity]).unwrap();
       }
+
+      let path_clone = path.clone();
 
       let mut file = fs::OpenOptions::new()
         .read(true)
@@ -30,7 +33,8 @@ impl BackupFile {
         file: Some(file),
         buffer,
         has_written: false,
-        last_write: 0
+        last_write: 0,
+        path: Some(path_clone)
       }
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
@@ -45,12 +49,30 @@ impl BackupFile {
         file: None,
         buffer,
         has_written: false,
-        last_write: 0
+        last_write: 0,
+        path
       }
     } else {
       panic!("Neither bytes nor path provided!");
     }
+  }
 
+  pub fn reset(&self) -> Self {
+    let path = self.path.clone().unwrap();
+
+    let file = fs::OpenOptions::new()
+      .read(true)
+      .write(true)
+      .open(path)
+      .unwrap();
+
+    Self {
+      buffer: self.buffer.clone(),
+      file: Some(file),
+      has_written: false,
+      last_write: 0,
+      path: self.path.clone()
+    }
   }
 
   pub fn read(&self, address: usize) -> u8 {

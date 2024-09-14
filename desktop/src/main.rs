@@ -10,13 +10,37 @@ use std::{
 
 use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
 
-use frontend::Frontend;
+use frontend::{Frontend, UIAction};
 
 extern crate ds_emulator;
 
 pub mod frontend;
 pub mod cloud_service;
 
+
+fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, rom_bytes: Option<Vec<u8>>) {
+  if frontend.cloud_service.lock().unwrap().logged_in {
+    // fetch the game's save from the cloud
+
+   let save_path = Path::new(&rom_path).with_extension("sav");
+   let game_name = save_path.to_str().unwrap();
+
+   let game_name = game_name.split("/").last().unwrap();
+
+   let bytes = if let Some(rom_bytes) = rom_bytes {
+    rom_bytes
+   } else {
+    frontend.cloud_service.lock().unwrap().get_save(game_name)
+   };
+
+   nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
+ } else {
+   let path = Path::new(&rom_path).with_extension("sav");
+
+   nds.bus.borrow_mut().cartridge.detect_backup_type(path);
+
+ }
+}
 
 fn main() {
   let args: Vec<String> = env::args().collect();
@@ -50,52 +74,83 @@ fn main() {
     Some(args[1].to_string()),
     Some(firmware_path.to_path_buf()),
     None,
-    bios7_bytes,
-    bios9_bytes,
-    rom_bytes,
+    bios7_bytes.clone(),
+    bios9_bytes.clone(),
+    rom_bytes.clone(),
     skip_bios,
     audio_buffer.clone()
   );
 
-  if frontend.cloud_service.lock().unwrap().logged_in {
-     // fetch the game's save from the cloud
+  // if frontend.cloud_service.lock().unwrap().logged_in {
+  //    // fetch the game's save from the cloud
 
-    // rust once again making me do really stupid fucking shit.
-    // i have to do things in two steps (create path and save to variable, then convert to string)
-    // as opposed to doing it all at once.
-    let save_path = Path::new(&args[1]).with_extension("sav");
-    let game_name = save_path.to_str().unwrap();
+  //   // rust once again making me do really stupid fucking shit.
+  //   // i have to do things in two steps (create path and save to variable, then convert to string)
+  //   // as opposed to doing it all at once.
+  //   let save_path = Path::new(&args[1]).with_extension("sav");
+  //   let game_name = save_path.to_str().unwrap();
 
-    let game_name = game_name.split("/").last().unwrap();
+  //   let game_name = game_name.split("/").last().unwrap();
 
-    let bytes = frontend.cloud_service.lock().unwrap().get_save(game_name);
+  //   let bytes = frontend.cloud_service.lock().unwrap().get_save(game_name);
 
-    nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
-  } else {
-    let path = Path::new(&args[1]).with_extension("sav");
+  //   nds.bus.borrow_mut().cartridge.detect_cloud_backup_type(bytes);
+  // } else {
+  //   let path = Path::new(&args[1]).with_extension("sav");
 
-    nds.bus.borrow_mut().cartridge.detect_backup_type(path);
+  //   nds.bus.borrow_mut().cartridge.detect_backup_type(path);
 
-  }
+  // }
+  detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), None);
 
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+  let mut reset = false;
 
   loop {
     while !frame_finished {
       frame_finished = nds.step();
     }
 
+    // some more hacky shit because rust is a fucking asshole
+    {
+      let ref mut bus = *nds.bus.borrow_mut();
+
+      bus.gpu.frame_finished = false;
+      bus.gpu.cap_fps();
+
+      frame_finished = false;
+
+      frontend.render(&mut bus.gpu);
+    }
+
+
+    match frontend.render_ui() {
+      UIAction::None => (),
+      UIAction::LoadGame(path) => {
+
+      }
+      UIAction::Reset => {
+        // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
+        let rom_bytes = {
+          let ref bus = *nds.bus.borrow();
+
+          match &bus.cartridge.backup {
+            BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
+            BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
+            BackupType::None => None
+          }
+        };
+
+        nds.reset();
+        detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), rom_bytes);
+        continue;
+      }
+    }
+
     let ref mut bus = *nds.bus.borrow_mut();
 
-    bus.gpu.frame_finished = false;
-    bus.gpu.cap_fps();
-
-    frame_finished = false;
-
-    frontend.render(&mut bus.gpu);
-    frontend.render_ui();
     frontend.end_frame();
 
     frontend.handle_events(bus);
@@ -117,7 +172,6 @@ fn main() {
           .duration_since(UNIX_EPOCH)
           .expect("an error occurred")
           .as_millis();
-
 
         if file.last_write != 0 && current_time - file.last_write > 1000 {
           let cloud_service = frontend.cloud_service.clone();
