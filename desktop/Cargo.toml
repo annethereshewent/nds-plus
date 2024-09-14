@@ -23,4 +23,3 @@ native-dialog = "0.7.0"
 
 [dependencies.sdl2]
 version = "0.34.5"
-features=["gfx"]
