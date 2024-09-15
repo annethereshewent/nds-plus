@@ -1,6 +1,18 @@
 use std::{fs, path::Path};
 
-use reqwest::{blocking::{Body, Client, Response}, Error, StatusCode};
+use reqwest::{
+  blocking::{
+    Body,
+    Client,
+    Response
+  },
+  header::{
+    HeaderMap,
+    HeaderValue
+  },
+  Error,
+  StatusCode
+};
 use serde::{Deserialize, Serialize};
 use tiny_http::Server;
 
@@ -81,6 +93,70 @@ impl CloudService {
     }
   }
 
+  fn get(&self, url: &str) -> Response {
+    self.client
+      .get(url)
+      .header("Authorization", format!("Bearer {}", self.access_token))
+      .send()
+      .unwrap()
+  }
+
+  fn post(
+    &self,
+    url: &str,
+    body_str: Option<String>,
+    bytes: Option<Vec<u8>>,
+    headers: Option<HeaderMap<HeaderValue>>
+  ) -> Response {
+    self.request(url, "post", body_str, bytes, headers)
+  }
+
+  fn patch(
+    &self,
+    url: &str,
+    body_str: Option<String>,
+    bytes: Option<Vec<u8>>,
+    headers: Option<HeaderMap<HeaderValue>>
+  ) -> Response {
+    self.request(url, "patch", body_str, bytes, headers)
+  }
+
+  fn request(
+    &self,
+    url: &str,
+    method: &str,
+    body_str: Option<String>,
+    bytes: Option<Vec<u8>>,
+    headers: Option<HeaderMap<HeaderValue>>
+  ) -> Response {
+    let mut  builder = match method {
+      "patch" => self.client.patch(url),
+      "post" => self.client.post(url),
+      _ => unreachable!()
+    };
+
+    let body = if let Some(body_str) = body_str {
+      Some(Body::from(body_str))
+    } else if let Some(bytes) = bytes {
+      Some(Body::from(bytes))
+    } else {
+      None
+    };
+
+    if let Some(body) = body {
+      builder = builder.body(body);
+    }
+
+    builder = builder.header("Authorization", format!("Bearer {}", self.access_token));
+
+    if let Some(headers) = headers {
+      builder = builder.headers(headers);
+    }
+
+    builder.send().unwrap()
+  }
+
+
   fn refresh_login(&mut self) {
     let mut body_params: Vec<[&str; 2]> = Vec::new();
 
@@ -91,7 +167,8 @@ impl CloudService {
 
     let params = Self::generate_params_string(body_params);
 
-    let token_response = self.client.post(BASE_TOKEN_URL)
+    let token_response = self.client
+      .post(BASE_TOKEN_URL)
       .header("Content-Type", "application/x-www-form-urlencoded")
       .body(Body::from(params))
       .send()
@@ -130,22 +207,12 @@ impl CloudService {
 
     let url = format!("https://www.googleapis.com/drive/v3/files?{query_string}");
 
-    // TODO: find a way to DRY up code while keeping rust happy
-    let response = self.client
-      .get(url.clone())
-      .header("Authorization", format!("Bearer {}", self.access_token))
-      .send()
-      .unwrap();
+    let response = self.get(&url);
 
     if response.status() == StatusCode::UNAUTHORIZED {
       self.refresh_login();
 
-      // TODO: code repetition
-      let response = self.client
-        .get(url)
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .send()
-        .unwrap();
+      let response = self.get(&url);
 
       if response.status() == StatusCode::OK {
        self.process_folder_response(response);
@@ -167,26 +234,35 @@ impl CloudService {
     } else {
       // create the ds folder
 
-      // more undry code
       let url = "https://www.googleapis.com/drive/v3/files?uploadType=media";
 
-      let response = self.client
-        .post(url)
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .header("Content-Type", "application/vnd.google-apps.folder")
-        .send()
-        .unwrap();
+      let folder_json = FileJson {
+        name: "ds-saves".to_string(),
+        mimeType: "application/vnd.google-apps.folder".to_string()
+      };
 
-      // more undry code....
+      let json_str = serde_json::to_string(&folder_json).unwrap();
+
+      let mut headers = HeaderMap::new();
+
+      headers.append("Content-Type", HeaderValue::from_str("application/vnd.google-apps.folder").unwrap());
+
+      let response = self.post(
+        url,
+        Some(json_str.clone()),
+        None,
+        Some(headers.clone())
+      );
+
       if response.status() == StatusCode::UNAUTHORIZED {
         self.refresh_login();
 
-        let response = self.client
-          .post(url)
-          .header("Authorization", format!("Bearer {}", self.access_token))
-          .header("Content-Type", "application/vnd.google-apps.folder")
-          .send()
-          .unwrap();
+        let response = self.post(
+          url,
+          Some(json_str.clone()),
+          None,
+          Some(headers)
+        );
 
 
         if response.status() == StatusCode::OK {
@@ -226,29 +302,30 @@ impl CloudService {
 
     let json = self.get_save_info();
 
+    let mut headers = HeaderMap::new();
+
+    headers.append("Content-Type", HeaderValue::from_str("application/octet-stream").unwrap());
+    headers.append("Content-Length", HeaderValue::from_str(&format!("{}", bytes.len())).unwrap());
+
     if let Some(file) = json.files.get(0) {
       let url = format!("https://www.googleapis.com/upload/drive/v3/files/{}?uploadType=media", file.id);
 
-      let response = self.client
-        .patch(url.clone())
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .header("Content-Type", "application/octet-stream")
-        .header("Content-Length", format!("{}", bytes.len()))
-        .body(bytes.to_vec())
-        .send()
-        .unwrap();
+      let response = self.patch(
+        &url,
+        None,
+        Some(bytes.to_vec()),
+        Some(headers.clone())
+      );
 
       if response.status() == StatusCode::UNAUTHORIZED {
         self.refresh_login();
 
-        let response = self.client
-          .patch(url)
-          .header("Authorization", format!("Bearer {}", self.access_token))
-          .header("Content-Type", "application/octet-stream")
-          .header("Content-Length", format!("{}", bytes.len()))
-          .body(bytes.to_vec())
-          .send()
-          .unwrap();
+        let response = self.patch(
+          &url,
+          None,
+          Some(bytes.to_vec()),
+          Some(headers.clone())
+        );
 
         if response.status() != StatusCode::OK {
           println!("Warning: Couldn't upload save to cloud!");
@@ -262,14 +339,12 @@ impl CloudService {
 
     let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media&fields=id,name,parents";
 
-    let response = self.client
-      .post(url)
-      .header("Authorization", format!("Bearer {}", self.access_token))
-      .header("Content-Type", "application/octet-stream")
-      .header("Content-Length", format!("{}", bytes.len()))
-      .body(bytes.to_vec())
-      .send()
-      .unwrap();
+    let response = self.post(
+      &url,
+      None,
+      Some(bytes.to_vec()),
+      Some(headers.clone())
+    );
 
     if response.status() == StatusCode::OK {
       // move and rename file
@@ -277,15 +352,12 @@ impl CloudService {
     } else if response.status() == StatusCode::UNAUTHORIZED {
       self.refresh_login();
 
-      // repeat the above all over! because rust is just looking out for what's best for you, duh.
-      let response = self.client
-        .post(url)
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .header("Content-Type", "application/octet-stream")
-        .header("Content-Length", format!("{}", bytes.len()))
-        .body(bytes.to_vec())
-        .send()
-        .unwrap();
+      let response = self.post(
+        &url,
+        None,
+        Some(bytes.to_vec()),
+        Some(headers.clone())
+      );
 
       if response.status() == StatusCode::OK {
         self.rename_save(response);
@@ -316,20 +388,20 @@ impl CloudService {
 
     let json_str = serde_json::to_string(&json).unwrap();
 
-    let response = self.client
-      .patch(url.clone())
-      .header("Authorization", format!("Bearer {}", self.access_token))
-      .body(json_str.clone())
-      .send()
-      .unwrap();
+    let response = self.patch(
+      &url,
+      Some(json_str.clone()),
+      None,
+      None
+    );
 
     if response.status() == StatusCode::UNAUTHORIZED {
-      let response = self.client
-        .patch(url)
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .body(json_str)
-        .send()
-        .unwrap();
+      let response = self.patch(
+        &url,
+        Some(json_str.clone()),
+        None,
+        None
+      );
 
       if response.status() != StatusCode::OK {
         println!("Warning: Couldn't rename save!");
@@ -350,20 +422,12 @@ impl CloudService {
       let url = format!("https://www.googleapis.com/drive/v3/files/{}?alt=media", file.id);
 
       // time for some repetition! woo!
-      let response = self.client
-        .get(url.clone())
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .send()
-        .unwrap();
+      let response = self.get(&url);
 
       if response.status() == StatusCode::UNAUTHORIZED {
         self.refresh_login();
 
-        let response = self.client
-          .get(url)
-          .header("Authorization", format!("Bearer {}", self.access_token))
-          .send()
-          .unwrap();
+        let response = self.get(&url);
 
         if response.status() == StatusCode::OK {
           return response.bytes().unwrap().to_vec();
@@ -392,21 +456,12 @@ impl CloudService {
 
     let url = format!("https://www.googleapis.com/drive/v3/files?{query_string}");
 
-    // brace yourself for annoying unDRY code!
-    let response = self.client
-      .get(url.clone())
-      .header("Authorization", format!("Bearer {}", self.access_token))
-      .send()
-      .unwrap();
+    let response = self.get(&url);
 
     if response.status() == StatusCode::UNAUTHORIZED {
       self.refresh_login();
 
-      let response = self.client
-        .get(url)
-        .header("Authorization", format!("Bearer {}", self.access_token))
-        .send()
-        .unwrap();
+      let response = self.get(&url);
 
       if response.status() == StatusCode::OK {
         return response.json::<DriveResponse>().unwrap();
