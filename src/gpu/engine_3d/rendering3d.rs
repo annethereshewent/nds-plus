@@ -542,7 +542,8 @@ impl Engine3d {
             };
 
             if disp3dcnt.contains(Display3dControlRegister::FOG_MASTER_ENABLE) &&
-              polygon.attributes.contains(PolygonAttributes::FOG_ENABLE)
+              polygon.attributes.contains(PolygonAttributes::FOG_ENABLE) &&
+              pixel.color.is_some()
             {
               let mut pixel_color = pixel.color.unwrap();
 
