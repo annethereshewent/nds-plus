@@ -109,7 +109,7 @@ fn main() {
       frame_finished = nds.step();
     }
 
-    // some more hacky shit because rust is a fucking asshole
+    // need to do this or else will rust complain about borrowing and ownership
     {
       let ref mut bus = *nds.bus.borrow_mut();
 

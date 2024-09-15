@@ -130,8 +130,7 @@ impl CloudService {
 
     let url = format!("https://www.googleapis.com/drive/v3/files?{query_string}");
 
-    // I FUCKING HATE RUST FUCK YOU
-    // YOU MAKE IT ******** IMPOSSIBLE ******* TO WRITE DRY CODE
+    // TODO: find a way to DRY up code while keeping rust happy
     let response = self.client
       .get(url.clone())
       .header("Authorization", format!("Bearer {}", self.access_token))
@@ -141,8 +140,7 @@ impl CloudService {
     if response.status() == StatusCode::UNAUTHORIZED {
       self.refresh_login();
 
-      // HERE I HAVE TO REPEAT THIS WHOLE CODE SNIPPET BECAUSE MUH MOVED BORROWED VALUES
-      // EAT A FUCKING DICK, RUST
+      // TODO: code repetition
       let response = self.client
         .get(url)
         .header("Authorization", format!("Bearer {}", self.access_token))
@@ -169,7 +167,7 @@ impl CloudService {
     } else {
       // create the ds folder
 
-      // here's another painful API request because i can't DRY it up thanks to Rust
+      // more undry code
       let url = "https://www.googleapis.com/drive/v3/files?uploadType=media";
 
       let response = self.client
@@ -179,8 +177,7 @@ impl CloudService {
         .send()
         .unwrap();
 
-      // here's the annoying very unDRY part....
-      // TODO: **SOMEHOW** find a way to DRY this up.
+      // more undry code....
       if response.status() == StatusCode::UNAUTHORIZED {
         self.refresh_login();
 
@@ -384,7 +381,8 @@ impl CloudService {
 
     let query = &format!("name = \"{}\" and parents in \"{}\"", self.game_name, self.ds_folder_id);
 
-    // rust ONCE AGAIN trying to protect me from something that will never happen but makes me write shitty code.
+    // rust complaining here if i just pass &String::new() to the encode method below,
+    // so i have to initialize this variable here
     let mut _useless = String::new();
 
     query_params.push(["q", url_escape::encode_component_to_string(query, &mut _useless)]);
