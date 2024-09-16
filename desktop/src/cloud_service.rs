@@ -324,7 +324,7 @@ impl CloudService {
           &url,
           None,
           Some(bytes.to_vec()),
-          Some(headers.clone())
+          Some(headers)
         );
 
         if response.status() != StatusCode::OK {
@@ -356,7 +356,7 @@ impl CloudService {
         &url,
         None,
         Some(bytes.to_vec()),
-        Some(headers.clone())
+        Some(headers)
       );
 
       if response.status() == StatusCode::OK {
