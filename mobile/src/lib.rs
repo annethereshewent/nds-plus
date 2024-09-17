@@ -21,6 +21,7 @@ mod ffi {
 
     fn get_engine_a_picture_pointer(&self) -> *const u8;
     fn get_engine_b_picture_pointer(&self) -> *const u8;
+    fn is_top_a(&self) -> bool;
   }
 
 
