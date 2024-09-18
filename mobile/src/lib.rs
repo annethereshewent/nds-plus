@@ -1,11 +1,34 @@
 use std::{collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
 
-use ds_emulator::{cpu::registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds};
+use ds_emulator::{
+  cpu::registers::{
+    external_key_input_register::ExternalKeyInputRegister,
+    key_input_register::KeyInputRegister
+  },
+  gpu::registers::power_control_register1::PowerControlRegister1,
+  nds::Nds
+};
+use ffi::ButtonEvent;
 
 extern crate ds_emulator;
 
 #[swift_bridge::bridge]
 mod ffi {
+  enum ButtonEvent {
+    ButtonA,
+    ButtonB,
+    ButtonY,
+    ButtonX,
+    ButtonL,
+    ButtonR,
+    Select,
+    Start,
+    Up,
+    Down,
+    Left,
+    Right,
+    ButtonR3
+  }
   extern "Rust" {
     type MobileEmulator;
 
@@ -22,32 +45,15 @@ mod ffi {
     fn get_engine_a_picture_pointer(&self) -> *const u8;
     fn get_engine_b_picture_pointer(&self) -> *const u8;
     fn is_top_a(&self) -> bool;
+    fn touch_screen(&mut self, x: u16, y: u16);
+    fn release_screen(&mut self);
+    fn update_input(&mut self, button_event: ButtonEvent, value: bool);
   }
-
-
 }
 
-#[derive(PartialEq, Eq, Hash)]
-pub enum ButtonEvent {
-  ButtonA,
-  ButtonB,
-  ButtonY,
-  ButtonX,
-  ButtonL,
-  ButtonR,
-  Select,
-  Start,
-  Up,
-  Down,
-  Left,
-  Right,
-  ButtonR3
-}
 
 pub struct MobileEmulator {
-  nds: Nds,
-  key_map: HashMap<ButtonEvent, KeyInputRegister>,
-  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>
+  nds: Nds
 }
 
 impl MobileEmulator {
@@ -59,24 +65,6 @@ impl MobileEmulator {
   ) -> Self {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
 
-    let mut key_map = HashMap::new();
-
-    key_map.insert(ButtonEvent::ButtonA, KeyInputRegister::ButtonA);
-    key_map.insert(ButtonEvent::ButtonB, KeyInputRegister::ButtonB);
-    key_map.insert(ButtonEvent::ButtonL, KeyInputRegister::ButtonL);
-    key_map.insert(ButtonEvent::ButtonR, KeyInputRegister::ButtonR);
-    key_map.insert(ButtonEvent::Select, KeyInputRegister::Select);
-    key_map.insert(ButtonEvent::Start, KeyInputRegister::Start);
-    key_map.insert(ButtonEvent::Up, KeyInputRegister::Up);
-    key_map.insert(ButtonEvent::Down, KeyInputRegister::Down);
-    key_map.insert(ButtonEvent::Left, KeyInputRegister::Left);
-    key_map.insert(ButtonEvent::Right, KeyInputRegister::Right);
-
-    let mut extkey_map = HashMap::new();
-
-    extkey_map.insert(ButtonEvent::ButtonY, ExternalKeyInputRegister::BUTTON_Y);
-    extkey_map.insert(ButtonEvent::ButtonX, ExternalKeyInputRegister::BUTTON_X);
-
     Self {
       nds: Nds::new(
         None,
@@ -87,9 +75,7 @@ impl MobileEmulator {
         game_data.to_vec(),
         true,
         audio_buffer,
-      ),
-      key_map,
-      extkey_map
+      )
     }
   }
 
@@ -102,13 +88,27 @@ impl MobileEmulator {
 
     let ref mut bus = *self.nds.bus.borrow_mut();
 
-    if bus.scheduler.cycles * 2 >= 0xfff0_0000  {
-      let to_subtract = bus.scheduler.rebase_cycles();
-      self.nds.arm9_cpu.cycles -= to_subtract * 2;
-      self.nds.arm7_cpu.cycles -= to_subtract;
-    }
-
     bus.gpu.frame_finished = false;
+  }
+
+  pub fn update_input(&mut self, button_event: ButtonEvent, value: bool) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    match button_event {
+      // TODO: make KeyInputRegister and ExternalKeyInputRegister naming scheme match
+      ButtonEvent::ButtonA => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
+      ButtonEvent::ButtonB => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
+      ButtonEvent::ButtonY => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
+      ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
+      ButtonEvent::ButtonL => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
+      ButtonEvent::ButtonR => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
+      ButtonEvent::ButtonR3 => (), // TODO implement this
+      ButtonEvent::Down => bus.key_input_register.set(KeyInputRegister::Down, !value),
+      ButtonEvent::Left => bus.key_input_register.set(KeyInputRegister::Left, !value),
+      ButtonEvent::Right => bus.key_input_register.set(KeyInputRegister::Right, !value),
+      ButtonEvent::Up => bus.key_input_register.set(KeyInputRegister::Up, !value),
+      ButtonEvent::Start => bus.key_input_register.set(KeyInputRegister::Start, !value),
+      ButtonEvent::Select => bus.key_input_register.set(KeyInputRegister::Select, !value),
+    }
   }
 
   pub fn get_engine_a_picture_pointer(&self) -> *const u8 {
@@ -123,5 +123,18 @@ impl MobileEmulator {
     let ref bus = *self.nds.bus.borrow();
 
     bus.gpu.powcnt1.contains(PowerControlRegister1::TOP_A)
+  }
+
+  pub fn touch_screen(&mut self, x: u16, y: u16) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.touchscreen.touch_screen(x, y);
+    bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+  pub fn release_screen(&mut self) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
   }
 }
