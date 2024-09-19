@@ -88,6 +88,8 @@ impl MobileEmulator {
 
     let ref mut bus = *self.nds.bus.borrow_mut();
 
+    bus.gpu.cap_fps();
+
     bus.gpu.frame_finished = false;
   }
 
