@@ -360,7 +360,7 @@ impl Bus {
 
         self.gpu.engine3d.check_interrupts(&mut self.arm9.interrupt_request);
       }
-      0x400_0240 => {
+      0x400_0240..=0x400_0249 => {
         self.arm9_io_write_16(address, value as u16);
         self.arm9_io_write_16(address + 2, (value >> 16) as u16);
       }
