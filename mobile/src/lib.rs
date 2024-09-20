@@ -48,6 +48,7 @@ mod ffi {
     fn touch_screen(&mut self, x: u16, y: u16);
     fn release_screen(&mut self);
     fn update_input(&mut self, button_event: ButtonEvent, value: bool);
+    pub fn get_game_icon_pointer(&self) -> *const u8;
   }
 }
 
@@ -119,6 +120,10 @@ impl MobileEmulator {
 
   pub fn get_engine_b_picture_pointer(&self) -> *const u8 {
     self.nds.bus.borrow().gpu.engine_b.pixels.as_ptr()
+  }
+
+  pub fn get_game_icon_pointer(&self) -> *const u8 {
+    self.nds.bus.borrow().game_icon.as_ptr()
   }
 
   pub fn is_top_a(&self) -> bool {
