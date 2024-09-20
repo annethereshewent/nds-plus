@@ -238,12 +238,24 @@ impl Bus {
   }
 
   fn arm9_io_read_8(&mut self, address: u32) -> u8 {
-    let val = self.arm9_io_read_16(address & !(0b1));
+    match address {
+      0x400_0240..=0x400_0246 => {
+        let offset = address - 0x400_0240;
 
-    if address & 0b1 == 1 {
-      (val >> 8) as u8
-    } else {
-      (val & 0xff) as u8
+        self.gpu.read_vramcnt(offset)
+      }
+      0x400_0247 => self.wramcnt.read(),
+      0x400_0248 => self.gpu.read_vramcnt(7),
+      0x400_0249 => self.gpu.read_vramcnt(8),
+      _ => {
+        let val = self.arm9_io_read_16(address & !(0b1));
+
+        if address & 0b1 == 1 {
+          (val >> 8) as u8
+        } else {
+          (val & 0xff) as u8
+        }
+      }
     }
   }
 
