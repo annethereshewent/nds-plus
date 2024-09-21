@@ -40,15 +40,29 @@ mod ffi {
       game_data: &[u8],
     ) -> MobileEmulator;
 
+    #[swift_bridge(swift_name = "stepFrame")]
     fn step_frame(&mut self);
 
+    #[swift_bridge(swift_name = "getEngineAPicturePointer")]
     fn get_engine_a_picture_pointer(&self) -> *const u8;
+
+    #[swift_bridge(swift_name = "getEngineBPicturePointer")]
     fn get_engine_b_picture_pointer(&self) -> *const u8;
+
+    #[swift_bridge(swift_name = "isTopA")]
     fn is_top_a(&self) -> bool;
+
+    #[swift_bridge(swift_name = "touchScreen")]
     fn touch_screen(&mut self, x: u16, y: u16);
+
+    #[swift_bridge(swift_name = "releaseScreen")]
     fn release_screen(&mut self);
+
+    #[swift_bridge(swift_name = "updateInput")]
     fn update_input(&mut self, button_event: ButtonEvent, value: bool);
-    pub fn get_game_icon_pointer(&self) -> *const u8;
+
+    #[swift_bridge(swift_name = "getGameIconPointer")]
+    fn get_game_icon_pointer(&self) -> *const u8;
   }
 }
 
