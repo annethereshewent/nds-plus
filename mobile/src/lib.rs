@@ -63,6 +63,12 @@ mod ffi {
 
     #[swift_bridge(swift_name = "getGameIconPointer")]
     fn get_game_icon_pointer(&self) -> *const u8;
+
+    #[swift_bridge(swift_name = "getGameCode")]
+    fn get_game_code(&self) -> u32;
+
+    #[swift_bridge(swift_name = "setBackup")]
+    fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]);
   }
 }
 
@@ -140,6 +146,10 @@ impl MobileEmulator {
     self.nds.bus.borrow().game_icon.as_ptr()
   }
 
+  pub fn get_game_code(&self) -> u32 {
+    self.nds.bus.borrow().cartridge.header.game_code
+  }
+
   pub fn is_top_a(&self) -> bool {
     let ref bus = *self.nds.bus.borrow();
 
@@ -158,4 +168,9 @@ impl MobileEmulator {
 
     bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
   }
+
+  pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {
+    self.nds.bus.borrow_mut().cartridge.set_backup_external(bytes, save_type, ram_capacity);
+  }
+
 }

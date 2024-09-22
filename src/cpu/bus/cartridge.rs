@@ -174,7 +174,7 @@ impl Cartridge {
     }
   }
 
-  pub fn set_backup_wasm(&mut self, bytes: &[u8], save_type: String, ram_capacity: usize) {
+  pub fn set_backup_external(&mut self, bytes: &[u8], save_type: String, ram_capacity: usize) {
     let backup_file = BackupFile::new(None, Some(bytes.to_vec()), ram_capacity, false);
     self.set_backup_file(backup_file, ram_capacity, save_type);
   }
