@@ -112,10 +112,10 @@ impl MobileEmulator {
     let ref mut bus = *self.nds.bus.borrow_mut();
     match button_event {
       // TODO: make KeyInputRegister and ExternalKeyInputRegister naming scheme match
-      ButtonEvent::ButtonA => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
-      ButtonEvent::ButtonB => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
-      ButtonEvent::ButtonY => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
-      ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
+      ButtonEvent::ButtonA => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
+      ButtonEvent::ButtonB => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
+      ButtonEvent::ButtonY => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
+      ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
       ButtonEvent::ButtonL => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
       ButtonEvent::ButtonR => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
       ButtonEvent::ButtonR3 => (), // TODO implement this
