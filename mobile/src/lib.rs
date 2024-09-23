@@ -72,6 +72,15 @@ mod ffi {
 
     #[swift_bridge(swift_name = "backupPointer")]
     fn backup_pointer(&self) -> *const u8;
+
+    #[swift_bridge(swift_name="hasSaved")]
+    fn has_saved(&self) -> bool;
+
+    #[swift_bridge(swift_name="setSaved")]
+    fn set_saved(&mut self, val: bool);
+
+    #[swift_bridge(swift_name="backupLength")]
+    fn backup_length(&self) -> usize;
   }
 }
 
@@ -183,6 +192,35 @@ impl MobileEmulator {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.as_ptr(),
       BackupType::Flash(flash) => flash.backup_file.buffer.as_ptr(),
+    }
+  }
+
+  pub fn set_saved(&mut self, val: bool) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    match &mut bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.has_written = val,
+      BackupType::Flash(flash) => flash.backup_file.has_written = val,
+    }
+  }
+
+  pub fn has_saved(&self) -> bool {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => false,
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.has_written,
+      BackupType::Flash(flash) => flash.backup_file.has_written,
+    }
+  }
+
+  pub fn backup_length(&self) -> usize {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
+      BackupType::Flash(flash) => flash.backup_file.buffer.len(),
     }
   }
 
