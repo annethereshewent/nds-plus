@@ -1,10 +1,10 @@
 use std::{collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
 
 use ds_emulator::{
-  cpu::registers::{
+  cpu::{bus::cartridge::BackupType, registers::{
     external_key_input_register::ExternalKeyInputRegister,
     key_input_register::KeyInputRegister
-  },
+  }},
   gpu::registers::power_control_register1::PowerControlRegister1,
   nds::Nds
 };
@@ -69,6 +69,9 @@ mod ffi {
 
     #[swift_bridge(swift_name = "setBackup")]
     fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]);
+
+    #[swift_bridge(swift_name = "backupPointer")]
+    fn backup_pointer(&self) -> *const u8;
   }
 }
 
@@ -171,6 +174,16 @@ impl MobileEmulator {
 
   pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {
     self.nds.bus.borrow_mut().cartridge.set_backup_external(bytes, save_type, ram_capacity);
+  }
+
+  pub fn backup_pointer(&self) -> *const u8 {
+    let ref bus = *self.nds.bus.borrow();
+
+    match &bus.cartridge.backup {
+      BackupType::None => unreachable!(),
+      BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.as_ptr(),
+      BackupType::Flash(flash) => flash.backup_file.buffer.as_ptr(),
+    }
   }
 
 }
