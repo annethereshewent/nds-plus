@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, sync::{Arc, Mutex}};
+use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use ds_emulator::{
   cpu::{bus::cartridge::BackupType, registers::{
