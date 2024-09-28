@@ -81,6 +81,12 @@ mod ffi {
 
     #[swift_bridge(swift_name="backupLength")]
     fn backup_length(&self) -> usize;
+
+    #[swift_bridge(swift_name="audioBufferPtr")]
+    fn audio_buffer_ptr(&mut self) -> *const f32;
+
+    #[swift_bridge(swift_name="audioBufferLength")]
+    fn audio_buffer_length(&self) -> usize;
   }
 }
 
@@ -179,6 +185,29 @@ impl MobileEmulator {
     let ref mut bus = *self.nds.bus.borrow_mut();
 
     bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+  pub fn audio_buffer_length(&self) -> usize {
+    self.nds.bus.borrow().arm7.apu.audio_buffer.lock().unwrap().len()
+  }
+
+  pub fn audio_buffer_ptr(&mut self) -> *const f32 {
+    let ref mut bus = self.nds.bus.borrow_mut();
+
+    let mut audio_buffer = bus
+      .arm7
+      .apu
+      .audio_buffer
+      .lock()
+      .unwrap();
+
+    let mut vec = Vec::new();
+
+    for sample in audio_buffer.drain(..) {
+      vec.push(sample);
+    }
+
+    vec.as_ptr()
   }
 
   pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {
