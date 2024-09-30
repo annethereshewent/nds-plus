@@ -523,9 +523,7 @@ impl Bus {
       tiles[i] = color;
     }
 
-    // i have no idea how this works at all to be honest, but it just does
-    // TODO: refactor into something i've actually derived. but im not unerstanding
-    // these tiles
+    // TODO: refactor this
     for i in 0..4 {
       for j in 0..8 {
         for k in 0..4 {
