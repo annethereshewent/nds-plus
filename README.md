@@ -1,10 +1,10 @@
 # Nintendo DS Emulator
 
-This is a DS emulator written in Rust! It currently plays some games, though it's still quite buggy. If running directly via cargo, type `cargo run --release <path to game>`. Otherwise, build using `cargo build --release` and then pass the path to the game to the built binary.
+This is a DS emulator written in Rust! To compile, if running directly via cargo, type `cargo run --release <path to game>`. Otherwise, build using `cargo build --release` and then pass the path to the game to the built binary. **Coming Soon**: Pre-built binaries and .ipa for iOS app!
 
 ## Live Web Demo
 
-Web demo is now live! to test the latest version of the emulator, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
+To test the latest version of the emulator on web, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
 
 ## Features
 
@@ -17,8 +17,9 @@ Web demo is now live! to test the latest version of the emulator, go to https://
 
 - Texture/rendering issues
 - CPU bugs
-- Multithreading
-- iOS app
+- iOS app (almost complete!)
+- Save states
+- Debugging tools
 
 ## Controls
 
