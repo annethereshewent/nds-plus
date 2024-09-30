@@ -8,7 +8,7 @@ use std::{
   }
 };
 
-use crate::{apu::Sample, number::Number};
+use crate::{apu::Sample, gpu::color::Color, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -150,7 +150,8 @@ pub struct Bus {
   pub scheduler: Scheduler,
   exmem: ExternalMemory,
   pub touchscreen: Touchscreen,
-  pub debug_on: bool
+  pub debug_on: bool,
+  pub game_icon: Box<[u8]>
 }
 
 impl Bus {
@@ -229,7 +230,8 @@ impl Bus {
         rtc: RealTimeClockRegister::new()
       },
       scheduler,
-      debug_on: false
+      debug_on: false,
+      game_icon: vec![0; 32 * 32 * 4].into_boxed_slice()
     };
 
     if skip_bios {
@@ -292,7 +294,8 @@ impl Bus {
         rtc: RealTimeClockRegister::new()
       },
       scheduler,
-      debug_on: false
+      debug_on: false,
+      game_icon: vec![0; 32 * 32 * 4].into_boxed_slice()
     };
 
     bus.skip_bios();
@@ -482,6 +485,62 @@ impl Bus {
     };
   }
 
+  fn load_icon(&mut self) {
+    let offset = unsafe { *(&self.cartridge.rom[0x68] as *const u8 as *const u32) };
+
+    let icon_base = (0x20 + offset) as usize;
+    let icon_bytes = &self.cartridge.rom[icon_base..icon_base + 0x200];
+
+    let palette_base = 0x220 + offset as usize;
+
+    let mut tiles = [Color::new(); 32 * 32];
+
+    let icon_palette = &self.cartridge.rom[palette_base..palette_base + 0x20];
+    for i in 0..32 * 32 {
+      let palette_index = if i & 0b1 == 0 {
+        icon_bytes[i >> 1] & 0xf
+      } else {
+        (icon_bytes[i >> 1] >> 4) & 0xf
+      };
+
+      let color_raw = if palette_index == 0 {
+        0xffff
+      } else {
+        unsafe { *(&icon_palette[(palette_index * 2) as usize] as *const u8 as *const u16 )}
+      };
+
+      let r = color_raw & 0x1f;
+      let g = (color_raw >> 5) & 0x1f;
+      let b = (color_raw >> 10) & 0x1f;
+
+      let color = Color {
+        r: r as u8,
+        g: g as u8,
+        b: b as u8,
+        alpha: None
+      }.convert();
+
+      tiles[i] = color;
+    }
+
+    // TODO: refactor this
+    for i in 0..4 {
+      for j in 0..8 {
+        for k in 0..4 {
+          for x_pos_in_tile in 0..8 {
+            let icon_index = (256 * i + 32 * j + 8 * k + x_pos_in_tile) * 4;
+            let tile_index = 256 * i + 8 * j + 64 * k + x_pos_in_tile;
+
+            self.game_icon[icon_index] = tiles[tile_index].r;
+            self.game_icon[icon_index + 1] = tiles[tile_index].g;
+            self.game_icon[icon_index + 2] = tiles[tile_index].b;
+            self.game_icon[icon_index + 3] = 0xff;
+          }
+        }
+      }
+    }
+  }
+
   fn skip_bios(&mut self) {
     // load header into RAM starting at address 0x27ffe00 (per the docs)
     let address = 0x27ffe00 & (MAIN_MEMORY_SIZE - 1);
@@ -491,6 +550,8 @@ impl Bus {
     let arm9_rom_address = self.cartridge.header.arm9_rom_offset;
     let arm9_ram_address = self.cartridge.header.arm9_ram_address;
     let arm9_size = self.cartridge.header.arm9_size;
+
+    self.load_icon();
 
     // load rom into memory
     self.load_rom_into_memory(arm9_rom_address, arm9_ram_address, arm9_size, true);

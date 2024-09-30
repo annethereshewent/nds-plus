@@ -30,7 +30,7 @@ impl WRAMControlRegister {
     self.update_params();
   }
 
-  pub fn update_params(&mut self) {
+  fn update_params(&mut self) {
     // (0-3 = 32K/0K, 2nd 16K/1st 16K, 1st 16K/2nd 16K, 0K/32K)
     match self.val {
       0 => {

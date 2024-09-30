@@ -462,7 +462,21 @@ impl Engine3d {
             // check to see if color is blended
             match polygon.attributes.polygon_mode() {
               PolygonMode::Decal => {
-                todo!("decal mode not implemented");
+                let alpha = texel_color.alpha.unwrap_or(0x1f);
+
+                match alpha {
+                  0 => Some(vertex_color),
+                  0x1f => {
+                    let mut blend_color = texel_color;
+
+                    blend_color.alpha = vertex_color.alpha;
+
+                    Some(blend_color)
+                  }
+                  _ => {
+                     Self::decal_blend(texel_color, vertex_color)
+                  }
+                }
               }
               PolygonMode::Modulation => {
                 Self::modulation_blend(texel_color, vertex_color)
@@ -617,6 +631,21 @@ impl Engine3d {
       g,
       b,
       alpha: Some(alpha)
+    })
+  }
+
+  fn decal_blend(texel_color: Color, vertex_color: Color) -> Option<Color> {
+    let alpha = texel_color.alpha6();
+
+    let r = ((texel_color.r as u16 * alpha as u16 + vertex_color.r as u16 * (63 - alpha as u16)) / 64) as u8;
+    let g = ((texel_color.g as u16 * alpha as u16 + vertex_color.g as u16 * (63 - alpha as u16)) / 64) as u8;
+    let b = ((texel_color.b as u16 * alpha as u16 + vertex_color.b as u16 * (63 - alpha as u16)) / 64) as u8;
+
+    Some(Color {
+      r,
+      g,
+      b,
+      alpha: vertex_color.alpha
     })
   }
 

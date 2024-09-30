@@ -169,7 +169,7 @@ impl WasmEmulator {
   }
 
   pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {
-    self.nds.bus.borrow_mut().cartridge.set_backup_wasm(bytes, save_type, ram_capacity);
+    self.nds.bus.borrow_mut().cartridge.set_backup_external(bytes, save_type, ram_capacity);
   }
 
   pub fn update_audio_buffers(&mut self, left_buffer: &mut [f32], right_buffer: &mut [f32]) {
