@@ -281,7 +281,7 @@ impl Frontend {
       Ok(capture) => {
         Some(capture)
       }
-      Error => None
+      Err(_) => None
     };
 
     device.resume();

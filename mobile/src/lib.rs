@@ -87,6 +87,9 @@ mod ffi {
 
     #[swift_bridge(swift_name="audioBufferLength")]
     fn audio_buffer_length(&self) -> usize;
+
+    #[swift_bridge(swift_name="updateAudioBuffer")]
+    fn update_audio_buffer(&mut self, buffer: &[f32]);
   }
 }
 
@@ -115,7 +118,7 @@ impl MobileEmulator {
         game_data.to_vec(),
         true,
         audio_buffer,
-        mic_samples
+        mic_samples.clone()
       )
     }
   }
@@ -252,6 +255,22 @@ impl MobileEmulator {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
       BackupType::Flash(flash) => flash.backup_file.buffer.len(),
+    }
+  }
+
+  fn to_i16(sample: f32) -> i16 {
+    if sample >= 0.0 {
+      (sample * i16::MAX as f32) as i16
+    } else {
+      (-sample * i16::MIN as f32) as i16
+    }
+  }
+
+  pub fn update_audio_buffer(&mut self, buffer: &[f32]) {
+    if buffer.len() > 0 {
+      let buffer_i16: Vec<i16> = buffer.iter().map(|sample| Self::to_i16(*sample)).collect();
+
+      self.nds.bus.borrow_mut().touchscreen.update_mic_buffer(&buffer_i16);
     }
   }
 
