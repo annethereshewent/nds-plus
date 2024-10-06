@@ -151,7 +151,8 @@ pub struct Bus {
   exmem: ExternalMemory,
   pub touchscreen: Touchscreen,
   pub debug_on: bool,
-  pub game_icon: Box<[u8]>
+  pub game_icon: Box<[u8]>,
+  pub frame_cycles: usize
 }
 
 impl Bus {
@@ -163,8 +164,8 @@ impl Bus {
      bios9_bytes: Vec<u8>,
      rom_bytes: Vec<u8>,
      skip_bios: bool,
-     audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self
-  {
+     audio_buffer: Arc<Mutex<VecDeque<f32>>>
+  ) -> Self {
     let dma_channels7 = DmaChannels::new(false);
     let dma_channels9 = DmaChannels::new(true);
 
@@ -212,6 +213,7 @@ impl Bus {
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
       exmem: ExternalMemory::new(),
       touchscreen: Touchscreen::new(),
+      frame_cycles: 0,
       arm7: Arm7Bus {
         timers: Timers::new(false),
         bios7: bios7_bytes,
@@ -295,7 +297,8 @@ impl Bus {
       },
       scheduler,
       debug_on: false,
-      game_icon: vec![0; 32 * 32 * 4].into_boxed_slice()
+      game_icon: vec![0; 32 * 32 * 4].into_boxed_slice(),
+      frame_cycles: 0
     };
 
     bus.skip_bios();
@@ -596,7 +599,7 @@ impl Bus {
   pub fn write_spi_data(&mut self, value: u8) {
     if self.arm7.spicnt.spi_bus_enabled {
       match self.arm7.spicnt.device {
-        DeviceSelect::Touchscreen => self.touchscreen.write(value),
+        DeviceSelect::Touchscreen => self.touchscreen.write(value, self.frame_cycles),
         DeviceSelect::Firmware => self.spi.firmware.write(value, self.arm7.spicnt.chipselect_hold),
         _ => ()
       }

@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, sync::{Arc, Mutex}};
+
 use crate::gpu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub struct Touchscreen {
@@ -5,7 +7,9 @@ pub struct Touchscreen {
   pub y: u16,
 
   data: u16,
-  return_byte: u8
+  return_byte: u8,
+  mic_buffer: [i16; 735],
+  read_pos: usize
 }
 
 impl Touchscreen {
@@ -13,13 +17,14 @@ impl Touchscreen {
     Self {
       x: 0,
       y: 0,
-
       data: 0,
-      return_byte: 0
+      return_byte: 0,
+      mic_buffer: [0; 735],
+      read_pos: 0
     }
   }
 
-  pub fn write(&mut self, value: u8) {
+  pub fn write(&mut self, value: u8, frame_cycles: usize) {
     self.return_byte = (self.data >> 8) as u8;
 
     self.data <<= 8;
@@ -31,9 +36,44 @@ impl Touchscreen {
       self.data = match channel {
         1 => self.y << 3,
         5 => self.x << 3,
-        6 => 0,
+        6 => {
+          let index = (frame_cycles * 735) / 560190;
+
+          if index >= self.mic_buffer.len() {
+            (((self.mic_buffer[self.mic_buffer.len() - 1] ^ -32768) >> 4) as u16) << 3
+          } else {
+            (((self.mic_buffer[index] ^ -32768) >> 4) as u16) << 3
+          }
+        },
         _ => 0xfff
+      };
+    }
+  }
+
+  pub fn update_mic_buffer(&mut self, samples: &[i16]) {
+    if (self.read_pos + 735) >= samples.len() {
+      let len  = samples.len() - self.read_pos;
+
+      let mut buffer_index = 0;
+
+      for i in self.read_pos..len {
+        self.mic_buffer[buffer_index] = samples[i];
+
+        buffer_index += 1;
       }
+
+      let diff = 735 - len;
+
+      for i in 0..diff {
+        self.mic_buffer[buffer_index] = samples[i];
+        buffer_index += 1;
+      }
+
+      self.read_pos = diff;
+    } else {
+      self.mic_buffer.copy_from_slice(&samples[self.read_pos..self.read_pos + 735]);
+
+      self.read_pos += 735;
     }
   }
 

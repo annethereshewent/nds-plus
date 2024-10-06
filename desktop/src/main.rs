@@ -65,6 +65,7 @@ fn main() {
   }
 
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
+  let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
 
   let bios7_file = "../bios7.bin";
   let bios9_file = "../bios9.bin";
@@ -77,7 +78,7 @@ fn main() {
 
   let sdl_context = sdl2::init().unwrap();
 
-  let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone());
+  let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone(), mic_samples.clone());
 
   let mut nds = Nds::new(
     Some(args[1].to_string()),
@@ -87,7 +88,8 @@ fn main() {
     bios9_bytes,
     rom_bytes,
     skip_bios,
-    audio_buffer
+    audio_buffer,
+    mic_samples
   );
 
   detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), None);
@@ -105,8 +107,11 @@ fn main() {
   let mut rom_path = args[1].to_string();
 
   loop {
+    let frame_start = nds.arm7_cpu.cycles;
+
     while !frame_finished {
       frame_finished = nds.step();
+      nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
     }
 
     // need to do this or else will rust complain about borrowing and ownership
@@ -116,10 +121,16 @@ fn main() {
       bus.gpu.frame_finished = false;
       bus.gpu.cap_fps();
 
+      let mic_samples = nds.mic_samples.lock().unwrap();
+
+      bus.touchscreen.update_mic_buffer(&mic_samples.to_vec());
+
       frame_finished = false;
 
       frontend.render(&mut bus.gpu);
     }
+
+    frontend.resume_audio();
 
     match frontend.render_ui() {
       UIAction::None => (),
