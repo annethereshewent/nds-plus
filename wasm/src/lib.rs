@@ -68,6 +68,7 @@ impl WasmEmulator {
     // panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+    let mic_samples = Arc::new(Mutex::new([0; 2048]));
 
     let mut key_map = HashMap::new();
 
@@ -97,6 +98,7 @@ impl WasmEmulator {
         game_data.to_vec(),
         true,
         audio_buffer,
+        mic_samples
       ),
       key_map,
       extkey_map

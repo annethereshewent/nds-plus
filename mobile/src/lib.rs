@@ -103,6 +103,7 @@ impl MobileEmulator {
     game_data: &[u8],
   ) -> Self {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+    let mic_samples = Arc::new(Mutex::new([0; 2048]));
 
     Self {
       nds: Nds::new(
@@ -114,6 +115,7 @@ impl MobileEmulator {
         game_data.to_vec(),
         true,
         audio_buffer,
+        mic_samples
       )
     }
   }

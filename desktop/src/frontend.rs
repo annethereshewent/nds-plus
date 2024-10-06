@@ -152,7 +152,7 @@ pub struct Frontend {
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
   pub cloud_service: Arc<Mutex<CloudService>>,
-  capture_device: AudioDevice<DsAudioRecording>
+  capture_device: Option<AudioDevice<DsAudioRecording>>
 }
 
 impl Frontend {
@@ -272,16 +272,23 @@ impl Frontend {
       samples: Some(1024)
     };
 
-    let capture_device = audio_subsystem.open_capture(None, &capture_spec, |spec| {
+    let capture_device = match audio_subsystem.open_capture(None, &capture_spec, |spec| {
       DsAudioRecording {
         mic_samples: mic_samples.clone(),
         index: 0
       }
-    }).unwrap();
+    }) {
+      Ok(capture) => {
+        Some(capture)
+      }
+      Error => None
+    };
 
     device.resume();
 
-    capture_device.resume();
+    if let Some(ref capture) = capture_device {
+      capture.resume();
+    }
 
     let mut key_map = HashMap::new();
 
@@ -360,8 +367,10 @@ impl Frontend {
   }
 
   pub fn resume_audio(&mut self) {
-    self.capture_device.pause();
-    self.capture_device.resume();
+    if let Some(ref capture) = self.capture_device {
+      capture.pause();
+      capture.resume();
+    }
   }
 
   pub fn handle_touchscreen(&mut self, bus: &mut Bus) {
