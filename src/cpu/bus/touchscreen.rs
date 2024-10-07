@@ -1,5 +1,3 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex}};
-
 use crate::gpu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub struct Touchscreen {
