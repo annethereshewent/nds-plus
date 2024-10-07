@@ -126,8 +126,11 @@ impl MobileEmulator {
   pub fn step_frame(&mut self) {
     let mut frame_finished = false;
 
+    let frame_start = self.nds.arm7_cpu.cycles;
+
     while !(frame_finished) {
       frame_finished = self.nds.step();
+      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - frame_start;
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();
