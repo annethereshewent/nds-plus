@@ -109,6 +109,28 @@ impl AudioCallback for DsAudioCallback {
   }
 }
 
+struct DsAudioRecording {
+  mic_samples: Arc<Mutex<[i16; 2048]>>,
+  index: usize
+}
+
+impl AudioCallback for DsAudioRecording {
+  type Channel = i16;
+
+  fn callback(&mut self, buf: &mut [Self::Channel]) {
+    let mut mic_samples = self.mic_samples.lock().unwrap();
+
+    if self.index + buf.len() > mic_samples.len() {
+      self.index = 0;
+    }
+
+    for b in buf {
+      mic_samples[self.index] = *b;
+
+      self.index += 1;
+    }
+  }
+}
 pub struct Frontend {
   event_pump: EventPump,
   _controller: Option<GameController>,
@@ -129,11 +151,16 @@ pub struct Frontend {
   window: Window,
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
-  pub cloud_service: Arc<Mutex<CloudService>>
+  pub cloud_service: Arc<Mutex<CloudService>>,
+  capture_device: Option<AudioDevice<DsAudioRecording>>
 }
 
 impl Frontend {
-  pub fn new(sdl_context: &Sdl, audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self {
+  pub fn new(
+    sdl_context: &Sdl,
+    audio_buffer: Arc<Mutex<VecDeque<f32>>>,
+    mic_samples: Arc<Mutex<[i16; 2048]>>
+  ) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
     let gl_attr = video_subsystem.gl_attr();
@@ -239,7 +266,29 @@ impl Frontend {
       |_| DsAudioCallback { audio_samples: audio_buffer }
     ).unwrap();
 
+    let capture_spec = AudioSpecDesired {
+      freq: Some(44100),
+      channels: Some(1),
+      samples: Some(1024)
+    };
+
+    let capture_device = match audio_subsystem.open_capture(None, &capture_spec, |spec| {
+      DsAudioRecording {
+        mic_samples: mic_samples.clone(),
+        index: 0
+      }
+    }) {
+      Ok(capture) => {
+        Some(capture)
+      }
+      Err(_) => None
+    };
+
     device.resume();
+
+    if let Some(ref capture) = capture_device {
+      capture.resume();
+    }
 
     let mut key_map = HashMap::new();
 
@@ -306,13 +355,21 @@ impl Frontend {
       imgui,
       textures,
       _gl_context: gl_context,
-      cloud_service: Arc::new(Mutex::new(CloudService::new()))
+      cloud_service: Arc::new(Mutex::new(CloudService::new())),
+      capture_device
     }
   }
 
   fn glow_context(window: &Window) -> imgui_glow_renderer::glow::Context {
     unsafe {
       imgui_glow_renderer::glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as _)
+    }
+  }
+
+  pub fn resume_audio(&mut self) {
+    if let Some(ref capture) = self.capture_device {
+      capture.pause();
+      capture.resume();
     }
   }
 
@@ -403,7 +460,6 @@ impl Frontend {
       if self.use_control_stick {
         bus.touchscreen.touch_screen_controller(self.controller_x, self.controller_y);
       }
-
     }
   }
 

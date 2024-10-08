@@ -387,9 +387,11 @@ export class UI {
         }
 
         this.audio.startAudio()
+        this.audio.startMicrophone()
         requestAnimationFrame((time) => this.renderer?.run(time, () => {
             this.joypad?.handleJoypadInput()
             this.checkSaves()
+            this.audio?.updateMicBuffer()
 
           }, () => this.resetSystem())
         )

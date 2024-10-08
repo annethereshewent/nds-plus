@@ -16,7 +16,8 @@ use crate::{
 pub struct Nds {
   pub arm9_cpu: CPU<true>,
   pub arm7_cpu: CPU<false>,
-  pub bus: Rc<RefCell<Bus>>
+  pub bus: Rc<RefCell<Bus>>,
+  pub mic_samples: Arc<Mutex<[i16; 2048]>>
 }
 
 impl Nds {
@@ -28,8 +29,9 @@ impl Nds {
     bios9_bytes: Vec<u8>,
     rom_bytes: Vec<u8>,
     skip_bios: bool,
-    audio_buffer: Arc<Mutex<VecDeque<f32>>>) -> Self
-  {
+    audio_buffer: Arc<Mutex<VecDeque<f32>>>,
+    mic_samples: Arc<Mutex<[i16; 2048]>>
+  ) -> Self {
     let bus = Rc::new(
       RefCell::new(
         Bus::new(
@@ -47,7 +49,8 @@ impl Nds {
     let mut nds = Self {
       arm9_cpu: CPU::new(bus.clone(), skip_bios),
       arm7_cpu: CPU::new(bus.clone(), skip_bios),
-      bus
+      bus,
+      mic_samples
     };
 
     nds.arm7_cpu.reload_pipeline32();

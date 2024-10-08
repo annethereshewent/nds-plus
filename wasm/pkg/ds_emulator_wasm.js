@@ -282,6 +282,14 @@ export class WasmEmulator {
         wasm.wasmemulator_touch_screen_controller(this.__wbg_ptr, x, y);
     }
     /**
+    * @param {Float32Array} samples
+    */
+    update_mic_buffer(samples) {
+        const ptr0 = passArrayF32ToWasm0(samples, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_update_mic_buffer(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
     */
     step_frame() {
         wasm.wasmemulator_step_frame(this.__wbg_ptr);

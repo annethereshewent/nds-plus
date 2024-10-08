@@ -1,12 +1,10 @@
 use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use ds_emulator::{
-  cpu::{bus::cartridge::BackupType, registers::{
+  apu::Sample, cpu::{bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE}, registers::{
     external_key_input_register::ExternalKeyInputRegister,
     key_input_register::KeyInputRegister
-  }},
-  gpu::registers::power_control_register1::PowerControlRegister1,
-  nds::Nds
+  }}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds
 };
 use ffi::ButtonEvent;
 
@@ -87,6 +85,9 @@ mod ffi {
 
     #[swift_bridge(swift_name="audioBufferLength")]
     fn audio_buffer_length(&self) -> usize;
+
+    #[swift_bridge(swift_name="updateAudioBuffer")]
+    fn update_audio_buffer(&mut self, buffer: &[f32]);
   }
 }
 
@@ -103,6 +104,7 @@ impl MobileEmulator {
     game_data: &[u8],
   ) -> Self {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+    let mic_samples = Arc::new(Mutex::new([0; 2048]));
 
     Self {
       nds: Nds::new(
@@ -114,6 +116,7 @@ impl MobileEmulator {
         game_data.to_vec(),
         true,
         audio_buffer,
+        mic_samples.clone()
       )
     }
   }
@@ -121,8 +124,11 @@ impl MobileEmulator {
   pub fn step_frame(&mut self) {
     let mut frame_finished = false;
 
+    let frame_start = self.nds.arm7_cpu.cycles;
+
     while !(frame_finished) {
       frame_finished = self.nds.step();
+      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - frame_start;
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();
@@ -250,6 +256,14 @@ impl MobileEmulator {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
       BackupType::Flash(flash) => flash.backup_file.buffer.len(),
+    }
+  }
+
+  pub fn update_audio_buffer(&mut self, buffer: &[f32]) {
+    if buffer.len() > SAMPLE_SIZE {
+      let buffer_i16: Vec<i16> = buffer.iter().map(|sample| Sample::to_i16_single(*sample)).collect();
+
+      self.nds.bus.borrow_mut().touchscreen.update_mic_buffer(&buffer_i16);
     }
   }
 
