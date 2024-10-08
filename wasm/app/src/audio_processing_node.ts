@@ -4,8 +4,7 @@ export class AudioProcessingNode extends AudioWorkletNode {
 
   constructor(context: AudioContext) {
     super(context, 'audio-processor', {
-      numberOfOutputs : 2,
-      outputChannelCount : [2, 2]
+      numberOfInputs: 1
     })
   }
 }
