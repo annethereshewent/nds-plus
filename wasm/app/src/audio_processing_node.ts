@@ -7,16 +7,5 @@ export class AudioProcessingNode extends AudioWorkletNode {
       numberOfOutputs : 2,
       outputChannelCount : [2, 2]
     })
-
-    this.port.onmessage = (event) => {
-      this.bufferReady = event.data
-    }
-  }
-
-  updateBuffer(buffer: Float32Array) {
-    this.port.postMessage(buffer)
-    this.bufferReady = false
   }
 }
-
-// audio_processing_node.ts
