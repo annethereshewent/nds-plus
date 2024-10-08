@@ -1,12 +1,10 @@
 use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use ds_emulator::{
-  cpu::{bus::cartridge::BackupType, registers::{
+  apu::Sample, cpu::{bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE}, registers::{
     external_key_input_register::ExternalKeyInputRegister,
     key_input_register::KeyInputRegister
-  }},
-  gpu::registers::power_control_register1::PowerControlRegister1,
-  nds::Nds
+  }}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds
 };
 use ffi::ButtonEvent;
 
@@ -261,17 +259,9 @@ impl MobileEmulator {
     }
   }
 
-  fn to_i16(sample: f32) -> i16 {
-    if sample >= 0.0 {
-      (sample * i16::MAX as f32) as i16
-    } else {
-      (-sample * i16::MIN as f32) as i16
-    }
-  }
-
   pub fn update_audio_buffer(&mut self, buffer: &[f32]) {
-    if buffer.len() > 0 {
-      let buffer_i16: Vec<i16> = buffer.iter().map(|sample| Self::to_i16(*sample)).collect();
+    if buffer.len() > SAMPLE_SIZE {
+      let buffer_i16: Vec<i16> = buffer.iter().map(|sample| Sample::to_i16_single(*sample)).collect();
 
       self.nds.bus.borrow_mut().touchscreen.update_mic_buffer(&buffer_i16);
     }

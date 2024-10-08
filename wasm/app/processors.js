@@ -3,10 +3,6 @@ class DSWorkletProcessor extends AudioWorkletProcessor {
 
   constructor() {
     super()
-
-    this.port.onmessage = (event) => {
-      this.audioBuffer = this.audioBuffer.concat(Array.from(event.data))
-    }
   }
 
   process(inputs, outputs, parameters) {
@@ -21,5 +17,3 @@ class DSWorkletProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor('audio-processor', DSWorkletProcessor)
-
-// processors.js
