@@ -10,8 +10,9 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 
 - Support for both web and desktop
 - Ability to use control stick in Super Mario 64 DS
-- Save management on the web client: upload, download and delete saves
-- Cloud saves are now available! Store saves in Google drive for use anywhere on both web and desktop.
+- Save management on the web and iOS clients: upload, download and delete saves
+- Cloud saves are now available! Store saves in Google drive for use anywhere on both web, desktop and iOS.
+- Support for microphone on iOS, web, and desktop
 
 ## TODO
 
