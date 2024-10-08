@@ -4,7 +4,7 @@ extern crate console_error_panic_hook;
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::cartridge::BackupType,
+    bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE},
     registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}
   },
   gpu::registers::power_control_register1::PowerControlRegister1,
@@ -223,7 +223,14 @@ impl WasmEmulator {
 
   pub fn touch_screen_controller(&mut self, x: f32, y: f32) {
     self.nds.bus.borrow_mut().touchscreen.touch_screen_controller(Self::to_i16(x), Self::to_i16(y));
+  }
 
+  pub fn update_mic_buffer(&mut self, samples: &[f32]) {
+    if samples.len() > SAMPLE_SIZE {
+      let samples_i16: Vec<i16> = samples.iter().map(|sample| Sample::to_i16_single(*sample)).collect();
+
+      self.nds.bus.borrow_mut().touchscreen.update_mic_buffer(&samples_i16);
+    }
   }
 
   fn to_i16(value: f32) -> i16 {
@@ -237,8 +244,11 @@ impl WasmEmulator {
   pub fn step_frame(&mut self) {
     let mut frame_finished = false;
 
+    let start_cycles = self.nds.arm7_cpu.cycles;
+
     while !(frame_finished) {
       frame_finished = self.nds.step();
+      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - start_cycles;
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();

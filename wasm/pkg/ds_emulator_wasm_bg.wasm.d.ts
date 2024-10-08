@@ -18,6 +18,8 @@ export function wasmemulator_get_engine_b_picture_pointer(a: number): number;
 export function wasmemulator_is_top_a(a: number): number;
 export function wasmemulator_press_screen(a: number): void;
 export function wasmemulator_touch_screen_controller(a: number, b: number, c: number): void;
+export function wasmemulator_update_mic_buffer(a: number, b: number, c: number): void;
 export function wasmemulator_step_frame(a: number): void;
 export function __wbindgen_malloc(a: number, b: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number, d: number): number;
+export function __wbindgen_free(a: number, b: number, c: number): void;
