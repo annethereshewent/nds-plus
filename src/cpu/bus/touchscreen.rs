@@ -1,7 +1,7 @@
 use crate::gpu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub const SAMPLE_SIZE: usize = 735;
-const CYCLES_PER_FRAME: usize = 560190
+const CYCLES_PER_FRAME: usize = 560190;
 
 pub struct Touchscreen {
   pub x: u16,
