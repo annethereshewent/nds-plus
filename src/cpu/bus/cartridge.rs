@@ -151,7 +151,7 @@ impl Cartridge {
 
   pub fn detect_backup_type(&mut self) -> Option<GameInfo> {
     // thanks to MelonDS for the game db
-    let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("../game_db.json").unwrap()).unwrap();
+    let game_db: Vec<GameInfo> = serde_json::from_str(&fs::read_to_string("./game_db.json").unwrap()).unwrap();
 
     if let Some(entry) = game_db.iter().find(|entry| entry.game_code == self.header.game_code as usize) {
       return Some(entry.clone());
