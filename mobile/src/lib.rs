@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use ds_emulator::{
-  apu::Sample, cpu::{bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE}, registers::{
+  apu::Sample, cpu::{bus::{cartridge::{BackupType, Header}, touchscreen::SAMPLE_SIZE}, registers::{
     external_key_input_register::ExternalKeyInputRegister,
     key_input_register::KeyInputRegister
   }}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds
@@ -106,19 +106,20 @@ impl MobileEmulator {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
     let mic_samples = Arc::new(Mutex::new([0; 2048]));
 
-    Self {
+    let mut emu = Self {
       nds: Nds::new(
-        None,
         None,
         Some(firmware_bytes.to_vec()),
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
-        game_data.to_vec(),
-        true,
         audio_buffer,
         mic_samples.clone()
       )
-    }
+    };
+
+    emu.nds.init(&game_data.to_vec(), true);
+
+    emu
   }
 
   pub fn step_frame(&mut self) {

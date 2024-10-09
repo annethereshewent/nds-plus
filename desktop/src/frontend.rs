@@ -390,6 +390,16 @@ impl Frontend {
     }
   }
 
+  pub fn handle_romless_events(&mut self) {
+    for event in self.event_pump.poll_iter() {
+      self.platform.handle_event(&mut self.imgui, &event);
+      match event {
+        Event::Quit { .. } => std::process::exit(0),
+        _ => ()
+      }
+    }
+  }
+
   pub fn handle_events(&mut self, bus: &mut Bus) {
     for event in self.event_pump.poll_iter() {
       self.platform.handle_event(&mut self.imgui, &event);

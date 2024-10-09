@@ -108,7 +108,10 @@ impl Bus {
       0x400_4000..=0x400_4010 => 0, // DSi I/O ports
       0x410_0000 => self.receive_from_fifo(true),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm9, true),
-      _ => panic!("unsupported io address received: {:X}", address)
+      _ => {
+        println!("[WARN] unsupported io address received: {:X}", address);
+        0
+      }
     }
   }
 
@@ -233,7 +236,10 @@ impl Bus {
       0x400_1008..=0x400_105f => self.gpu.engine_b.read_register(address),
       0x400_106c => self.gpu.engine_b.master_brightness.read(),
       0x400_4000..=0x400_4fff => 0,
-      _ => panic!("register not implemented: {:X}", address)
+      _ => {
+        println!("[WARN] read register not implemented: {:X}", address);
+        0
+      }
     }
   }
 
@@ -345,6 +351,7 @@ impl Bus {
       }
       0x400_0060 => self.gpu.engine3d.disp3dcnt = Display3dControlRegister::from_bits_retain(value),
       0x400_0064 => self.gpu.dispcapcnt.write(value),
+      0x400_0068 => (), // ignoring writes to DISP_MMEM_FIFO
       0x400_006c => self.gpu.engine_a.master_brightness.write(value as u16),
       0x400_00b0..=0x400_00ba => self.arm9.dma.write(0, (address - 0x400_00b0) as usize, value, None, &mut self.scheduler),
       0x400_00bc..=0x400_00c6 => self.arm9.dma.write(1, (address - 0x400_00bc) as usize, value, None, &mut self.scheduler),
@@ -442,7 +449,7 @@ impl Bus {
       0x400_1060..=0x400_1068 => (),
       0x400_4000..=0x400_4fff => (),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value as u16),
-      _ => panic!("write to unsupported io address: {:X}", address)
+      _ => println!("[WARN] write to unsupported io address: {:X}", address)
     }
   }
 
@@ -537,7 +544,7 @@ impl Bus {
       0x400_1008..=0x400_105f => self.gpu.engine_b.write_register(address, value, None),
       0x400_106c => self.gpu.engine_b.master_brightness.write(value),
       _ => {
-        panic!("register not implemented: {:X}", address)
+        println!("[WARN] write to register not implemented: {:X}", address)
       }
     }
   }
@@ -575,7 +582,7 @@ impl Bus {
           self.gpu.engine_b.write_register(actual_address, (value as u16) << 8, Some(0xff));
         }
       }
-      _ => panic!("8-bit write to unsupported io address {:x}", address)
+      _ => println!("[WARN] 8-bit write to unsupported io address {:x}", address)
     }
   }
 }

@@ -120,7 +120,7 @@ impl PSRRegister {
 }
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
-  pub fn new(bus: Rc<RefCell<Bus>>, skip_bios: bool) -> Self {
+  pub fn new(bus: Rc<RefCell<Bus>>) -> Self {
     let mut cpu = Self {
       r: [0; 15],
       pc: 0,
@@ -148,10 +148,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     } else {
       0
     };
-
-    if skip_bios {
-      cpu.skip_bios();
-    }
 
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();

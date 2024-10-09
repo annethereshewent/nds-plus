@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
+use ds_emulator::{cpu::bus::cartridge::{BackupType, Header}, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -51,11 +51,76 @@ fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, 
   }
 }
 
+fn handle_frontend(
+  frontend: &mut Frontend,
+  rom_path: &mut String,
+  nds: &mut Nds,
+  has_backup: &mut bool,
+  rom_loaded: &mut bool,
+  logged_in: &mut bool
+) -> bool {
+  match frontend.render_ui() {
+    UIAction::None => (),
+    UIAction::LoadGame(path) => {
+      *rom_path = path.clone().to_string_lossy().to_string();
+      let rom = fs::read(rom_path.clone()).unwrap();
+      nds.reset(&rom);
+      detect_backup_type(frontend, nds, rom_path.clone(), None);
+
+      *has_backup = {
+        match &nds.bus.borrow().cartridge.backup {
+          BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+          BackupType::None => false
+        }
+      };
+
+      *rom_loaded = true;
+
+      return true;
+    }
+    UIAction::Reset(get_bytes) => {
+      // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
+      let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
+        let ref bus = *nds.bus.borrow();
+
+        match &bus.cartridge.backup {
+          BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
+          BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
+          BackupType::None => None
+        }
+      } else {
+        None
+      };
+
+      let rom = nds.bus.borrow().cartridge.rom.clone();
+      nds.reset(&rom);
+
+      *logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+
+      detect_backup_type(frontend, nds, rom_path.clone(), bytes);
+
+      *has_backup = {
+        match &nds.bus.borrow().cartridge.backup {
+          BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+          BackupType::None => false
+        }
+      };
+
+      *rom_loaded = true;
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
 fn main() {
   let args: Vec<String> = env::args().collect();
 
-  if args.len() < 2 {
-    panic!("please specify a rom file.");
+  let mut rom_path = "".to_string();
+  if args.len() > 1 {
+    rom_path = args[1].to_string();
   }
 
   let mut skip_bios = true;
@@ -63,6 +128,8 @@ fn main() {
   if args.len() == 3 && args[2] == "--start-bios" {
     skip_bios = false;
   }
+
+  let mut rom_loaded = false;
 
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
@@ -73,7 +140,7 @@ fn main() {
 
   let bios7_bytes = fs::read(bios7_file).unwrap();
   let bios9_bytes = fs::read(bios9_file).unwrap();
-  let rom_bytes = fs::read(&args[1]).unwrap();
+
   let firmware_path = Path::new(firmware_path);
 
   let sdl_context = sdl2::init().unwrap();
@@ -81,134 +148,116 @@ fn main() {
   let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone(), mic_samples.clone());
 
   let mut nds = Nds::new(
-    Some(args[1].to_string()),
     Some(firmware_path.to_path_buf()),
     None,
     bios7_bytes,
     bios9_bytes,
-    rom_bytes,
-    skip_bios,
     audio_buffer,
     mic_samples
   );
 
-  detect_backup_type(&mut frontend, &mut nds, args[1].to_string(), None);
+  let mut has_backup = false;
+  if rom_path != "" {
+    let rom_bytes = fs::read(&rom_path).unwrap();
+    nds.init(&rom_bytes, skip_bios);
+
+    rom_loaded = true;
+
+    detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
+  }
 
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-  let mut has_backup = {
-    match &nds.bus.borrow().cartridge.backup {
+  if rom_loaded {
+    has_backup = match &nds.bus.borrow().cartridge.backup {
       BackupType::Eeprom(_) | BackupType::Flash(_) => true,
       BackupType::None => false
     }
-  };
-
-  let mut rom_path = args[1].to_string();
+  }
 
   loop {
-    let frame_start = nds.arm7_cpu.cycles;
+    if rom_loaded {
+      let frame_start = nds.arm7_cpu.cycles;
 
-    while !frame_finished {
-      frame_finished = nds.step();
-      nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
-    }
+      while !frame_finished {
+        frame_finished = nds.step();
+        nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
+      }
 
-    // need to do this or else will rust complain about borrowing and ownership
-    {
+      // need to do this or else will rust complain about borrowing and ownership
+      {
+        let ref mut bus = *nds.bus.borrow_mut();
+
+        bus.gpu.frame_finished = false;
+        bus.gpu.cap_fps();
+
+        let mic_samples = nds.mic_samples.lock().unwrap();
+
+        bus.touchscreen.update_mic_buffer(&mic_samples.to_vec());
+
+        frame_finished = false;
+
+        frontend.render(&mut bus.gpu);
+      }
+
+      frontend.resume_audio();
+
+      if handle_frontend(
+        &mut frontend,
+        &mut rom_path,
+        &mut nds,
+        &mut has_backup,
+        &mut rom_loaded,
+        &mut logged_in
+      ) {
+        continue;
+      }
+
       let ref mut bus = *nds.bus.borrow_mut();
 
-      bus.gpu.frame_finished = false;
-      bus.gpu.cap_fps();
+      frontend.end_frame();
 
-      let mic_samples = nds.mic_samples.lock().unwrap();
-
-      bus.touchscreen.update_mic_buffer(&mic_samples.to_vec());
-
-      frame_finished = false;
-
-      frontend.render(&mut bus.gpu);
-    }
-
-    frontend.resume_audio();
-
-    match frontend.render_ui() {
-      UIAction::None => (),
-      UIAction::LoadGame(path) => {
-        rom_path = path.clone().to_string_lossy().to_string();
-        nds.load_game(path);
-        nds.reset();
-        detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
-
-        has_backup = {
-          match &nds.bus.borrow().cartridge.backup {
-            BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-            BackupType::None => false
-          }
+      frontend.handle_events(bus);
+      frontend.handle_touchscreen(bus);
+      if logged_in && has_backup {
+        let file = match &mut bus.cartridge.backup {
+          BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
+          BackupType::Flash(flash) => &mut flash.backup_file,
+          BackupType::None => unreachable!()
         };
 
+        let current_time = SystemTime::now()
+          .duration_since(UNIX_EPOCH)
+          .expect("an error occurred")
+          .as_millis();
+
+        if file.last_write != 0 && current_time - file.last_write > 1000 {
+          let cloud_service = frontend.cloud_service.clone();
+          let bytes = file.buffer.clone();
+          std::thread::spawn(move || {
+            let mut cloud_service = cloud_service.lock().unwrap();
+            println!("saving file....");
+            cloud_service.upload_save(&bytes);
+            println!("finished saving!");
+          });
+          file.last_write = 0;
+        }
+      }
+    } else {
+      if handle_frontend(
+        &mut frontend,
+        &mut rom_path,
+        &mut nds,
+        &mut has_backup,
+        &mut rom_loaded,
+        &mut logged_in
+      ) {
         continue;
       }
-      UIAction::Reset(get_bytes) => {
-        // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
-        let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
-          let ref bus = *nds.bus.borrow();
 
-          match &bus.cartridge.backup {
-            BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
-            BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
-            BackupType::None => None
-          }
-        } else {
-          None
-        };
-
-        nds.reset();
-
-        logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-
-        detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), bytes);
-
-        has_backup = {
-          match &nds.bus.borrow().cartridge.backup {
-            BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-            BackupType::None => false
-          }
-        };
-
-        continue;
-      }
-    }
-
-    let ref mut bus = *nds.bus.borrow_mut();
-
-    frontend.end_frame();
-
-    frontend.handle_events(bus);
-    frontend.handle_touchscreen(bus);
-    if logged_in && has_backup {
-      let file = match &mut bus.cartridge.backup {
-        BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
-        BackupType::Flash(flash) => &mut flash.backup_file,
-        BackupType::None => unreachable!()
-      };
-
-      let current_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("an error occurred")
-        .as_millis();
-
-      if file.last_write != 0 && current_time - file.last_write > 1000 {
-        let cloud_service = frontend.cloud_service.clone();
-        let bytes = file.buffer.clone();
-        std::thread::spawn(move || {
-          let mut cloud_service = cloud_service.lock().unwrap();
-          println!("saving file....");
-          cloud_service.upload_save(&bytes);
-          println!("finished saving!");
-        });
-        file.last_write = 0;
-      }
+      frontend.end_frame();
+      frontend.handle_romless_events();
     }
   }
 }

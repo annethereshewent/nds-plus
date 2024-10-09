@@ -88,21 +88,22 @@ impl WasmEmulator {
     extkey_map.insert(ButtonEvent::ButtonY, ExternalKeyInputRegister::BUTTON_Y);
     extkey_map.insert(ButtonEvent::ButtonX, ExternalKeyInputRegister::BUTTON_X);
 
-    Self {
+    let mut emu = Self {
       nds: Nds::new(
-        None,
         None,
         Some(firmware_bytes.to_vec()),
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
-        game_data.to_vec(),
-        true,
         audio_buffer,
         mic_samples
       ),
       key_map,
       extkey_map
-    }
+    };
+
+    emu.nds.init(&game_data.to_vec(), true);
+
+    emu
   }
 
   pub fn touch_screen(&mut self, x: u16, y: u16) {
