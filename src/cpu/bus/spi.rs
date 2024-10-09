@@ -1,13 +1,19 @@
 use super::{backup_file::BackupFile, flash::Flash};
 
 pub struct SPI {
-  pub firmware: Flash
+  pub firmware: Option<Flash>
 }
 
 impl SPI {
-  pub fn new(firmware_bytes: BackupFile) -> Self {
-    Self {
-      firmware: Flash::new(firmware_bytes)
+  pub fn new(firmware_bytes: Option<BackupFile>) -> Self {
+    if let Some(firmware) = firmware_bytes {
+      Self {
+        firmware: Some(Flash::new(firmware))
+      }
+    } else {
+      Self {
+        firmware: None
+      }
     }
   }
 }

@@ -168,12 +168,18 @@ impl Bus {
     let mut scheduler = Scheduler::new();
 
 
-    let capacity = if firmware_path.is_some() {
-      fs::metadata(&firmware_path.as_ref().unwrap()).unwrap().len() as usize
+    let backup_file = if firmware_path.is_some() {
+      match fs::metadata(&firmware_path.as_ref().unwrap()) {
+        Ok(metadata) => {
+          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
+        }
+        Err(_) => None
+      }
     } else if firmware_bytes.is_some() {
-      firmware_bytes.as_ref().unwrap().len()
+      let capacity = firmware_bytes.as_ref().unwrap().len();
+      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
     } else {
-      panic!("Please provide either firmware bytes or a path to the firmware");
+      None
     };
 
     Self {
@@ -202,7 +208,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize, false)),
+      spi: SPI::new(backup_file),
       cartridge: Cartridge::new(&bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
@@ -234,6 +240,13 @@ impl Bus {
   }
 
   pub fn reset(&mut self) -> Self {
+    let firmware_bytes = if self.spi.firmware.is_some() {
+      Some(self.spi.firmware.as_mut().unwrap().backup_file.reset())
+    } else {
+      None
+    };
+
+
     let mut scheduler = Scheduler::new();
     Self {
       arm9: Arm9Bus {
@@ -261,7 +274,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(self.spi.firmware.backup_file.reset()),
+      spi: SPI::new(firmware_bytes),
       cartridge: Cartridge::new(&self.arm7.bios7),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
@@ -589,7 +602,11 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       match self.arm7.spicnt.device {
         DeviceSelect::Touchscreen => self.touchscreen.write(value, self.frame_cycles),
-        DeviceSelect::Firmware => self.spi.firmware.write(value, self.arm7.spicnt.chipselect_hold),
+        DeviceSelect::Firmware => {
+          if let Some(firmware) = &mut self.spi.firmware {
+            firmware.write(value, self.arm7.spicnt.chipselect_hold)
+          }
+        }
         _ => ()
       }
     }
@@ -598,7 +615,13 @@ impl Bus {
   pub fn read_spi_data(&self) -> u8 {
     if self.arm7.spicnt.spi_bus_enabled {
       return match self.arm7.spicnt.device {
-        DeviceSelect::Firmware => self.spi.firmware.read(),
+        DeviceSelect::Firmware => {
+          if let Some(firmware) = &self.spi.firmware {
+            firmware.read()
+          } else {
+            0
+          }
+        }
         DeviceSelect::Touchscreen => self.touchscreen.read(),
         _ => 0
       }
@@ -814,7 +837,11 @@ impl Bus {
 
     if previous_enable && !self.arm7.spicnt.spi_bus_enabled {
       match previous_device {
-        DeviceSelect::Firmware => self.spi.firmware.deselect(),
+        DeviceSelect::Firmware => {
+          if let Some(firmware) = &mut self.spi.firmware {
+            firmware.deselect();
+          }
+        }
         DeviceSelect::Touchscreen => self.touchscreen.deselect(),
         _ => ()
       }
