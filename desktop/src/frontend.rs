@@ -169,7 +169,7 @@ impl Frontend {
     gl_attr.set_context_profile(GLProfile::Core);
 
     let window = video_subsystem
-      .window("DS Emulator", SCREEN_WIDTH as u32 * 2, SCREEN_HEIGHT as u32 * 4)
+      .window("NDS Plus", SCREEN_WIDTH as u32 * 2, SCREEN_HEIGHT as u32 * 4)
       .opengl()
       .position_centered()
       .build()
