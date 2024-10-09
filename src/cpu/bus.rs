@@ -11,8 +11,7 @@ use std::{
 use crate::{apu::Sample, gpu::color::Color, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
-  Cartridge,
-  CHIP_ID
+  Cartridge, Header, CHIP_ID
 };
 use cp15::CP15;
 use num_integer::Roots;
@@ -157,13 +156,10 @@ pub struct Bus {
 
 impl Bus {
   pub fn new(
-     file_path: Option<String>,
      firmware_path: Option<PathBuf>,
      firmware_bytes: Option<Vec<u8>>,
      bios7_bytes: Vec<u8>,
      bios9_bytes: Vec<u8>,
-     rom_bytes: Vec<u8>,
-     skip_bios: bool,
      audio_buffer: Arc<Mutex<VecDeque<f32>>>
   ) -> Self {
     let dma_channels7 = DmaChannels::new(false);
@@ -180,13 +176,13 @@ impl Bus {
       panic!("Please provide either firmware bytes or a path to the firmware");
     };
 
-    let mut bus = Self {
+    let bus = Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: bios9_bytes,
         dma: dma_channels9,
         cp15: CP15::new(),
-        postflg: skip_bios,
+        postflg: false,
         interrupt_master_enable: false,
         ipcsync: IPCSyncRegister::new(),
         ipcfifocnt: IPCFifoControlRegister::new(),
@@ -207,7 +203,7 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize, false)),
-      cartridge: Cartridge::new(rom_bytes, &bios7_bytes),
+      cartridge: Cartridge::new(&bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
@@ -219,7 +215,7 @@ impl Bus {
         bios7: bios7_bytes,
         dma: dma_channels7,
         wram: vec![0; WRAM_SIZE].into_boxed_slice(),
-        postflg: skip_bios,
+        postflg: false,
         interrupt_master_enable: false,
         ipcsync: IPCSyncRegister::new(),
         ipcfifocnt: IPCFifoControlRegister::new(),
@@ -236,16 +232,12 @@ impl Bus {
       game_icon: vec![0; 32 * 32 * 4].into_boxed_slice()
     };
 
-    if skip_bios {
-      bus.skip_bios();
-    }
-
     bus
   }
 
   pub fn reset(&mut self) -> Self {
     let mut scheduler = Scheduler::new();
-    let mut bus = Self {
+    let bus = Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: self.arm9.bios9.clone(),
@@ -272,7 +264,7 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(self.spi.firmware.backup_file.reset()),
-      cartridge: Cartridge::new(self.cartridge.rom.clone(), &self.arm7.bios7),
+      cartridge: Cartridge::new(&self.arm7.bios7),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
@@ -301,9 +293,14 @@ impl Bus {
       frame_cycles: 0
     };
 
-    bus.skip_bios();
-
     bus
+  }
+
+  pub fn load_game(&mut self, path: PathBuf) {
+    let bytes = fs::read(path).unwrap();
+
+    self.cartridge.header = Header::from(&bytes);
+    self.cartridge.rom = bytes;
   }
 
   pub fn is_halted(&self, is_arm9: bool) -> bool {
@@ -544,9 +541,12 @@ impl Bus {
     }
   }
 
-  fn skip_bios(&mut self) {
+  pub fn skip_bios(&mut self) {
     // load header into RAM starting at address 0x27ffe00 (per the docs)
     let address = 0x27ffe00 & (MAIN_MEMORY_SIZE - 1);
+
+    self.arm7.postflg = true;
+    self.arm9.postflg = true;
 
     self.main_memory[address..address + 0x170].copy_from_slice(&self.cartridge.rom[0..0x170]);
 

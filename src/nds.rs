@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
   cpu::{
-    bus::Bus,
+    bus::{cartridge::Header, Bus},
     CPU
   },
   scheduler::EventType
@@ -22,33 +22,27 @@ pub struct Nds {
 
 impl Nds {
   pub fn new(
-    file_path: Option<String>,
     firmware_path: Option<PathBuf>,
     firmware_bytes: Option<Vec<u8>>,
     bios7_bytes: Vec<u8>,
     bios9_bytes: Vec<u8>,
-    rom_bytes: Vec<u8>,
-    skip_bios: bool,
     audio_buffer: Arc<Mutex<VecDeque<f32>>>,
     mic_samples: Arc<Mutex<[i16; 2048]>>
   ) -> Self {
     let bus = Rc::new(
       RefCell::new(
         Bus::new(
-          file_path,
           firmware_path,
           firmware_bytes,
           bios7_bytes,
           bios9_bytes,
-          rom_bytes,
-          skip_bios,
           audio_buffer
         )
       )
     );
     let mut nds = Self {
-      arm9_cpu: CPU::new(bus.clone(), skip_bios),
-      arm7_cpu: CPU::new(bus.clone(), skip_bios),
+      arm9_cpu: CPU::new(bus.clone()),
+      arm7_cpu: CPU::new(bus.clone()),
       bus,
       mic_samples
     };
@@ -59,24 +53,26 @@ impl Nds {
     nds
   }
 
-  pub fn load_game(&mut self, path: PathBuf) {
-    let bytes = fs::read(path).unwrap();
-
-    let ref mut bus = *self.bus.borrow_mut();
-
-    bus.cartridge.rom = bytes;
-  }
-
-  pub fn reset(&mut self) {
+  pub fn reset(&mut self, rom: &Vec<u8>) {
     {
       let ref mut bus = *self.bus.borrow_mut();
 
       bus.arm7.apu.audio_buffer.lock().unwrap().drain(..);
 
-      let new_bus = Rc::new(RefCell::new(bus.reset()));
+      let mut new_bus = bus.reset();
 
-      self.arm9_cpu = CPU::new(new_bus.clone(), true);
-      self.arm7_cpu = CPU::new(new_bus.clone(), true);
+      new_bus.cartridge.rom = rom.clone();
+      new_bus.cartridge.header = Header::from(rom);
+
+      new_bus.skip_bios();
+
+      let bus_rc = Rc::new(RefCell::new(new_bus));
+
+      self.arm9_cpu = CPU::new(bus_rc.clone());
+      self.arm7_cpu = CPU::new(bus_rc.clone());
+
+      self.arm9_cpu.skip_bios();
+      self.arm7_cpu.skip_bios();
 
       self.arm7_cpu.reload_pipeline32();
       self.arm9_cpu.reload_pipeline32();

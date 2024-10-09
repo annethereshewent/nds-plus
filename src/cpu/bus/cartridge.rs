@@ -35,6 +35,7 @@ pub struct GameInfo {
   ram_capacity: usize
 }
 
+#[derive(Debug)]
 pub struct Header {
   game_title: String,
   pub game_code: u32,
@@ -56,7 +57,33 @@ pub struct Header {
 }
 
 impl Header {
-  pub fn new(rom: &Vec<u8>) -> Self {
+  pub fn new() -> Self {
+    let header = Self {
+      game_title: "".to_string(),
+      game_code: 0,
+      _maker_code: "".to_string(),
+      _unit_code: 0,
+      _encryption_seed_select: 0,
+      _device_capacity: 0,
+      _region: 0,
+      _rom_version: 0,
+      _autostart: 0,
+      arm9_rom_offset: 0,
+      arm9_entry_address: 0,
+      arm9_ram_address: 0,
+      arm9_size: 0,
+      arm7_rom_offset: 0,
+      arm7_entry_address: 0,
+      arm7_ram_address: 0,
+      arm7_size: 0
+    };
+
+
+
+    header
+  }
+
+  pub fn from(rom: &Vec<u8>) -> Self {
     let header = Self {
       game_title: std::str::from_utf8(&rom[0..0xc]).unwrap_or_default().to_string(),
       game_code: u32::from_le_bytes(rom[0xc..0x10].try_into().unwrap()),
@@ -105,12 +132,12 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(rom: Vec<u8>, bios7: &[u8]) -> Self {
+  pub fn new(bios7: &[u8]) -> Self {
     Self {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
-      header: Header::new(&rom),
-      rom,
+      header: Header::new(),
+      rom: Vec::new(),
       command: [0; 8],
       rom_bytes_left: 0,
       out_fifo: VecDeque::new(),
