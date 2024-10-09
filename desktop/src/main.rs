@@ -237,6 +237,7 @@ fn main() {
         }
       }
     } else {
+      // TODO: DRY up code
       match frontend.render_ui() {
         UIAction::None => (),
         UIAction::LoadGame(path) => {
