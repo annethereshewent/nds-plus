@@ -47,7 +47,7 @@ impl Bus {
       0x400_0120 => (),
       0x400_0128 => (),
       0x400_051c => self.arm7.apu.sndcapcnt[1].write_length(val as u16, None),
-      _ => panic!("write to unsupported address: {:X}", address)
+      _ => println!("[WARN] write to unsupported address: {:X}", address)
     }
   }
 
@@ -118,7 +118,10 @@ impl Bus {
       0x400_4000..=0x400_4d08 => 0,
       0x410_0000 => self.receive_from_fifo(false),
       0x410_0010 => self.cartridge.read_gamecard_bus(&mut self.scheduler, self.exmem.nds_access_rights == AccessRights::Arm7, false),
-      _ => panic!("unhandled io read to address {:x}", address)
+      _ => {
+        println!("[WARN] unhandled io read to address {:x}", address);
+        0
+      }
     }
   }
 
@@ -213,7 +216,8 @@ impl Bus {
       0x480_4000..=0x480_5fff => 0, // more wifi register stuff
       0x480_8000..=0x480_8fff => 0, // TODO: Wifi registers. might need to implement *something* because iirc some games will get stuck in infinite loop
       _ => {
-        panic!("io register not implemented: {:X}", address);
+        println!("[WARN] read from io register not implemented: {:X}", address);
+        0
       }
     }
   }
@@ -392,7 +396,7 @@ impl Bus {
       0x480_4000..=0x480_5fff => (),
       0x480_8000..=0x480_8fff => (),
       _ => {
-        panic!("io register not implemented: {:X}", address)
+        println!("[WARN] write to io register not implemented: {:X}", address)
       }
     }
   }
@@ -415,6 +419,7 @@ impl Bus {
         self.cartridge.write_command(value, byte as usize, self.exmem.nds_access_rights == AccessRights::Arm7);
       }
       0x400_01c2 => self.write_spi_data(value),
+      0x400_0300 => self.arm7.postflg |= value & 0b1 == 1,
       0x400_0301 => self.write_haltcnt(value),
       0x400_0400..=0x400_04ff => self.arm7.apu.write_channels(address, value as u32, &mut self.scheduler, BitLength::Bit8),
       0x400_0500 => self.arm7.apu.soundcnt.write(value as u16, Some(0xff00)),
@@ -423,7 +428,7 @@ impl Bus {
       0x400_0505 => self.arm7.apu.write_sound_bias(((value & 0x3) as u16) << 8, Some(0xff)),
       0x400_0508 => self.arm7.apu.sndcapcnt[0].write(value),
       0x400_0509 => self.arm7.apu.sndcapcnt[1].write(value),
-      _ => panic!("8-bit write to unsupported io address: {:x}", address)
+      _ => println!("[WARN] 8-bit write to unsupported io address: {:x}", address)
     }
   }
 }

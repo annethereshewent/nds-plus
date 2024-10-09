@@ -640,10 +640,11 @@ impl Bus {
         2 => 0,
         3 => 0,
         _ => unreachable!()
-      };
+      } as u16;
 
-      // for some reason this isn't working rn
-      return num::cast::<u32, T>(value).unwrap();
+      // for some reason the unwrap fails sometimes, so as a hack
+      // i'm returning 0 for now, which seems to work ok
+      return num::cast::<u16, T>(value).unwrap_or(num::zero());
     }
 
     // return back 0 for the deselected cpu

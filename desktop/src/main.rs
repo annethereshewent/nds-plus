@@ -172,10 +172,12 @@ fn main() {
         nds.bus.borrow_mut().skip_bios();
         nds.arm7_cpu.skip_bios();
         nds.arm9_cpu.skip_bios();
+
+        nds.arm7_cpu.reload_pipeline32();
+        nds.arm9_cpu.reload_pipeline32();
       }
 
-      nds.arm7_cpu.reload_pipeline32();
-      nds.arm9_cpu.reload_pipeline32();
+
     }
 
     detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
