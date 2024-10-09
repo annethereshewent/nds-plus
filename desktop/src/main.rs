@@ -159,26 +159,9 @@ fn main() {
   let mut has_backup = false;
   if rom_path != "" {
     let rom_bytes = fs::read(&rom_path).unwrap();
-    {
-      {
-        let ref mut bus = *nds.bus.borrow_mut();
+    nds.init(&rom_bytes, skip_bios);
 
-        rom_loaded = true;
-        bus.cartridge.header = Header::from(&rom_bytes);
-        bus.cartridge.rom = rom_bytes;
-      }
-
-      if skip_bios {
-        nds.bus.borrow_mut().skip_bios();
-        nds.arm7_cpu.skip_bios();
-        nds.arm9_cpu.skip_bios();
-
-        nds.arm7_cpu.reload_pipeline32();
-        nds.arm9_cpu.reload_pipeline32();
-      }
-
-
-    }
+    rom_loaded = true;
 
     detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
   }

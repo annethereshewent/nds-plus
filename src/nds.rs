@@ -53,6 +53,24 @@ impl Nds {
     nds
   }
 
+  pub fn init(&mut self, rom: &Vec<u8>, skip_bios: bool) {
+    {
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.cartridge.header = Header::from(&rom);
+      bus.cartridge.rom = rom.clone();
+    }
+
+    if skip_bios {
+      self.bus.borrow_mut().skip_bios();
+      self.arm7_cpu.skip_bios();
+      self.arm9_cpu.skip_bios();
+
+      self.arm7_cpu.reload_pipeline32();
+      self.arm9_cpu.reload_pipeline32();
+    }
+  }
+
   pub fn reset(&mut self, rom: &Vec<u8>) {
     {
       let ref mut bus = *self.bus.borrow_mut();

@@ -176,7 +176,7 @@ impl Bus {
       panic!("Please provide either firmware bytes or a path to the firmware");
     };
 
-    let bus = Self {
+    Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: bios9_bytes,
@@ -230,14 +230,12 @@ impl Bus {
       scheduler,
       debug_on: false,
       game_icon: vec![0; 32 * 32 * 4].into_boxed_slice()
-    };
-
-    bus
+    }
   }
 
   pub fn reset(&mut self) -> Self {
     let mut scheduler = Scheduler::new();
-    let bus = Self {
+    Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
         bios9: self.arm9.bios9.clone(),
@@ -291,16 +289,7 @@ impl Bus {
       debug_on: false,
       game_icon: vec![0; 32 * 32 * 4].into_boxed_slice(),
       frame_cycles: 0
-    };
-
-    bus
-  }
-
-  pub fn load_game(&mut self, path: PathBuf) {
-    let bytes = fs::read(path).unwrap();
-
-    self.cartridge.header = Header::from(&bytes);
-    self.cartridge.rom = bytes;
+    }
   }
 
   pub fn is_halted(&self, is_arm9: bool) -> bool {
