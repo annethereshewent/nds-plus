@@ -40,11 +40,21 @@ impl Touchscreen {
         6 => {
           let index = (frame_cycles * SAMPLE_SIZE) / CYCLES_PER_FRAME;
 
-          if index >= self.mic_buffer.len() {
-            (((self.mic_buffer[self.mic_buffer.len() - 1] ^ -32768) >> 4) as u16) << 3
+          let sample = if index >= self.mic_buffer.len() {
+            self.mic_buffer[self.mic_buffer.len() - 1]
           } else {
-            (((self.mic_buffer[index] ^ -32768) >> 4) as u16) << 3
-          }
+            self.mic_buffer[index]
+          };
+
+          // sample = if sample > 0x3fff {
+          //   0x7fff
+          // } else if sample < -0x4000 {
+          //   -0x8000
+          // } else {
+          //   sample << 1
+          // };
+
+          (((sample ^-32768) >> 4) as u16) << 3
         },
         _ => 0xfff
       };
