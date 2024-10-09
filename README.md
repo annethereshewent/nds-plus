@@ -1,8 +1,8 @@
-# Nintendo DS Emulator
+# NDS Plus
 
-This is a DS emulator written in Rust! To compile, if running directly via cargo, type `cargo run --release <path to game>`. Otherwise, build using `cargo build --release` and then pass the path to the game to the built binary. **Coming Soon**: Pre-built binaries and .ipa for iOS app!
+This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. To run them, just open the binary, or run the binary in the command line with the path to a ROM as the first argument. Linux users will have to compile their own binary either using `cargo build --release` or `cargo run --release <path to rom>`.
 
-## Live Web Demo
+## Web Client
 
 To test the latest version of the emulator on web, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
 
