@@ -51,6 +51,70 @@ fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, 
   }
 }
 
+fn handle_frontend(
+  frontend: &mut Frontend,
+  rom_path: &mut String,
+  nds: &mut Nds,
+  has_backup: &mut bool,
+  rom_loaded: &mut bool,
+  logged_in: &mut bool
+) -> bool {
+  match frontend.render_ui() {
+    UIAction::None => (),
+    UIAction::LoadGame(path) => {
+      *rom_path = path.clone().to_string_lossy().to_string();
+      let rom = fs::read(rom_path.clone()).unwrap();
+      nds.reset(&rom);
+      detect_backup_type(frontend, nds, rom_path.clone(), None);
+
+      *has_backup = {
+        match &nds.bus.borrow().cartridge.backup {
+          BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+          BackupType::None => false
+        }
+      };
+
+      *rom_loaded = true;
+
+      return true;
+    }
+    UIAction::Reset(get_bytes) => {
+      // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
+      let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
+        let ref bus = *nds.bus.borrow();
+
+        match &bus.cartridge.backup {
+          BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
+          BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
+          BackupType::None => None
+        }
+      } else {
+        None
+      };
+
+      let rom = nds.bus.borrow().cartridge.rom.clone();
+      nds.reset(&rom);
+
+      *logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+
+      detect_backup_type(frontend, nds, rom_path.clone(), bytes);
+
+      *has_backup = {
+        match &nds.bus.borrow().cartridge.backup {
+          BackupType::Eeprom(_) | BackupType::Flash(_) => true,
+          BackupType::None => false
+        }
+      };
+
+      *rom_loaded = true;
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
 fn main() {
   let args: Vec<String> = env::args().collect();
 
@@ -154,56 +218,15 @@ fn main() {
 
       frontend.resume_audio();
 
-      match frontend.render_ui() {
-        UIAction::None => (),
-        UIAction::LoadGame(path) => {
-          rom_path = path.clone().to_string_lossy().to_string();
-          let rom = fs::read(rom_path.clone()).unwrap();
-          nds.reset(&rom);
-          detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
-
-          has_backup = {
-            match &nds.bus.borrow().cartridge.backup {
-              BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-              BackupType::None => false
-            }
-          };
-
-          rom_loaded = true;
-
-          continue;
-        }
-        UIAction::Reset(get_bytes) => {
-          // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
-          let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
-            let ref bus = *nds.bus.borrow();
-
-            match &bus.cartridge.backup {
-              BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
-              BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
-              BackupType::None => None
-            }
-          } else {
-            None
-          };
-          let rom = nds.bus.borrow().cartridge.rom.clone();
-          nds.reset(&rom);
-
-          logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-
-          detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), bytes);
-
-          has_backup = {
-            match &nds.bus.borrow().cartridge.backup {
-              BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-              BackupType::None => false
-            }
-          };
-
-          rom_loaded = true;
-
-          continue;
-        }
+      if handle_frontend(
+        &mut frontend,
+        &mut rom_path,
+        &mut nds,
+        &mut has_backup,
+        &mut rom_loaded,
+        &mut logged_in
+      ) {
+        continue;
       }
 
       let ref mut bus = *nds.bus.borrow_mut();
@@ -237,58 +260,15 @@ fn main() {
         }
       }
     } else {
-      // TODO: DRY up code
-      match frontend.render_ui() {
-        UIAction::None => (),
-        UIAction::LoadGame(path) => {
-          rom_path = path.clone().to_string_lossy().to_string();
-          let rom = fs::read(rom_path.clone()).unwrap();
-          nds.reset(&rom);
-          detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
-
-          has_backup = {
-            match &nds.bus.borrow().cartridge.backup {
-              BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-              BackupType::None => false
-            }
-          };
-
-          rom_loaded = true;
-
-          continue;
-        }
-        UIAction::Reset(get_bytes) => {
-          // this is so that it doesn't have to fetch the save from the cloud all over again, which adds considerable lag
-          let bytes = if frontend.cloud_service.lock().unwrap().logged_in && get_bytes {
-            let ref bus = *nds.bus.borrow();
-
-            match &bus.cartridge.backup {
-              BackupType::Eeprom(eeprom) => Some(eeprom.backup_file.buffer.clone()),
-              BackupType::Flash(flash)=> Some(flash.backup_file.buffer.clone()),
-              BackupType::None => None
-            }
-          } else {
-            None
-          };
-
-          let rom = nds.bus.borrow().cartridge.rom.clone();
-          nds.reset(&rom);
-
-          logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-
-          detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), bytes);
-
-          has_backup = {
-            match &nds.bus.borrow().cartridge.backup {
-              BackupType::Eeprom(_) | BackupType::Flash(_) => true,
-              BackupType::None => false
-            }
-          };
-
-          rom_loaded = true;
-
-          continue;
-        }
+      if handle_frontend(
+        &mut frontend,
+        &mut rom_path,
+        &mut nds,
+        &mut has_backup,
+        &mut rom_loaded,
+        &mut logged_in
+      ) {
+        continue;
       }
 
       frontend.end_frame();
