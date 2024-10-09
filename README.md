@@ -1,6 +1,6 @@
 # NDS Plus
 
-This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. To run them, download the binaries from the release section, and open the binary as usual. Alternatively, run the binary in the command line with the path to a ROM as the first argument. Linux users will have to compile their own binary either using `cargo build --release` or `cargo run --release <path to rom>`.
+This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. Go to releases and download the appropriate zip file for your operating system and unzip the files. You will need to have copies of the bios7, bios9, and firmware binaries in the root directory of the executable. Once that's done, open the executable as usual. Alternatively, run the executable in the command line with the path to a ROM as the first argument. Linux users will have to compile their own binary either using `cargo build --release` or `cargo run --release <path to rom>`. Make sure to have the bios and firmware binaries in the root directory as usual.
 
 ## Web Client
 
