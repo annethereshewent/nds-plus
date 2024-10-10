@@ -134,12 +134,25 @@ fn main() {
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
 
-  let bios7_file = "./freebios/drastic_bios_arm7.bin";
-  let bios9_file = "./freebios/drastic_bios_arm9.bin";
+  let os_bios7_file = "./freebios/drastic_bios_arm7.bin";
+  let os_bios9_file = "./freebios/drastic_bios_arm9.bin";
+
+  let bios7_file = "../bios7.bin";
+  let bios9_file = "../bios9.bin";
   let firmware_path = "../firmware.bin";
 
-  let bios7_bytes = fs::read(bios7_file).unwrap();
-  let bios9_bytes = fs::read(bios9_file).unwrap();
+  // let bios7_bytes = fs::read(bios7_file).unwrap();
+  // let bios9_bytes = fs::read(bios9_file).unwrap();
+
+  let bios7_bytes = match fs::read(bios7_file) {
+    Ok(bytes) => bytes,
+    Err(_) => fs::read(os_bios7_file).unwrap()
+  };
+
+  let bios9_bytes = match fs::read(bios9_file) {
+    Ok(bytes) => bytes,
+    Err(_) => fs::read(os_bios9_file).unwrap()
+  };
 
   let firmware_path = Path::new(firmware_path);
 
