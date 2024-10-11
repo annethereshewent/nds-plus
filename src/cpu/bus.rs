@@ -78,6 +78,7 @@ pub mod cartridge;
 pub mod touchscreen;
 pub mod eeprom;
 pub mod backup_file;
+pub mod firmware_data;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -240,12 +241,7 @@ impl Bus {
   }
 
   pub fn reset(&mut self) -> Self {
-    let firmware_bytes = if self.spi.firmware.is_some() {
-      Some(self.spi.firmware.as_mut().unwrap().backup_file.reset())
-    } else {
-      None
-    };
-
+    let firmware_bytes = self.spi.firmware.backup_file.reset();
 
     let mut scheduler = Scheduler::new();
     Self {
@@ -274,7 +270,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(firmware_bytes),
+      spi: SPI::new(Some(firmware_bytes)),
       cartridge: Cartridge::new(&self.arm7.bios7),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
@@ -602,11 +598,7 @@ impl Bus {
     if self.arm7.spicnt.spi_bus_enabled {
       match self.arm7.spicnt.device {
         DeviceSelect::Touchscreen => self.touchscreen.write(value, self.frame_cycles),
-        DeviceSelect::Firmware => {
-          if let Some(firmware) = &mut self.spi.firmware {
-            firmware.write(value, self.arm7.spicnt.chipselect_hold)
-          }
-        }
+        DeviceSelect::Firmware => self.spi.firmware.write(value, self.arm7.spicnt.chipselect_hold),
         _ => ()
       }
     }
@@ -615,13 +607,7 @@ impl Bus {
   pub fn read_spi_data(&self) -> u8 {
     if self.arm7.spicnt.spi_bus_enabled {
       return match self.arm7.spicnt.device {
-        DeviceSelect::Firmware => {
-          if let Some(firmware) = &self.spi.firmware {
-            firmware.read()
-          } else {
-            0
-          }
-        }
+        DeviceSelect::Firmware => self.spi.firmware.read(),
         DeviceSelect::Touchscreen => self.touchscreen.read(),
         _ => 0
       }
@@ -837,11 +823,7 @@ impl Bus {
 
     if previous_enable && !self.arm7.spicnt.spi_bus_enabled {
       match previous_device {
-        DeviceSelect::Firmware => {
-          if let Some(firmware) = &mut self.spi.firmware {
-            firmware.deselect();
-          }
-        }
+        DeviceSelect::Firmware => self.spi.firmware.deselect(),
         DeviceSelect::Touchscreen => self.touchscreen.deselect(),
         _ => ()
       }

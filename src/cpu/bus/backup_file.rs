@@ -1,5 +1,7 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
+use super::firmware_data::FIRMWARE_CAPACITY;
+
 pub struct BackupFile {
   pub buffer: Vec<u8>,
   file: Option<File>,
@@ -61,7 +63,15 @@ impl BackupFile {
         is_desktop_cloud
       }
     } else {
-      panic!("Neither bytes nor path provided!");
+      let buffer = vec![0; capacity];
+      Self {
+        file: None,
+        buffer,
+        has_written: false,
+        last_write: 0,
+        path,
+        is_desktop_cloud
+      }
     }
   }
 
