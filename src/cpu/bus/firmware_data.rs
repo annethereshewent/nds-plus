@@ -210,7 +210,7 @@ impl FirmwareHeader {
       // build_minute: 0,
       // build_month: 0,
       // build_year: 0,
-      user_settings_offset: ((0x7FE00 & FIRMWARE_MASK) >> 3) as u16,
+      user_settings_offset: 0x7fc0,
       // data_gfx_checksom: 0,
       wifi_config_length: 0x138,
       mac_address: MAC_ADDRESS,
@@ -253,7 +253,7 @@ impl FirmwareHeader {
     buffer[0x1d] = self.console_type as u8;
 
 
-    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u32) = (self.user_settings_offset as u32) << 3 };
+    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u16) = (self.user_settings_offset) };
 
     println!("{:x?}", &buffer[0x20..0x22]);
 
