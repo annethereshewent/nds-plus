@@ -65,7 +65,8 @@ use crate::cloud_service::CloudService;
 pub enum UIAction {
   None,
   Reset(bool),
-  LoadGame(PathBuf)
+  LoadGame(PathBuf),
+  SaveState
 }
 
 struct DsAudioCallback {
@@ -104,7 +105,7 @@ impl AudioCallback for DsAudioCallback {
 }
 
 struct DsAudioRecording {
-  mic_samples: Arc<Mutex<[i16; 2048]>>,
+  mic_samples: Arc<Mutex<Box<[i16]>>>,
   index: usize
 }
 
@@ -148,7 +149,7 @@ pub struct Frontend {
   pub cloud_service: Arc<Mutex<CloudService>>,
   capture_device: Option<AudioDevice<DsAudioRecording>>,
   audio_subsystem: AudioSubsystem,
-  mic_samples: Arc<Mutex<[i16; 2048]>>,
+  mic_samples: Arc<Mutex<Box<[i16]>>>,
   pub rom_loaded: bool
 }
 
@@ -156,7 +157,7 @@ impl Frontend {
   pub fn new(
     sdl_context: &Sdl,
     audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-    mic_samples: Arc<Mutex<[i16; 2048]>>
+    mic_samples: Arc<Mutex<Box<[i16]>>>
   ) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -568,6 +569,9 @@ impl Frontend {
           }
           if ui.menu_item("Quit") {
             std::process::exit(0);
+          }
+          if self.rom_loaded && ui.menu_item("Create save state") {
+            action = UIAction::SaveState;
           }
           menu.end();
         }

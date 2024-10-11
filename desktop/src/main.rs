@@ -109,6 +109,11 @@ fn handle_frontend(
 
       return true;
     }
+    UIAction::SaveState => {
+      let buf = nds.create_save_state();
+
+      println!("save state created!");
+    }
   }
 
   return false;
@@ -155,7 +160,7 @@ fn main() {
   }
 
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
-  let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
+  let mic_samples: Arc<Mutex<Box<[i16]>>> = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
 
   let os_bios7_file = "./freebios/drastic_bios_arm7.bin";
   let os_bios9_file = "./freebios/drastic_bios_arm9.bin";

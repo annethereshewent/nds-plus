@@ -5,6 +5,9 @@ use std::{
   }
 };
 
+use rmp_serde::Serializer;
+use serde::{Deserialize, Serialize};
+
 use crate::{
   cpu::{
     bus::{cartridge::Header, Bus},
@@ -13,11 +16,12 @@ use crate::{
   scheduler::EventType
 };
 
+#[derive(Serialize, Deserialize)]
 pub struct Nds {
   pub arm9_cpu: CPU<true>,
   pub arm7_cpu: CPU<false>,
   pub bus: Rc<RefCell<Bus>>,
-  pub mic_samples: Arc<Mutex<[i16; 2048]>>
+  pub mic_samples: Arc<Mutex<Box<[i16]>>>
 }
 
 impl Nds {
@@ -27,7 +31,7 @@ impl Nds {
     bios7_bytes: Vec<u8>,
     bios9_bytes: Vec<u8>,
     audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-    mic_samples: Arc<Mutex<[i16; 2048]>>
+    mic_samples: Arc<Mutex<Box<[i16]>>>
   ) -> Self {
     let bus = Rc::new(
       RefCell::new(
@@ -69,6 +73,21 @@ impl Nds {
       self.arm7_cpu.reload_pipeline32();
       self.arm9_cpu.reload_pipeline32();
     }
+  }
+
+  pub fn create_save_state(&mut self) -> Vec<u8> {
+    let mut buf = Vec::new();
+    {
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.scheduler.create_save_state();
+    }
+
+    self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+
+    println!("{}", buf.len());
+
+    buf
   }
 
   pub fn reset(&mut self, rom: &Vec<u8>) {

@@ -1,4 +1,4 @@
-use std::cmp::Reverse;
+use std::{cmp::Reverse, collections::HashMap};
 
 use priority_queue::PriorityQueue;
 use serde::{Deserialize, Serialize};
@@ -22,14 +22,16 @@ pub struct Scheduler {
   pub cycles: usize,
   #[serde(skip_serializing)]
   #[serde(skip_deserializing)]
-  pub queue: PriorityQueue<EventType, Reverse<usize>>
+  pub queue: PriorityQueue<EventType, Reverse<usize>>,
+  pub queue_serialized: HashMap<EventType, usize>
 }
 
 impl Scheduler {
   pub fn new() -> Self {
     Self {
       cycles: 0,
-      queue: PriorityQueue::new()
+      queue: PriorityQueue::new(),
+      queue_serialized: HashMap::new()
     }
   }
 
@@ -75,6 +77,12 @@ impl Scheduler {
     }
 
     to_subtract
+  }
+
+  pub fn create_save_state(&mut self) {
+    for (event_type, Reverse(cycles)) in self.queue.iter() {
+      self.queue_serialized.insert(*event_type, *cycles);
+    }
   }
 
   pub fn get_cycles_to_next_event(&mut self) -> usize {
