@@ -69,7 +69,8 @@ pub struct UserSettings {
   touch_calibration_adc1: [u16; 2],
   touch_calibration_pixel1: [u8; 2],
   touch_calibration_adc2: [u16; 2],
-  touch_calibration_pixel2: [u8; 2]
+  touch_calibration_pixel2: [u8; 2],
+  checksum: u16
 }
 
 impl UserSettings {
@@ -89,7 +90,8 @@ impl UserSettings {
       touch_calibration_adc1: [0; 2],
       touch_calibration_pixel1: [0; 2],
       touch_calibration_adc2: [255 << 4, 191 << 4],
-      touch_calibration_pixel2: [255, 191]
+      touch_calibration_pixel2: [255, 191],
+      checksum: 0
     }
   }
 
@@ -122,19 +124,24 @@ impl UserSettings {
 
     let mut touch_screen_adc2_addr = 0x5e;
 
-    for i in 0..self.touch_calibration_adc2.len() {
-      println!("setting calibration setting at {:x} to {}", user_settings_base + touch_screen_adc2_addr, self.touch_calibration_adc2[i]);
+    for i in (0..self.touch_calibration_adc2.len()) {
       unsafe { *(&mut buffer[user_settings_base + touch_screen_adc2_addr] as *mut u8 as *mut u16) = self.touch_calibration_adc2[i] };
+
+      println!("{:x}", buffer[user_settings_base + touch_screen_adc2_addr]);
       touch_screen_adc2_addr += 2;
     }
 
-    buffer[user_settings_base + 0x62..user_settings_base + 0x62 + self.touch_calibration_pixel2.len()].copy_from_slice(&self.touch_calibration_pixel2[0..2]);
+    println!("{:x?}", &buffer[user_settings_base + 0x5e..user_settings_base + 0x62]);
 
-    println!("{:x?}", &buffer[user_settings_base + 0x5e..user_settings_base + 0x64]);
+    buffer[user_settings_base + 0x62..user_settings_base + 0x62 + self.touch_calibration_pixel2.len()].copy_from_slice(&self.touch_calibration_pixel2[0..2]);
 
     unsafe { *(&mut buffer[user_settings_base + 0x64] as *mut u8 as *mut u16) = self.settings };
 
     buffer[user_settings_base + 0x6c..user_settings_base + 0x6c + 4].copy_from_slice(&self.unused2[0..4]);
+
+    let crc = FirmwareData::crc16(&buffer[user_settings_base..user_settings_base + 0x100], 0x70, 0xffff);
+
+    unsafe { *(&mut buffer[user_settings_base + 0x72] as *mut u8 as *mut u16) = crc };
   }
 }
 
@@ -253,9 +260,7 @@ impl FirmwareHeader {
     buffer[0x1d] = self.console_type as u8;
 
 
-    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u16) = (self.user_settings_offset) };
-
-    println!("{:x?}", &buffer[0x20..0x22]);
+    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u16) = self.user_settings_offset };
 
     // wifi settings
     unsafe { *(&mut buffer[0x2c] as *mut u8 as *mut u16) = self.wifi_config_length };
@@ -337,5 +342,51 @@ impl FirmwareData {
     user_settings.fill_buffer(buffer);
 
     firmware_data
+  }
+
+  /*
+    u16 CRC16(const u8* data, u32 len, u32 start)
+    {
+        constexpr u16 blarg[8] = {0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001};
+
+        for (u32 i = 0; i < len; i++)
+        {
+            start ^= data[i];
+
+            for (int j = 0; j < 8; j++)
+            {
+                if (start & 0x1)
+                {
+                    start >>= 1;
+                    start ^= (blarg[j] << (7-j));
+                }
+                else
+                    start >>= 1;
+            }
+        }
+
+        return start & 0xFFFF;
+    }
+  */
+
+  pub fn crc16(data: &[u8], len: usize, start:u32) -> u16 {
+    let vars: [u32; 8] = [0xc0c1, 0xc181, 0xc301, 0xc601, 0xcc01, 0xd801, 0xf001, 0xa001];
+
+    let mut return_val = start;
+
+    for i in 0..len {
+      return_val ^= data[i] as u32;
+
+      for j in 0..8 {
+        if return_val & 0x1 == 1 {
+          return_val >>= 1;
+          return_val ^= vars[j] << (7 - j);
+        } else {
+          return_val >>= 1;
+        }
+      }
+    }
+
+    return_val as u16
   }
 }
