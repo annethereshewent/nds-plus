@@ -16,6 +16,7 @@ use cartridge::{
 };
 use cp15::CP15;
 use num_integer::Roots;
+use serde::{Deserialize, Serialize};
 use spi::SPI;
 use touchscreen::Touchscreen;
 
@@ -88,7 +89,7 @@ const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
 
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum HaltMode {
   None = 0,
   GbaMode = 1,
@@ -96,6 +97,7 @@ pub enum HaltMode {
   Sleep = 3
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Arm9Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
@@ -118,6 +120,7 @@ pub struct Arm9Bus {
   pub dma_fill: [u32; 4]
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Arm7Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
@@ -136,6 +139,7 @@ pub struct Arm7Bus {
   pub rtc: RealTimeClockRegister
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Bus {
   pub arm9: Arm9Bus,
   pub arm7: Arm7Bus,

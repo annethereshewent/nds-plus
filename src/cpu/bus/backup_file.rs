@@ -1,7 +1,12 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct BackupFile {
   pub buffer: Vec<u8>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   file: Option<File>,
   pub has_written: bool,
   pub last_write: u128,

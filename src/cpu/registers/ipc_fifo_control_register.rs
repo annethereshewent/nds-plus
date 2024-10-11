@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 
+use serde::{Deserialize, Serialize};
+
 use super::interrupt_request_register::InterruptRequestRegister;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct IPCFifoControlRegister {
   pub send_empty_irq: bool,
   pub fifo: VecDeque<u32>,

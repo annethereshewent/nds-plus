@@ -1,8 +1,9 @@
 use std::cmp::Reverse;
 
 use priority_queue::PriorityQueue;
+use serde::{Deserialize, Serialize};
 
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub enum EventType {
   HBlank,
   HDraw,
@@ -16,8 +17,11 @@ pub enum EventType {
   CheckGeometryFifo
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Scheduler {
   pub cycles: usize,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   pub queue: PriorityQueue<EventType, Reverse<usize>>
 }
 

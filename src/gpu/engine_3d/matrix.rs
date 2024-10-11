@@ -1,5 +1,7 @@
 use std::ops::Mul;
 
+use serde::{Deserialize, Serialize};
+
 pub const UNIT_MATRIX: [[i32; 4]; 4] = [
   [0x1000,0,0,0],
   [0,0x1000,0,0],
@@ -7,7 +9,7 @@ pub const UNIT_MATRIX: [[i32; 4]; 4] = [
   [0,0,0,0x1000]
 ];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Matrix(pub [[i32; 4]; 4]);
 
 impl Matrix {

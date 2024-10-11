@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct ColorEffectsRegister {
   pub bg_first_pixels: [bool; 4],
   pub bg_second_pixels: [bool; 4],
@@ -50,6 +53,7 @@ impl ColorEffectsRegister {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum ColorEffect {
   None = 0,
   AlphaBlending = 1,

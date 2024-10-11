@@ -1,4 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct WindowOutRegister: u16 {
     const OutsideWindowObjEnable = 0b1 << 4;
     const OutsideWindowColorEffect = 0b1 << 5;

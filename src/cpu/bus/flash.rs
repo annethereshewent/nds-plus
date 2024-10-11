@@ -1,14 +1,17 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
+
 use super::backup_file::BackupFile;
 
+#[derive(Serialize, Deserialize)]
 enum CommandMode {
   AwaitingCommand,
   ProcessingData,
   ReadingRegister
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Serialize, Deserialize)]
 enum Command {
   WREN,
   WRDI,
@@ -44,6 +47,7 @@ impl Command {
     }
   }
 }
+#[derive(Serialize, Deserialize)]
 pub struct Flash {
   pub backup_file: BackupFile,
   write_enable: bool,

@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct SoundCaptureControlRegister {
   val: u8,
   pub add: bool,

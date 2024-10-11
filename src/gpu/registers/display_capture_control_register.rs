@@ -1,4 +1,6 @@
-#[derive(Copy, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum CaptureSize {
   Size128 = 0,
   Size256by64 = 1,
@@ -6,13 +8,13 @@ pub enum CaptureSize {
   Size256by192 = 3
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScreenSourceA {
   GraphicsScreen = 0,
   Screen3d = 1
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CaptureSource {
   SourceA = 0,
   SourceB = 1,
@@ -20,12 +22,13 @@ pub enum CaptureSource {
 }
 
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScreenSourceB {
   VRam,
   MainMemoryDisplayFifo
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DisplayCaptureControlRegister {
   pub eva: u32,
   pub evb: u32,

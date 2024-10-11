@@ -13,7 +13,11 @@
   14    Rear-Plane Mode                (0=Blank, 1=Bitmap)
 */
 
+use serde::{Deserialize, Serialize};
+
 bitflags! {
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct Display3dControlRegister: u32 {
     const TEXTURE_MAPPING_ENABLE = 1;
     const POLYGON_ATTR_SHADING = 1 << 1;

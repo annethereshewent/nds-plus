@@ -25,8 +25,11 @@
   23    NDS7 only: SPI bus
   24    NDS7 only: Wifi    / DSi9: XpertTeak DSP */
 
+use serde::{Deserialize, Serialize};
+
 bitflags! {
-  #[derive(Copy, Clone, Debug)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct InterruptEnableRegister: u32 {
     const VBLANK = 0b1;
     const HBLANK = 0b1 << 1;

@@ -1,15 +1,18 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub const SAMPLE_SIZE: usize = 735;
 const CYCLES_PER_FRAME: usize = 560190;
 
+#[derive(Serialize, Deserialize)]
 pub struct Touchscreen {
   pub x: u16,
   pub y: u16,
 
   data: u16,
   return_byte: u8,
-  mic_buffer: [i16; SAMPLE_SIZE],
+  mic_buffer: Box<[i16]>,
   read_pos: usize
 }
 
@@ -20,7 +23,7 @@ impl Touchscreen {
       y: 0,
       data: 0,
       return_byte: 0,
-      mic_buffer: [0; SAMPLE_SIZE],
+      mic_buffer: vec![0; SAMPLE_SIZE].into_boxed_slice(),
       read_pos: 0
     }
   }

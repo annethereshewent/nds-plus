@@ -2,19 +2,22 @@
 // Below formulas can be used only with a copy of the 1048h-byte key tables from NDS/DSi BIOS.
 // The values can be found at: NDS.ARM7 ROM: 00000030h..00001077h
 
+use serde::{Deserialize, Serialize};
+
 pub const KEY_TABLE_SIZE: usize = 0x1048 / 4;
 
+#[derive(Serialize, Deserialize)]
 pub struct Key1Encryption {
-  internal_key_buf: [u32; KEY_TABLE_SIZE],
-  pub key_buf: [u32; KEY_TABLE_SIZE],
+  internal_key_buf: Box<[u32]>,
+  pub key_buf: Box<[u32]>,
   pub ready: bool
 }
 
 impl Key1Encryption {
   pub fn new(bios7_bytes: &[u8]) -> Self {
     let mut key1 = Self {
-      internal_key_buf: [0; KEY_TABLE_SIZE],
-      key_buf: [0; KEY_TABLE_SIZE],
+      internal_key_buf: vec![0; KEY_TABLE_SIZE].into_boxed_slice(),
+      key_buf: vec![0; KEY_TABLE_SIZE].into_boxed_slice(),
       ready: false
     };
 
@@ -35,7 +38,7 @@ impl Key1Encryption {
     // see https://www.problemkaputt.de/gbatek.htm#dsencryptionbygamecodeidcodekey1
     self.ready = true;
 
-    self.key_buf = self.internal_key_buf;
+    self.key_buf = self.internal_key_buf.clone();
 
     let mut key_code = [id, id / 2, id * 2];
 

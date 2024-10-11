@@ -36,6 +36,7 @@
 */
 
 bitflags! {
+  #[derive(Default)]
   pub struct CP15ControlRegister: u32 {
     const PU_ENABLE = 1;
     const ALIGNMENT_FAULTCHECK = 1 << 1;

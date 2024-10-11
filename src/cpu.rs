@@ -8,6 +8,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bus::{Bus, HaltMode};
+use serde::{Deserialize, Serialize};
 
 pub mod arm_instructions;
 pub mod thumb_instructions;
@@ -27,7 +28,7 @@ pub const IRQ_VECTOR: u32 = 0x18;
 
 pub const CLOCK_RATE: usize = 33513982;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum MemoryAccess {
   Sequential,
   NonSequential
@@ -39,6 +40,7 @@ enum MemoryWidth {
   Width32
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct CPU<const IS_ARM9: bool> {
   r: [u32; 15],
   pc: u32,
@@ -52,7 +54,11 @@ pub struct CPU<const IS_ARM9: bool> {
   spsr: PSRRegister,
   pub cpsr: PSRRegister,
   spsr_banks: [PSRRegister; 6],
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   thumb_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u16) -> Option<MemoryAccess>>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   arm_lut: Vec<fn(&mut CPU<IS_ARM9>, instruction: u32) -> Option<MemoryAccess>>,
   pipeline: [u32; 2],
   next_fetch: MemoryAccess,
@@ -86,8 +92,10 @@ impl OperatingMode {
   }
 }
 
+
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct PSRRegister: u32 {
     const STATE_BIT = 0b1 << 5;
     const FIQ_DISABLE = 0b1 << 6;

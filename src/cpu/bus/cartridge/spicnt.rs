@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Baudrate {
   Mhz4 = 0,
   Mhz2 = 1,
@@ -6,12 +8,13 @@ pub enum Baudrate {
   Mhz512 = 3
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SlotMode {
   ParallelRom = 0,
   SerialSPI = 1
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SPICNT {
   pub baudrate: Baudrate,
   pub hold_chipselect: bool,

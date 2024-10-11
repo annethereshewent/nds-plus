@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::color::Color;
 
 enum BrightnessMode {
@@ -6,6 +8,7 @@ enum BrightnessMode {
   Darken = 2
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct MasterBrightnessRegister {
   val: u16
 }

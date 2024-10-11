@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
-  #[derive(Clone, Copy)]
+  #[derive(Clone, Copy, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct ExternalKeyInputRegister: u16 {
     const BUTTON_X = 1;
     const BUTTON_Y = 1 << 1;

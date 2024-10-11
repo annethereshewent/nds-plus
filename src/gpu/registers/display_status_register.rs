@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct DispStatFlags: u16 {
     const VBLANK = 1;
     const HBLANK = 1 << 1;
@@ -10,6 +13,7 @@ bitflags! {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DisplayStatusRegister {
   pub flags: DispStatFlags,
   pub vcount_setting: u16

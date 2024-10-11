@@ -35,7 +35,7 @@ pub struct GameInfo {
   ram_capacity: usize
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Header {
   game_title: String,
   pub game_code: u32,
@@ -110,12 +110,14 @@ impl Header {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum BackupType {
   None,
   Flash(Flash),
   Eeprom(Eeprom)
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Cartridge {
   pub rom: Vec<u8>,
   pub control: CartridgeControlRegister,

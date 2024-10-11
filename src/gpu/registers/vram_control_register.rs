@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 pub struct VramControlRegister {
   val: u8,
   id: usize,

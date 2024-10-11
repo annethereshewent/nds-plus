@@ -13,7 +13,7 @@ pub enum DmaTiming {
 }
 
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Default)]
   pub struct DmaControlRegister: u32 {
     const DMA_REPEAT = 0b1 << 25;
     const DMA_TRANSFER_TYPE = 0b1 << 26;

@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct WRAMControlRegister {
   val: u8,
   pub arm7_size: u32,

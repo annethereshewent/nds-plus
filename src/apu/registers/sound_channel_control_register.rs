@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SoundFormat {
   PCM8 = 0,
   PCM16 = 1,
@@ -7,7 +9,7 @@ pub enum SoundFormat {
   PSG = 3
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RepeatMode {
   Manual = 0,
   Loop = 1,
@@ -15,7 +17,7 @@ pub enum RepeatMode {
 }
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct SoundChannelControlRegister {
   pub val: u32,
   pub volume_mul: u32,

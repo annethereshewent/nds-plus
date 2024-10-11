@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::number::Number;
 
 use super::{
@@ -63,7 +65,7 @@ impl OamAttributes {
   }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct ObjectPixel {
   pub priority: u16,
   pub color: Option<Color>,
@@ -82,9 +84,10 @@ impl ObjectPixel {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub dispcnt: DisplayControlRegister<IS_ENGINE_B>,
-  pub oam: [u8; 0x400],
+  pub oam: Box<[u8]>,
   pub pixels: Box<[u8]>,
   pub winin: WindowInRegister,
   pub winout: WindowOutRegister,
@@ -97,20 +100,20 @@ pub struct Engine2d<const IS_ENGINE_B: bool> {
   pub bgxofs: [u16; 4],
   pub bgyofs: [u16; 4],
   pub bg_props: [BgProps; 2],
-  bg_lines: [[Option<Color>; SCREEN_WIDTH as usize]; 4],
-  obj_lines: [ObjectPixel; SCREEN_WIDTH as usize],
+  bg_lines: [Box<[Option<Color>]>; 4],
+  obj_lines: Box<[ObjectPixel]>,
   pub master_brightness: MasterBrightnessRegister,
-  pub palette_ram: [u8; 0x400],
+  pub palette_ram: Box<[u8]>,
   pub debug_on: bool,
-  pub pixel_alphas: [bool; SCREEN_WIDTH as usize],
+  pub pixel_alphas: Box<[bool]>
 }
 
 impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
   pub fn new() -> Self {
     Self {
       dispcnt: DisplayControlRegister::new(),
-      pixel_alphas: [false; SCREEN_WIDTH as usize],
-      oam: [0; 0x400],
+      pixel_alphas: vec![false; SCREEN_WIDTH as usize].into_boxed_slice(),
+      oam: vec![0; 0x400].into_boxed_slice(),
       pixels: vec![0; 4 * SCREEN_HEIGHT  as usize * SCREEN_WIDTH as usize].into_boxed_slice(),
       bgxofs: [0; 4],
       bgyofs: [0; 4],
@@ -123,12 +126,23 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
       bldalpha: AlphaBlendRegister::new(),
       bldy: BrightnessRegister::new(),
       bgcnt: [BgControlRegister::from_bits_retain(0); 4],
-      bg_lines: [[None; SCREEN_WIDTH as usize]; 4],
+      bg_lines: Self::generate_bg_lines(),
       master_brightness: MasterBrightnessRegister::new(),
-      palette_ram: [0; 0x400],
-      obj_lines: [ObjectPixel::new(); SCREEN_WIDTH as usize],
+      palette_ram: vec![0; 0x400].into_boxed_slice(),
+      obj_lines: vec![ObjectPixel::new(); SCREEN_WIDTH as usize].into_boxed_slice(),
       debug_on: false
     }
+  }
+
+  pub fn generate_bg_lines() -> [Box<[Option<Color>]>; 4] {
+    let mut result = Vec::new();
+
+    for i in 0..4 {
+      let vec: Vec<Option<Color>> = vec![None; SCREEN_WIDTH as usize];
+      result.push(vec.into_boxed_slice());
+    }
+
+    result.try_into().unwrap()
   }
 
   pub fn write_palette_ram<T: Number>(&mut self, address: u32, byte: T) {
