@@ -1,12 +1,36 @@
 # NDS Plus
 
-This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. Go to releases and download the appropriate zip file for your operating system and unzip the files. You will need to have copies of the bios7, bios9, and firmware binaries in the root directory of the executable. 
+This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. Go to releases and download the appropriate zip file for your operating system and unzip the files. To build in Linux, simply type `cargo build --release` and make sure you put the executable, `game_db.json`, and the `/freebios` directory all in the same directory.
 
-Once that's complete, open the executable as usual. Alternatively, run the executable in the command line with the path to a ROM as the first argument. Linux users will have to compile their own binary from the desktop directory either using `cargo build --release` or `cargo run --release <path to rom>`. Make sure to have the bios and firmware binaries in the desktop directory as usual.
+## Getting Started
 
-## Web Client
+### Windows Users
+
+Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments: `.\nds-plus.exe <path to rom file> [--start-bios]`
+
+### Mac Users
+
+Simply extract the zip and open the .app file and everything should work out of the box. Please see section "Using your own binary files" for how to use your own provided binary files.
+
+The --start-bios argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
+
+Please see the section below on how to use your own files.
+
+### Web Client
 
 To test the latest version of the emulator on web, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
+
+## Using your own binary files
+
+Make sure that your binary files are named `bios7.bin` for the ARM7 bios, `bios9.bin` for the ARM9 bios, and `firmware.bin` for the firmware. 
+
+### Windows 
+
+For Windows, simply put the files in the same directory as the executable.
+
+### Mac
+
+For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the Contents/MacOS directory. Copy the files over there and you should be good to go!
 
 ## Features
 
