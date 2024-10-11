@@ -22,6 +22,8 @@ pub struct Nds {
   pub arm9_cpu: CPU<true>,
   pub arm7_cpu: CPU<false>,
   pub bus: Rc<RefCell<Bus>>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub mic_samples: Arc<Mutex<Box<[i16]>>>
 }
 
