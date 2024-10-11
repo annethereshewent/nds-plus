@@ -117,20 +117,40 @@ fn handle_frontend(
 fn main() {
   let args: Vec<String> = env::args().collect();
 
-  let exe_path = std::env::current_exe().unwrap();
-
-  let exe_parent = exe_path.parent().unwrap();
-
-  env::set_current_dir(exe_parent).unwrap();
-
+  let mut base_index = 1;
   let mut rom_path = "".to_string();
-  if args.len() > 1 {
-    rom_path = args[1].to_string();
+
+  if args.len() >= base_index + 1 {
+    if args[base_index] != "ignore-dir" {
+      rom_path = args[base_index].to_string();
+      base_index += 1;
+
+      let exe_path = std::env::current_exe().unwrap();
+
+      let exe_parent = exe_path.parent().unwrap();
+
+      env::set_current_dir(exe_parent).unwrap();
+    } else {
+      // this option ignores setting the directory to the exe's folder directory.
+      // this option should be used when running the program via "cargo run"
+      base_index += 1;
+
+      if args.len() >= base_index + 1 {
+        rom_path = args[base_index].to_string();
+        base_index += 1;
+      }
+    }
+  } else {
+    let exe_path = std::env::current_exe().unwrap();
+
+    let exe_parent = exe_path.parent().unwrap();
+
+    env::set_current_dir(exe_parent).unwrap();
   }
 
   let mut skip_bios = true;
 
-  if args.len() == 3 && args[2] == "--start-bios" {
+  if args.len() == base_index + 1 && args[base_index] == "--start-bios" {
     skip_bios = false;
   }
 
