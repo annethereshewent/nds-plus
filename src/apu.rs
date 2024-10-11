@@ -112,8 +112,6 @@ pub struct APU {
   pub sound_bias: u16,
   pub channels: [Channel; 16],
   pub sndcapcnt: [SoundCaptureControlRegister; 2],
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
   pub debug_on: bool,

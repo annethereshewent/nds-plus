@@ -10,8 +10,6 @@ pub mod tcm_control_register;
 
 #[derive(Serialize, Deserialize)]
 pub struct CP15 {
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub control: CP15ControlRegister,
   pub itcm_control: TCMControlRegister,
   pub dtcm_control: TCMControlRegister,

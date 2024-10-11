@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum DmaTiming {
   Immediately,
@@ -13,7 +15,8 @@ pub enum DmaTiming {
 }
 
 bitflags! {
-  #[derive(Copy, Clone, Default)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct DmaControlRegister: u32 {
     const DMA_REPEAT = 0b1 << 25;
     const DMA_TRANSFER_TYPE = 0b1 << 26;

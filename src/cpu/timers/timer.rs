@@ -9,8 +9,6 @@ pub struct Timer {
   pub id: usize,
   pub reload_value: u16,
   pub value: u16,
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub timer_ctl: TimerControl,
   pub prescalar_frequency: u32,
   pub running: bool,
@@ -124,7 +122,8 @@ impl Timer {
 }
 
 bitflags! {
-  #[derive(Copy, Clone, Default)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct TimerControl: u16 {
     const COUNT_UP_TIMING = 0b1 << 2;
     const IRQ_ENABLE = 0b1 << 6;

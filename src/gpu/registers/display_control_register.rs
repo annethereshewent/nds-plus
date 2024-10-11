@@ -21,10 +21,7 @@ pub enum DisplayMode {
 
 #[derive(Serialize, Deserialize)]
 pub struct DisplayControlRegister<const IS_ENGINE_B: bool> {
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub flags: DisplayControlRegisterFlags,
-
   pub bg_mode: BgMode,
   pub display_mode: DisplayMode,
   pub vram_block: u32,
@@ -104,7 +101,8 @@ impl<const IS_ENGINE_B: bool> DisplayControlRegister<IS_ENGINE_B> {
 }
 
 bitflags! {
-  #[derive(Default)]
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct DisplayControlRegisterFlags: u32 {
     const BG_3D_SELECTION = 1 << 3;
     const TILE_OBJ_MAPPINGS = 1 << 4;

@@ -27,8 +27,6 @@ pub struct DmaChannel {
   pub internal_source_address: u32,
   pub internal_destination_address: u32,
   internal_count: u32,
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub dma_control: DmaControlRegister,
   pub pending: bool,
   pub running: bool,
