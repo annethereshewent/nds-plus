@@ -110,7 +110,10 @@ impl UserSettings {
 
     unsafe { *(&mut buffer[user_settings_base + 0x1a] as *mut u8 as *mut u16) = self.name_length };
 
-    buffer[user_settings_base + 0x1c..user_settings_base + 0x1c + self.message.len()].copy_from_slice(self.message.as_bytes().try_into().unwrap());
+    let utf16_message: Vec<u16> = self.message.encode_utf16().collect();
+    let message_bytes = unsafe { utf16_message.align_to::<u8>().1 };
+
+    buffer[user_settings_base + 0x1c..user_settings_base + 0x1c + message_bytes.len()].copy_from_slice(message_bytes.try_into().unwrap());
     unsafe { *(&mut buffer[user_settings_base + 0x50] as *mut u8 as *mut u16) = self.message_length };
 
     let mut touch_screen_adc1_addr = 0x58;

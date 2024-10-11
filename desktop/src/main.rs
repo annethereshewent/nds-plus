@@ -164,9 +164,6 @@ fn main() {
   let bios9_file = "./bios9.bin";
   let firmware_path = "./firmware.bin";
 
-  // let bios7_bytes = fs::read(bios7_file).unwrap();
-  // let bios9_bytes = fs::read(bios9_file).unwrap();
-
   let bios7_bytes = match fs::read(bios7_file) {
     Ok(bytes) => bytes,
     Err(_) => fs::read(os_bios7_file).unwrap()
@@ -248,7 +245,6 @@ fn main() {
         &mut has_backup,
         &mut logged_in
       ) {
-        frontend.start_mic();
         continue;
       }
 
