@@ -117,6 +117,12 @@ fn handle_frontend(
 fn main() {
   let args: Vec<String> = env::args().collect();
 
+  let exe_path = std::env::current_exe().unwrap();
+
+  let exe_parent = exe_path.parent().unwrap();
+
+  env::set_current_dir(exe_parent).unwrap();
+
   let mut rom_path = "".to_string();
   if args.len() > 1 {
     rom_path = args[1].to_string();
@@ -131,12 +137,15 @@ fn main() {
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
 
+  // change path to project directory
+
+
   let os_bios7_file = "./freebios/drastic_bios_arm7.bin";
   let os_bios9_file = "./freebios/drastic_bios_arm9.bin";
 
-  let bios7_file = "../bios7.bin";
-  let bios9_file = "../bios9.bin";
-  let firmware_path = "../firmware.bin";
+  let bios7_file = "./bios7.bin";
+  let bios9_file = "./bios9.bin";
+  let firmware_path = "./firmware.bin";
 
   // let bios7_bytes = fs::read(bios7_file).unwrap();
   // let bios9_bytes = fs::read(bios9_file).unwrap();
