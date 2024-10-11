@@ -8,13 +8,15 @@ This is a DS emulator written in Rust! Binaries for Mac and Windows are now avai
 
 Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments: `.\nds-plus.exe <path to rom file> [--start-bios]`
 
+The `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
+
+Please see the section below on how to use your own files.
+
 ### Mac Users
 
 Simply extract the zip and open the .app file and everything should work out of the box. Please see section "Using your own binary files" for how to use your own provided binary files.
 
-The --start-bios argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
-
-Please see the section below on how to use your own files.
+To open from the command line, simply run `./NDS\ Plus.app/Contents/MacOS/nds-plus <path to rom file> [--start-bios]`.
 
 ### Web Client
 
@@ -30,7 +32,7 @@ For Windows, simply put the files in the same directory as the executable.
 
 ### Mac
 
-For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the Contents/MacOS directory. Copy the files over there and you should be good to go!
+For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the Contents/MacOS directory. Copy the files over and you should be all set!
 
 ## Features
 
