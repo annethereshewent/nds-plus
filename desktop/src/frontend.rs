@@ -263,6 +263,8 @@ impl Frontend {
       |_| DsAudioCallback { audio_samples: audio_buffer }
     ).unwrap();
 
+    device.resume();
+
     let mut key_map = HashMap::new();
 
     key_map.insert(Keycode::W, KeyInputRegister::Up);
