@@ -11,7 +11,8 @@ use std::{
 use crate::{apu::Sample, gpu::color::Color, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
-  Cartridge, Header, CHIP_ID
+  Cartridge,
+  CHIP_ID
 };
 use cp15::CP15;
 use num_integer::Roots;
@@ -78,6 +79,7 @@ pub mod cartridge;
 pub mod touchscreen;
 pub mod eeprom;
 pub mod backup_file;
+pub mod firmware_data;
 
 pub const ITCM_SIZE: usize = 0x8000;
 pub const DTCM_SIZE: usize = 0x4000;
@@ -168,12 +170,18 @@ impl Bus {
     let mut scheduler = Scheduler::new();
 
 
-    let capacity = if firmware_path.is_some() {
-      fs::metadata(&firmware_path.as_ref().unwrap()).unwrap().len() as usize
+    let backup_file = if firmware_path.is_some() {
+      match fs::metadata(&firmware_path.as_ref().unwrap()) {
+        Ok(metadata) => {
+          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
+        }
+        Err(_) => None
+      }
     } else if firmware_bytes.is_some() {
-      firmware_bytes.as_ref().unwrap().len()
+      let capacity = firmware_bytes.as_ref().unwrap().len();
+      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
     } else {
-      panic!("Please provide either firmware bytes or a path to the firmware");
+      None
     };
 
     Self {
@@ -202,7 +210,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(BackupFile::new(firmware_path, firmware_bytes, capacity as usize, false)),
+      spi: SPI::new(backup_file),
       cartridge: Cartridge::new(&bios7_bytes),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
@@ -234,6 +242,8 @@ impl Bus {
   }
 
   pub fn reset(&mut self) -> Self {
+    let firmware_bytes = self.spi.firmware.backup_file.reset();
+
     let mut scheduler = Scheduler::new();
     Self {
       arm9: Arm9Bus {
@@ -261,7 +271,7 @@ impl Bus {
       main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
-      spi: SPI::new(self.spi.firmware.backup_file.reset()),
+      spi: SPI::new(Some(firmware_bytes)),
       cartridge: Cartridge::new(&self.arm7.bios7),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),

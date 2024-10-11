@@ -51,19 +51,13 @@ use sdl2::{
     AudioCallback,
     AudioDevice,
     AudioSpecDesired
-  },
-  controller::{
+  }, controller::{
     Axis,
     Button,
     GameController
-  },
-  event::Event,
-  keyboard::Keycode,
-  video::{
+  }, event::Event, keyboard::Keycode, video::{
     GLContext, GLProfile, Window
-  },
-  EventPump,
-  Sdl
+  }, AudioSubsystem, EventPump, Sdl
 };
 
 use crate::cloud_service::CloudService;
@@ -152,7 +146,10 @@ pub struct Frontend {
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
   pub cloud_service: Arc<Mutex<CloudService>>,
-  capture_device: Option<AudioDevice<DsAudioRecording>>
+  capture_device: Option<AudioDevice<DsAudioRecording>>,
+  audio_subsystem: AudioSubsystem,
+  mic_samples: Arc<Mutex<[i16; 2048]>>,
+  pub rom_loaded: bool
 }
 
 impl Frontend {
@@ -266,29 +263,7 @@ impl Frontend {
       |_| DsAudioCallback { audio_samples: audio_buffer }
     ).unwrap();
 
-    let capture_spec = AudioSpecDesired {
-      freq: Some(44100),
-      channels: Some(1),
-      samples: Some(1024)
-    };
-
-    let capture_device = match audio_subsystem.open_capture(None, &capture_spec, |spec| {
-      DsAudioRecording {
-        mic_samples: mic_samples.clone(),
-        index: 0
-      }
-    }) {
-      Ok(capture) => {
-        Some(capture)
-      }
-      Err(_) => None
-    };
-
     device.resume();
-
-    if let Some(ref capture) = capture_device {
-      capture.resume();
-    }
 
     let mut key_map = HashMap::new();
 
@@ -356,7 +331,36 @@ impl Frontend {
       textures,
       _gl_context: gl_context,
       cloud_service: Arc::new(Mutex::new(CloudService::new())),
-      capture_device
+      capture_device: None,
+      audio_subsystem,
+      mic_samples: mic_samples.clone(),
+      rom_loaded: false
+    }
+  }
+
+  pub fn start_mic(&mut self) {
+    let capture_spec = AudioSpecDesired {
+      freq: Some(44100),
+      channels: Some(1),
+      samples: Some(1024)
+    };
+
+    let capture_device = match self.audio_subsystem.open_capture(None, &capture_spec, |_| {
+      DsAudioRecording {
+        mic_samples: self.mic_samples.clone(),
+        index: 0
+      }
+    }) {
+      Ok(capture) => {
+        Some(capture)
+      }
+      Err(_) => None
+    };
+
+    self.capture_device = capture_device;
+
+    if let Some(ref capture) = self.capture_device {
+      capture.resume();
     }
   }
 
@@ -366,7 +370,7 @@ impl Frontend {
     }
   }
 
-  pub fn resume_audio(&mut self) {
+  pub fn resume_mic(&mut self) {
     if let Some(ref capture) = self.capture_device {
       capture.pause();
       capture.resume();
@@ -390,11 +394,22 @@ impl Frontend {
     }
   }
 
+  pub fn clear_framebuffer(&mut self) {
+    unsafe {
+      self.gl.clear(glow::COLOR_BUFFER_BIT);
+    }
+  }
+
   pub fn handle_romless_events(&mut self) {
     for event in self.event_pump.poll_iter() {
       self.platform.handle_event(&mut self.imgui, &event);
       match event {
         Event::Quit { .. } => std::process::exit(0),
+        Event::KeyDown { keycode, .. } => {
+          if keycode.unwrap() == Keycode::Escape {
+            self.show_menu = !self.show_menu;
+          }
+        }
         _ => ()
       }
     }
@@ -549,7 +564,7 @@ impl Frontend {
                 Err(_) => ()
               }
           }
-          if ui.menu_item("Reset") {
+          if self.rom_loaded && ui.menu_item("Reset") {
             action = UIAction::Reset(true);
           }
           if ui.menu_item("Quit") {
@@ -561,10 +576,14 @@ impl Frontend {
           let mut cloud_service = self.cloud_service.lock().unwrap();
 
           if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
-            action = UIAction::Reset(false);
+            if self.rom_loaded {
+              action = UIAction::Reset(false);
+            }
             cloud_service.login();
           } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
-            action = UIAction::Reset(false);
+            if self.rom_loaded {
+              action = UIAction::Reset(false);
+            }
             cloud_service.logout();
           }
 

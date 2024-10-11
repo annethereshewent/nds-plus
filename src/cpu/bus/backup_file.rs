@@ -61,24 +61,34 @@ impl BackupFile {
         is_desktop_cloud
       }
     } else {
-      panic!("Neither bytes nor path provided!");
+      let buffer = vec![0; capacity];
+      Self {
+        file: None,
+        buffer,
+        has_written: false,
+        last_write: 0,
+        path,
+        is_desktop_cloud
+      }
     }
   }
 
   pub fn reset(&mut self) -> Self {
-    let path = self.path.clone().unwrap();
+    let mut file: Option<File> = None;
+    if let Some(path) = &self.path {
+      file = Some(fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap());
 
-    let file = fs::OpenOptions::new()
-      .read(true)
-      .write(true)
-      .open(path)
-      .unwrap();
+      self.flush();
+    }
 
-    self.flush();
 
     Self {
       buffer: self.buffer.clone(),
-      file: Some(file),
+      file,
       has_written: false,
       last_write: 0,
       path: self.path.clone(),

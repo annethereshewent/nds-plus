@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::cartridge::{BackupType, Header}, nds::Nds};
+use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -56,7 +56,6 @@ fn handle_frontend(
   rom_path: &mut String,
   nds: &mut Nds,
   has_backup: &mut bool,
-  rom_loaded: &mut bool,
   logged_in: &mut bool
 ) -> bool {
   match frontend.render_ui() {
@@ -74,7 +73,7 @@ fn handle_frontend(
         }
       };
 
-      *rom_loaded = true;
+      frontend.rom_loaded = true;
 
       return true;
     }
@@ -106,7 +105,7 @@ fn handle_frontend(
         }
       };
 
-      *rom_loaded = true;
+      frontend.rom_loaded = true;
 
       return true;
     }
@@ -118,28 +117,62 @@ fn handle_frontend(
 fn main() {
   let args: Vec<String> = env::args().collect();
 
+  let mut base_index = 1;
   let mut rom_path = "".to_string();
-  if args.len() > 1 {
-    rom_path = args[1].to_string();
+
+  if args.len() >= base_index + 1 {
+    if args[base_index] != "ignore-dir" {
+      rom_path = args[base_index].to_string();
+      base_index += 1;
+
+      let exe_path = std::env::current_exe().unwrap();
+
+      let exe_parent = exe_path.parent().unwrap();
+
+      env::set_current_dir(exe_parent).unwrap();
+    } else {
+      // this option ignores setting the directory to the exe's folder directory.
+      // this option should be used when running the program via "cargo run"
+      base_index += 1;
+
+      if args.len() >= base_index + 1 {
+        rom_path = args[base_index].to_string();
+        base_index += 1;
+      }
+    }
+  } else {
+    let exe_path = std::env::current_exe().unwrap();
+
+    let exe_parent = exe_path.parent().unwrap();
+
+    env::set_current_dir(exe_parent).unwrap();
   }
 
   let mut skip_bios = true;
 
-  if args.len() == 3 && args[2] == "--start-bios" {
+  if args.len() == base_index + 1 && args[base_index] == "--start-bios" {
     skip_bios = false;
   }
 
-  let mut rom_loaded = false;
-
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
+
+  let os_bios7_file = "./freebios/drastic_bios_arm7.bin";
+  let os_bios9_file = "./freebios/drastic_bios_arm9.bin";
 
   let bios7_file = "./bios7.bin";
   let bios9_file = "./bios9.bin";
   let firmware_path = "./firmware.bin";
 
-  let bios7_bytes = fs::read(bios7_file).unwrap();
-  let bios9_bytes = fs::read(bios9_file).unwrap();
+  let bios7_bytes = match fs::read(bios7_file) {
+    Ok(bytes) => bytes,
+    Err(_) => fs::read(os_bios7_file).unwrap()
+  };
+
+  let bios9_bytes = match fs::read(bios9_file) {
+    Ok(bytes) => bytes,
+    Err(_) => fs::read(os_bios9_file).unwrap()
+  };
 
   let firmware_path = Path::new(firmware_path);
 
@@ -161,7 +194,7 @@ fn main() {
     let rom_bytes = fs::read(&rom_path).unwrap();
     nds.init(&rom_bytes, skip_bios);
 
-    rom_loaded = true;
+    frontend.rom_loaded = true;
 
     detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
   }
@@ -169,15 +202,17 @@ fn main() {
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-  if rom_loaded {
+  if frontend.rom_loaded {
     has_backup = match &nds.bus.borrow().cartridge.backup {
       BackupType::Eeprom(_) | BackupType::Flash(_) => true,
       BackupType::None => false
-    }
+    };
+
+    frontend.start_mic();
   }
 
   loop {
-    if rom_loaded {
+    if frontend.rom_loaded {
       let frame_start = nds.arm7_cpu.cycles;
 
       while !frame_finished {
@@ -201,14 +236,13 @@ fn main() {
         frontend.render(&mut bus.gpu);
       }
 
-      frontend.resume_audio();
+      frontend.resume_mic();
 
       if handle_frontend(
         &mut frontend,
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut rom_loaded,
         &mut logged_in
       ) {
         continue;
@@ -245,14 +279,16 @@ fn main() {
         }
       }
     } else {
+      frontend.clear_framebuffer();
+
       if handle_frontend(
         &mut frontend,
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut rom_loaded,
         &mut logged_in
       ) {
+        frontend.start_mic();
         continue;
       }
 
