@@ -112,7 +112,11 @@ fn handle_frontend(
     UIAction::SaveState => {
       let buf = nds.create_save_state();
 
-      println!("save state created!");
+      let path = Path::new(&rom_path).with_extension("state");
+
+      fs::write(path, buf).unwrap();
+
+      println!("save state created!!!");
     }
   }
 

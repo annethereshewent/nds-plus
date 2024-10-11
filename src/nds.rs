@@ -85,8 +85,6 @@ impl Nds {
 
     self.serialize(&mut Serializer::new(&mut buf)).unwrap();
 
-    println!("{}", buf.len());
-
     buf
   }
 
