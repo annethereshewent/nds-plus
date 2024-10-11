@@ -66,6 +66,7 @@ Keyboard:
 - *R Button*: V Key
 - *Select*: Tab
 - *Start*: Return
+- *T key*: Toggle control stick mode on/off (For Super Mario 64 DS)
 
 Joypad (tested on PS5 controller, should be similar on Xbox/other similar controllers)
 
@@ -78,6 +79,7 @@ Joypad (tested on PS5 controller, should be similar on Xbox/other similar contro
 - *R BUtton*: R1
 - *Select*: Select
 - *Start*: Start
+- *R3 Button*: Toggle control stick mode on/off (For Super Mario 64 DS)
 
 ## Screenshots
 
