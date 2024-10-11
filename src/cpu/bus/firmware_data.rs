@@ -127,11 +127,8 @@ impl UserSettings {
     for i in (0..self.touch_calibration_adc2.len()) {
       unsafe { *(&mut buffer[user_settings_base + touch_screen_adc2_addr] as *mut u8 as *mut u16) = self.touch_calibration_adc2[i] };
 
-      println!("{:x}", buffer[user_settings_base + touch_screen_adc2_addr]);
       touch_screen_adc2_addr += 2;
     }
-
-    println!("{:x?}", &buffer[user_settings_base + 0x5e..user_settings_base + 0x62]);
 
     buffer[user_settings_base + 0x62..user_settings_base + 0x62 + self.touch_calibration_pixel2.len()].copy_from_slice(&self.touch_calibration_pixel2[0..2]);
 
