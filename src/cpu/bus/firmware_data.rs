@@ -1,4 +1,4 @@
-pub const FIRMWARE_CAPACITY: usize = 0x20000;
+pub const FIRMWARE_CAPACITY: usize = 0x40000;
 pub const FIRMWARE_MASK: usize = FIRMWARE_CAPACITY - 1;
 
 pub const MAC_ADDRESS: [u8; 6] = [0x00, 0x09, 0xBF, 0x11, 0x22, 0x33];
@@ -55,83 +55,137 @@ pub enum ConsoleType {
   DSLite = 0x20
 }
 
+pub struct UserSettings {
+  version: u16,
+  nickname: String,
+  birthday_month: u8,
+  birthday_day: u8,
+  favorite_color: u8,
+  name_length: u16,
+  message: String,
+  message_length: u16,
+  settings: u16,
+  unused2: [u8; 4],
+  // checksum: u16
+}
+
+impl UserSettings {
+  pub fn new() -> Self {
+    Self {
+      version: 5,
+      birthday_month: 5,
+      birthday_day: 24,
+      settings: 1 | (3 << 4), // english, max lighting level
+      nickname: "NDS Plus".to_string(),
+      name_length: "NDS Plus".len() as u16,
+      // checksum: 0, // TODO: actually calculate this
+      favorite_color: 2,
+      unused2: [0xff; 4],
+      message: "Hello!".to_string(),
+      message_length: "Hello!".len() as u16,
+    }
+  }
+
+  pub fn fill_buffer(&self, buffer: &mut [u8]) {
+    let user_settings_base = 0x3fe00;
+
+    unsafe { *(&mut buffer[user_settings_base] as *mut u8 as *mut u16) = self.version };
+    buffer[user_settings_base + 0x2] = self.favorite_color;
+    buffer[user_settings_base + 0x3] = self.birthday_month;
+    buffer[user_settings_base + 0x4] = self.birthday_day;
+
+    buffer[user_settings_base + 0x6..user_settings_base + 0x6 + self.nickname.len()].copy_from_slice(self.nickname.as_bytes().try_into().unwrap());
+
+    println!("{:?}", &buffer[user_settings_base + 0x6..user_settings_base + 0x6 + self.nickname.len()]);
+
+    unsafe { *(&mut buffer[user_settings_base + 0x1a] as *mut u8 as *mut u16) = self.name_length };
+
+    buffer[user_settings_base + 0x1c..user_settings_base + 0x1c + self.message.len()].copy_from_slice(self.message.as_bytes().try_into().unwrap());
+    unsafe { *(&mut buffer[user_settings_base + 0x50] as *mut u8 as *mut u16) = self.message_length };
+
+    unsafe { *(&mut buffer[user_settings_base + 0x64] as *mut u8 as *mut u16) = self.settings };
+
+    buffer[user_settings_base + 0x6c..user_settings_base + 0x6c + 4].copy_from_slice(&self.unused2[0..4]);
+  }
+}
+
 pub struct FirmwareHeader {
-  pub arm9_gui_code_offset: u16,
-  pub arm7_wifi_code_offset: u16,
-  pub gui_wifi_code_checksum: u16,
-  pub boot_code_checksum: u16,
-  pub arm9_boot_code_rom_address: u16,
-  pub arm9_boot_code_ram_address: u16,
-  pub arm7_boot_code_ram_address: u16,
-  pub arm7_boot_code_rom_address: u16,
-  pub shift_amounts: u16,
-  pub data_gfx_rom_address: u16,
-  pub build_minute: u8,
-  pub build_hour: u8,
-  pub build_day: u8,
-  pub build_month: u8,
-  pub build_year: u8,
-  pub user_settings_offset: u16,
-  pub data_gfx_checksom: u16,
-  pub console_type: ConsoleType,
-  pub identifier: [u8; 4],
-  pub wifi_config_length: u16,
-  pub wifi_version: WifiVersion,
-  pub mac_address: [u8; 6],
-  pub enabled_channels: u16,
-  pub rf_chip_type: RFChipType,
-  pub rf_bits_per_entry: u8,
-  pub rf_entries: u8,
-  pub initial_values: [u16; 16],
-  pub initial_bb_values: [u8; 0x69],
-  pub initial_rf_values: [u8; 41],
-  pub bb_indices_per_channel: u8,
-  pub bb_index1: u8,
-  pub bb_data1: [u8; 14],
-  pub bb_index2: u8,
-  pub bb_data2: [u8; 14],
-  pub rf_index1: u8,
-  pub rf_data1: [u8; 14],
-  pub rf_index2: u8,
-  pub rf_data2: [u8; 14],
-  pub unused0: [u8; 46],
-  pub wifi_board: u8,
-  pub wifi_flash: u8,
-  pub dsi_3ds: u8,
-  pub unknown2: [u8; 2],
-  pub unknown3: u8,
-  pub unused3: [u8; 6],
-  pub wifi_config_checksum: u8
+  // arm9_gui_code_offset: u16,
+  // arm7_wifi_code_offset: u16,
+  // gui_wifi_code_checksum: u16,
+  // boot_code_checksum: u16,
+  // arm9_boot_code_rom_address: u16,
+  // arm9_boot_code_ram_address: u16,
+  // arm7_boot_code_ram_address: u16,
+  // arm7_boot_code_rom_address: u16,
+  // shift_amounts: u16,
+  // data_gfx_rom_address: u16,
+  // build_minute: u8,
+  // build_hour: u8,
+  // build_day: u8,
+  // build_month: u8,
+  // build_year: u8,
+  user_settings_offset: u16,
+  // data_gfx_checksom: u16,
+  console_type: ConsoleType,
+  identifier: [u8; 4],
+  wifi_config_length: u16,
+  wifi_version: WifiVersion,
+  mac_address: [u8; 6],
+  // enabled_channels: u16,
+  rf_chip_type: RFChipType,
+  rf_bits_per_entry: u8,
+  rf_entries: u8,
+  initial_values: [u16; 16],
+  initial_bb_values: [u8; 0x69],
+  initial_rf_values: [u8; 41],
+  bb_indices_per_channel: u8,
+  bb_index1: u8,
+  bb_data1: [u8; 14],
+  bb_index2: u8,
+  bb_data2: [u8; 14],
+  rf_index1: u8,
+  rf_data1: [u8; 14],
+  rf_index2: u8,
+  rf_data2: [u8; 14],
+  unused0: [u8; 46],
+  wifi_board: u8,
+  wifi_flash: u8,
+  dsi_3ds: u8,
+  unknown2: [u8; 2],
+  unknown3: u8,
+  unused3: [u8; 6],
+  wifi_config_checksum: u8
 
 }
 
 impl FirmwareHeader {
   pub fn new() -> Self {
     Self {
-      arm7_boot_code_ram_address: 0,
-      arm7_boot_code_rom_address: 0,
-      gui_wifi_code_checksum: 0,
-      boot_code_checksum: 0,
-      arm9_boot_code_ram_address: 0,
-      arm7_wifi_code_offset: 0,
-      arm9_boot_code_rom_address: 0,
-      arm9_gui_code_offset: 0,
-      shift_amounts: 0,
-      data_gfx_rom_address: 0,
+      // arm7_boot_code_ram_address: 0,
+      // arm7_boot_code_rom_address: 0,
+      // gui_wifi_code_checksum: 0,
+      // boot_code_checksum: 0,
+      // arm9_boot_code_ram_address: 0,
+      // arm7_wifi_code_offset: 0,
+      // arm9_boot_code_rom_address: 0,
+      // arm9_gui_code_offset: 0,
+      // shift_amounts: 0,
+      // data_gfx_rom_address: 0,
       console_type: ConsoleType::DSLite,
       identifier: "NDSP".as_bytes().try_into().unwrap(), // NDS Plus
       wifi_version: WifiVersion::W006,
       rf_chip_type: RFChipType::Type3,
-      build_day: 0,
-      build_hour: 0,
-      build_minute: 0,
-      build_month: 0,
-      build_year: 0,
+      // build_day: 0,
+      // build_hour: 0,
+      // build_minute: 0,
+      // build_month: 0,
+      // build_year: 0,
       user_settings_offset: ((0x7FE00 & FIRMWARE_MASK) >> 3) as u16,
-      data_gfx_checksom: 0,
+      // data_gfx_checksom: 0,
       wifi_config_length: 0x138,
       mac_address: MAC_ADDRESS,
-      enabled_channels: 0x3ffe,
+      // enabled_channels: 0x3ffe,
       rf_bits_per_entry: 0x94,
       rf_entries: 0x29,
       initial_values: [0; 16],
@@ -212,15 +266,18 @@ impl FirmwareHeader {
 }
 
 pub struct FirmwareData {
-  pub header: FirmwareHeader
+  pub header: FirmwareHeader,
+  pub user_settings: UserSettings
 }
 
 impl FirmwareData {
   pub fn new(buffer: &mut [u8]) -> Self {
     let mut firmware_data = Self {
-      header: FirmwareHeader::new()
+      header: FirmwareHeader::new(),
+      user_settings: UserSettings::new()
     };
     let header = &mut firmware_data.header;
+    let user_settings = &mut firmware_data.user_settings;
 
     header.initial_values[0] = 0x0002;
     header.initial_values[1] = 0x0017;
@@ -244,6 +301,7 @@ impl FirmwareData {
     buffer[0x2ff] = 0x80;
 
     header.fill_buffer(buffer);
+    user_settings.fill_buffer(buffer);
 
     firmware_data
   }
