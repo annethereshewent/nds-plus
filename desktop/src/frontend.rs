@@ -148,7 +148,8 @@ pub struct Frontend {
   pub cloud_service: Arc<Mutex<CloudService>>,
   capture_device: Option<AudioDevice<DsAudioRecording>>,
   audio_subsystem: AudioSubsystem,
-  mic_samples: Arc<Mutex<[i16; 2048]>>
+  mic_samples: Arc<Mutex<[i16; 2048]>>,
+  pub rom_loaded: bool
 }
 
 impl Frontend {
@@ -330,7 +331,8 @@ impl Frontend {
       cloud_service: Arc::new(Mutex::new(CloudService::new())),
       capture_device: None,
       audio_subsystem,
-      mic_samples: mic_samples.clone()
+      mic_samples: mic_samples.clone(),
+      rom_loaded: false
     }
   }
 
@@ -560,7 +562,7 @@ impl Frontend {
                 Err(_) => ()
               }
           }
-          if ui.menu_item("Reset") {
+          if self.rom_loaded && ui.menu_item("Reset") {
             action = UIAction::Reset(true);
           }
           if ui.menu_item("Quit") {
@@ -572,10 +574,14 @@ impl Frontend {
           let mut cloud_service = self.cloud_service.lock().unwrap();
 
           if !cloud_service.logged_in && ui.menu_item("Log in to Google Cloud") {
-            action = UIAction::Reset(false);
+            if self.rom_loaded {
+              action = UIAction::Reset(false);
+            }
             cloud_service.login();
           } else if cloud_service.logged_in && ui.menu_item("Log out of Google Cloud") {
-            action = UIAction::Reset(false);
+            if self.rom_loaded {
+              action = UIAction::Reset(false);
+            }
             cloud_service.logout();
           }
 

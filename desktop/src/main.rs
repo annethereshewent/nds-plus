@@ -56,7 +56,6 @@ fn handle_frontend(
   rom_path: &mut String,
   nds: &mut Nds,
   has_backup: &mut bool,
-  rom_loaded: &mut bool,
   logged_in: &mut bool
 ) -> bool {
   match frontend.render_ui() {
@@ -74,7 +73,7 @@ fn handle_frontend(
         }
       };
 
-      *rom_loaded = true;
+      frontend.rom_loaded = true;
 
       return true;
     }
@@ -106,7 +105,7 @@ fn handle_frontend(
         }
       };
 
-      *rom_loaded = true;
+      frontend.rom_loaded = true;
 
       return true;
     }
@@ -128,8 +127,6 @@ fn main() {
   if args.len() == 3 && args[2] == "--start-bios" {
     skip_bios = false;
   }
-
-  let mut rom_loaded = false;
 
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
@@ -174,7 +171,7 @@ fn main() {
     let rom_bytes = fs::read(&rom_path).unwrap();
     nds.init(&rom_bytes, skip_bios);
 
-    rom_loaded = true;
+    frontend.rom_loaded = true;
 
     detect_backup_type(&mut frontend, &mut nds, rom_path.clone(), None);
   }
@@ -182,7 +179,7 @@ fn main() {
   let mut frame_finished = false;
 
   let mut logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-  if rom_loaded {
+  if frontend.rom_loaded {
     has_backup = match &nds.bus.borrow().cartridge.backup {
       BackupType::Eeprom(_) | BackupType::Flash(_) => true,
       BackupType::None => false
@@ -192,7 +189,7 @@ fn main() {
   }
 
   loop {
-    if rom_loaded {
+    if frontend.rom_loaded {
       let frame_start = nds.arm7_cpu.cycles;
 
       while !frame_finished {
@@ -223,7 +220,6 @@ fn main() {
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut rom_loaded,
         &mut logged_in
       ) {
         frontend.start_mic();
@@ -268,7 +264,6 @@ fn main() {
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut rom_loaded,
         &mut logged_in
       ) {
         frontend.start_mic();
