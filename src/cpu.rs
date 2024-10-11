@@ -9,7 +9,6 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bus::{Bus, HaltMode};
 use serde::{Deserialize, Serialize};
-use rmp_serde::{Deserializer, Serializer};
 
 pub mod arm_instructions;
 pub mod thumb_instructions;

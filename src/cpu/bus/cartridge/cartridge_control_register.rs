@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CartridgeControlRegister {
   pub key1_gap1_length: u32,
   pub key2_encrypt_data: bool,

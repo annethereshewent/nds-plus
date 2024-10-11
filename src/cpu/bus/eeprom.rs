@@ -52,7 +52,6 @@ impl Command {
   }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Eeprom {
   address_width: usize,
   pub backup_file: BackupFile,

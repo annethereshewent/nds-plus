@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{backup_file::BackupFile, firmware_data::{FirmwareData, FIRMWARE_CAPACITY}, flash::Flash};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SPI {
   pub firmware: Flash
 }

@@ -101,6 +101,8 @@ pub enum HaltMode {
 pub struct Arm9Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
@@ -124,6 +126,8 @@ pub struct Arm9Bus {
 pub struct Arm7Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
   pub postflg: bool,
@@ -148,7 +152,11 @@ pub struct Bus {
   dtcm: Box<[u8]>,
   main_memory: Box<[u8]>,
   shared_wram: Box<[u8]>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub spi: SPI,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
   pub key_input_register: KeyInputRegister,

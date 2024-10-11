@@ -1,12 +1,13 @@
 use std::{
-  cell::RefCell, collections::VecDeque, path::PathBuf, rc::Rc, sync::{
+  cell::RefCell, collections::VecDeque, io::{Read, Write}, path::PathBuf, rc::Rc, sync::{
     Arc,
     Mutex
   }
 };
 
-use rmp_serde::Serializer;
+use bzip2::{bufread::BzEncoder, Compress, Compression};
 use serde::{Deserialize, Serialize};
+use bincode;
 
 use crate::{
   cpu::{
@@ -76,16 +77,20 @@ impl Nds {
   }
 
   pub fn create_save_state(&mut self) -> Vec<u8> {
-    let mut buf = Vec::new();
     {
       let ref mut bus = *self.bus.borrow_mut();
 
       bus.scheduler.create_save_state();
     }
 
-    self.serialize(&mut Serializer::new(&mut buf)).unwrap();
+    let mut buf = bincode::serialize(self).unwrap();
 
-    buf
+    let mut compressor = BzEncoder::new(&*buf, Compression::best());
+
+    let mut compressed = Vec::new();
+    compressor.read_to_end(&mut compressed).unwrap();
+
+    compressed
   }
 
   pub fn reset(&mut self, rom: &Vec<u8>) {

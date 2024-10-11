@@ -4,14 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use super::backup_file::BackupFile;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default)]
 enum CommandMode {
+  #[default]
   AwaitingCommand,
   ProcessingData,
   ReadingRegister
 }
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Default)]
 enum Command {
   WREN,
   WRDI,
@@ -24,6 +25,7 @@ enum Command {
   SE,
   DP,
   RDP,
+  #[default]
   None,
   IR
 }
@@ -47,7 +49,7 @@ impl Command {
     }
   }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Flash {
   pub backup_file: BackupFile,
   write_enable: bool,
