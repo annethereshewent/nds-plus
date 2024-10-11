@@ -32,7 +32,7 @@ For Windows, simply put the files in the same directory as the executable.
 
 ### Mac
 
-For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the Contents/MacOS directory. Copy the files over and you should be all set!
+For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the `Contents/MacOS` directory. Copy the files over and you should be all set!
 
 ## Features
 
