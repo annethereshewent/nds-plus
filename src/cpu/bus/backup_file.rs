@@ -1,7 +1,5 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
-use super::firmware_data::FIRMWARE_CAPACITY;
-
 pub struct BackupFile {
   pub buffer: Vec<u8>,
   file: Option<File>,

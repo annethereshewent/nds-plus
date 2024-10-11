@@ -345,7 +345,7 @@ impl Frontend {
       samples: Some(1024)
     };
 
-    let capture_device = match self.audio_subsystem.open_capture(None, &capture_spec, |spec| {
+    let capture_device = match self.audio_subsystem.open_capture(None, &capture_spec, |_| {
       DsAudioRecording {
         mic_samples: self.mic_samples.clone(),
         index: 0

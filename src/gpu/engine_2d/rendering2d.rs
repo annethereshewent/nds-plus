@@ -150,7 +150,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_affine_line(3, y, vram, AffineType::Normal);
+          self.render_affine_line(3, vram, AffineType::Normal);
         }
       }
       BgMode::Mode2 => {
@@ -162,7 +162,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
         for i in 2..4 {
           if self.bg_mode_enabled(i) {
-            self.render_affine_line(i, y, vram, AffineType::Normal);
+            self.render_affine_line(i, vram, AffineType::Normal);
           }
         }
       }
@@ -174,7 +174,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+          self.render_extended_line(3, vram);
         }
       }
       BgMode::Mode4 => {
@@ -184,11 +184,11 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
 
 
         if self.bg_mode_enabled(2) {
-          self.render_affine_line(2, y, vram, AffineType::Normal);
+          self.render_affine_line(2, vram, AffineType::Normal);
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+          self.render_extended_line(3, vram);
         }
       }
       BgMode::Mode5 => {
@@ -197,33 +197,33 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
         }
 
         if self.bg_mode_enabled(2) {
-          self.render_extended_line(2, y, vram);
+          self.render_extended_line(2, vram);
         }
 
         if self.bg_mode_enabled(3) {
-          self.render_extended_line(3, y, vram);
+          self.render_extended_line(3, vram);
         }
       }
       BgMode::Mode6 => {
-        self.render_affine_line(2, y, vram, AffineType::Large)
+        self.render_affine_line(2, vram, AffineType::Large)
       }
     }
 
     self.finalize_scanline(y);
   }
 
-  fn render_extended_line(&mut self, bg_index: usize, y: u16, vram: &VRam) {
+  fn render_extended_line(&mut self, bg_index: usize, vram: &VRam) {
     if self.bgcnt[bg_index].contains(BgControlRegister::PALETTES) {
       if self.bgcnt[bg_index].character_base_block() & 0b1 != 0 {
         // Extended Direct
-        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bppDirect);
+        self.render_affine_line(bg_index, vram, AffineType::Extended8bppDirect);
       } else {
         // Extended8bpp
-        self.render_affine_line(bg_index, y, vram, AffineType::Extended8bpp);
+        self.render_affine_line(bg_index, vram, AffineType::Extended8bpp);
       }
     } else {
       // Extended
-      self.render_affine_line(bg_index, y, vram, AffineType::Extended);
+      self.render_affine_line(bg_index, vram, AffineType::Extended);
     }
   }
 
@@ -778,7 +778,7 @@ impl<const IS_ENGINE_B: bool> Engine2d<IS_ENGINE_B> {
     }
   }
 
-  fn render_affine_line(&mut self, bg_index: usize, y: u16, vram: &VRam, affine_type: AffineType) {
+  fn render_affine_line(&mut self, bg_index: usize, vram: &VRam, affine_type: AffineType) {
     let (dx, dy) = (self.bg_props[bg_index - 2].dx, self.bg_props[bg_index - 2].dy);
 
     let (tilemap_base, tile_base) = self.get_tile_base_addresses(bg_index);

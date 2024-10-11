@@ -69,8 +69,7 @@ pub struct UserSettings {
   touch_calibration_adc1: [u16; 2],
   touch_calibration_pixel1: [u8; 2],
   touch_calibration_adc2: [u16; 2],
-  touch_calibration_pixel2: [u8; 2],
-  checksum: u16
+  touch_calibration_pixel2: [u8; 2]
 }
 
 impl UserSettings {
@@ -90,8 +89,7 @@ impl UserSettings {
       touch_calibration_adc1: [0; 2],
       touch_calibration_pixel1: [0; 2],
       touch_calibration_adc2: [255 << 4, 191 << 4],
-      touch_calibration_pixel2: [255, 191],
-      checksum: 0
+      touch_calibration_pixel2: [255, 191]
     }
   }
 
@@ -127,7 +125,7 @@ impl UserSettings {
 
     let mut touch_screen_adc2_addr = 0x5e;
 
-    for i in (0..self.touch_calibration_adc2.len()) {
+    for i in 0..self.touch_calibration_adc2.len() {
       unsafe { *(&mut buffer[user_settings_base + touch_screen_adc2_addr] as *mut u8 as *mut u16) = self.touch_calibration_adc2[i] };
 
       touch_screen_adc2_addr += 2;
@@ -188,10 +186,10 @@ pub struct FirmwareHeader {
   wifi_board: u8,
   wifi_flash: u8,
   dsi_3ds: u8,
-  unknown2: [u8; 2],
-  unknown3: u8,
+  // unknown2: [u8; 2],
+  // unknown3: u8,
   unused3: [u8; 6],
-  wifi_config_checksum: u8
+  // wifi_config_checksum: u8
 
 }
 
@@ -230,8 +228,8 @@ impl FirmwareHeader {
       wifi_board: 0xff,
       wifi_flash: 0xff,
       dsi_3ds: 0xff,
-      unknown2: [0xff; 2],
-      unknown3: 0x2,
+      // unknown2: [0xff; 2],
+      // unknown3: 0x2,
       bb_indices_per_channel: 2,
       bb_index1: 0x1e,
       bb_data1: BB_DATA1,
@@ -243,7 +241,7 @@ impl FirmwareHeader {
       rf_data2: RF_DATA2,
       unused0: [0xff; 46],
       unused3: DEFAULT_UNUSED3,
-      wifi_config_checksum: 0
+      // wifi_config_checksum: 0
     }
   }
 
@@ -266,6 +264,8 @@ impl FirmwareHeader {
     unsafe { *(&mut buffer[0x2c] as *mut u8 as *mut u16) = self.wifi_config_length };
 
     buffer[0x2f] = self.wifi_version as u8;
+
+    buffer[0x30..0x30 + 6].copy_from_slice(&self.unused3[0..6]);
 
     buffer[0x36..0x3c].copy_from_slice(&self.mac_address[0..6]);
     buffer[0x3e..0x40].fill(0xff);
@@ -300,6 +300,8 @@ impl FirmwareHeader {
     buffer[0x1fd] = self.wifi_board;
     buffer[0x1fe] = self.wifi_flash;
     buffer[0x1ff] = self.dsi_3ds;
+
+
   }
 }
 
@@ -315,7 +317,6 @@ impl FirmwareData {
       user_settings: UserSettings::new()
     };
     let header = &mut firmware_data.header;
-    let user_settings = &mut firmware_data.user_settings;
 
     header.initial_values[0] = 0x0002;
     header.initial_values[1] = 0x0017;

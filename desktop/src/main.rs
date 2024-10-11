@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::cartridge::{BackupType, Header}, nds::Nds};
+use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 

@@ -11,7 +11,8 @@ use std::{
 use crate::{apu::Sample, gpu::color::Color, number::Number};
 use backup_file::BackupFile;
 use cartridge::{
-  Cartridge, Header, CHIP_ID
+  Cartridge,
+  CHIP_ID
 };
 use cp15::CP15;
 use num_integer::Roots;
