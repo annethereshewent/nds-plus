@@ -309,7 +309,7 @@ pub struct FirmwareData {
 }
 
 impl FirmwareData {
-  pub fn new(buffer: &mut [u8]) -> Self {
+  pub fn new() -> Self {
     let mut firmware_data = Self {
       header: FirmwareHeader::new(),
       user_settings: UserSettings::new()
@@ -334,40 +334,8 @@ impl FirmwareData {
     header.initial_values[14] = 0x0001;
     header.initial_values[15] = 0x0402;
 
-    buffer[0..0x1d].fill(0);
-
-    buffer[0x2ff] = 0x80;
-
-    header.fill_buffer(buffer);
-    user_settings.fill_buffer(buffer);
-
     firmware_data
   }
-
-  /*
-    u16 CRC16(const u8* data, u32 len, u32 start)
-    {
-        constexpr u16 blarg[8] = {0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001};
-
-        for (u32 i = 0; i < len; i++)
-        {
-            start ^= data[i];
-
-            for (int j = 0; j < 8; j++)
-            {
-                if (start & 0x1)
-                {
-                    start >>= 1;
-                    start ^= (blarg[j] << (7-j));
-                }
-                else
-                    start >>= 1;
-            }
-        }
-
-        return start & 0xFFFF;
-    }
-  */
 
   pub fn crc16(data: &[u8], len: usize, start:u32) -> u16 {
     let vars: [u32; 8] = [0xc0c1, 0xc181, 0xc301, 0xc601, 0xcc01, 0xd801, 0xf001, 0xa001];
