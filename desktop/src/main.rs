@@ -157,9 +157,6 @@ fn main() {
   let audio_buffer: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
   let mic_samples: Arc<Mutex<[i16; 2048]>> = Arc::new(Mutex::new([0; 2048]));
 
-  // change path to project directory
-
-
   let os_bios7_file = "./freebios/drastic_bios_arm7.bin";
   let os_bios9_file = "./freebios/drastic_bios_arm9.bin";
 
