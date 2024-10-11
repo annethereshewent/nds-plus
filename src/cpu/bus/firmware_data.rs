@@ -66,7 +66,10 @@ pub struct UserSettings {
   message_length: u16,
   settings: u16,
   unused2: [u8; 4],
-  // checksum: u16
+  touch_calibration_adc1: [u16; 2],
+  touch_calibration_pixel1: [u8; 2],
+  touch_calibration_adc2: [u16; 2],
+  touch_calibration_pixel2: [u8; 2]
 }
 
 impl UserSettings {
@@ -83,6 +86,10 @@ impl UserSettings {
       unused2: [0xff; 4],
       message: "Hello!".to_string(),
       message_length: "Hello!".len() as u16,
+      touch_calibration_adc1: [0; 2],
+      touch_calibration_pixel1: [0; 2],
+      touch_calibration_adc2: [255 << 4, 191 << 4],
+      touch_calibration_pixel2: [255, 191]
     }
   }
 
@@ -94,12 +101,36 @@ impl UserSettings {
     buffer[user_settings_base + 0x3] = self.birthday_month;
     buffer[user_settings_base + 0x4] = self.birthday_day;
 
-    buffer[user_settings_base + 0x6..user_settings_base + 0x6 + self.nickname.len()].copy_from_slice(self.nickname.as_bytes().try_into().unwrap());
+    let utf16_nickname: Vec<u16> = self.nickname.encode_utf16().collect();
+    let nickname_bytes = unsafe { utf16_nickname.align_to::<u8>().1 };
+
+    buffer[user_settings_base + 0x6..user_settings_base + 0x6 + nickname_bytes.len()].copy_from_slice(nickname_bytes.try_into().unwrap());
 
     unsafe { *(&mut buffer[user_settings_base + 0x1a] as *mut u8 as *mut u16) = self.name_length };
 
     buffer[user_settings_base + 0x1c..user_settings_base + 0x1c + self.message.len()].copy_from_slice(self.message.as_bytes().try_into().unwrap());
     unsafe { *(&mut buffer[user_settings_base + 0x50] as *mut u8 as *mut u16) = self.message_length };
+
+    let mut touch_screen_adc1_addr = 0x58;
+
+    for i in 0..self.touch_calibration_adc1.len() {
+      unsafe { *(&mut buffer[user_settings_base + touch_screen_adc1_addr] as *mut u8 as *mut u16) = self.touch_calibration_adc1[i] };
+      touch_screen_adc1_addr += 2;
+    }
+
+    buffer[user_settings_base + 0x5c..user_settings_base + 0x5c + self.touch_calibration_pixel1.len()].copy_from_slice(&self.touch_calibration_pixel1[0..2]);
+
+    let mut touch_screen_adc2_addr = 0x5e;
+
+    for i in 0..self.touch_calibration_adc2.len() {
+      println!("setting calibration setting at {:x} to {}", user_settings_base + touch_screen_adc2_addr, self.touch_calibration_adc2[i]);
+      unsafe { *(&mut buffer[user_settings_base + touch_screen_adc2_addr] as *mut u8 as *mut u16) = self.touch_calibration_adc2[i] };
+      touch_screen_adc2_addr += 2;
+    }
+
+    buffer[user_settings_base + 0x62..user_settings_base + 0x62 + self.touch_calibration_pixel2.len()].copy_from_slice(&self.touch_calibration_pixel2[0..2]);
+
+    println!("{:x?}", &buffer[user_settings_base + 0x5e..user_settings_base + 0x64]);
 
     unsafe { *(&mut buffer[user_settings_base + 0x64] as *mut u8 as *mut u16) = self.settings };
 
@@ -220,7 +251,11 @@ impl FirmwareHeader {
     // firmware header
     unsafe { *(&mut buffer[0x8] as *mut u8 as *mut u32) = *(&self.identifier[0] as *const u8 as *const u32) };
     buffer[0x1d] = self.console_type as u8;
-    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u16) = self.user_settings_offset };
+
+
+    unsafe { *(&mut buffer[0x20] as *mut u8 as *mut u32) = (self.user_settings_offset as u32) << 3 };
+
+    println!("{:x?}", &buffer[0x20..0x22]);
 
     // wifi settings
     unsafe { *(&mut buffer[0x2c] as *mut u8 as *mut u16) = self.wifi_config_length };
