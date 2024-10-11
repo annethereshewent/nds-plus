@@ -186,7 +186,9 @@ fn main() {
     has_backup = match &nds.bus.borrow().cartridge.backup {
       BackupType::Eeprom(_) | BackupType::Flash(_) => true,
       BackupType::None => false
-    }
+    };
+
+    frontend.start_mic();
   }
 
   loop {
@@ -214,7 +216,7 @@ fn main() {
         frontend.render(&mut bus.gpu);
       }
 
-      frontend.resume_audio();
+      frontend.resume_mic();
 
       if handle_frontend(
         &mut frontend,
@@ -224,6 +226,7 @@ fn main() {
         &mut rom_loaded,
         &mut logged_in
       ) {
+        frontend.start_mic();
         continue;
       }
 
@@ -258,6 +261,8 @@ fn main() {
         }
       }
     } else {
+      frontend.clear_framebuffer();
+
       if handle_frontend(
         &mut frontend,
         &mut rom_path,
@@ -266,6 +271,7 @@ fn main() {
         &mut rom_loaded,
         &mut logged_in
       ) {
+        frontend.start_mic();
         continue;
       }
 
