@@ -272,11 +272,10 @@ impl Frontend {
     key_map.insert(Keycode::D, KeyInputRegister::Right);
     key_map.insert(Keycode::A, KeyInputRegister::Left);
 
-    key_map.insert(Keycode::Space, KeyInputRegister::ButtonA);
-    key_map.insert(Keycode::K, KeyInputRegister::ButtonA);
+    key_map.insert(Keycode::L, KeyInputRegister::ButtonA);
 
-    key_map.insert(Keycode::LShift, KeyInputRegister::ButtonB);
-    key_map.insert(Keycode::J, KeyInputRegister::ButtonB);
+
+    key_map.insert(Keycode::K, KeyInputRegister::ButtonB);
 
     key_map.insert(Keycode::C, KeyInputRegister::ButtonL);
     key_map.insert(Keycode::V, KeyInputRegister::ButtonR);
@@ -286,8 +285,8 @@ impl Frontend {
 
     let mut ext_key_map = HashMap::new();
 
-    ext_key_map.insert(Keycode::N, ExternalKeyInputRegister::BUTTON_Y);
-    ext_key_map.insert(Keycode::M, ExternalKeyInputRegister::BUTTON_X);
+    ext_key_map.insert(Keycode::J, ExternalKeyInputRegister::BUTTON_Y);
+    ext_key_map.insert(Keycode::I, ExternalKeyInputRegister::BUTTON_X);
 
     let mut button_map = HashMap::new();
 
