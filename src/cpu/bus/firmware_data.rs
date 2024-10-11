@@ -96,8 +96,6 @@ impl UserSettings {
 
     buffer[user_settings_base + 0x6..user_settings_base + 0x6 + self.nickname.len()].copy_from_slice(self.nickname.as_bytes().try_into().unwrap());
 
-    println!("{:?}", &buffer[user_settings_base + 0x6..user_settings_base + 0x6 + self.nickname.len()]);
-
     unsafe { *(&mut buffer[user_settings_base + 0x1a] as *mut u8 as *mut u16) = self.name_length };
 
     buffer[user_settings_base + 0x1c..user_settings_base + 0x1c + self.message.len()].copy_from_slice(self.message.as_bytes().try_into().unwrap());
