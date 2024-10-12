@@ -167,19 +167,20 @@ fn handle_frontend(
 
 
         if !*logged_in && *has_backup {
+          let save_path = Path::new(&rom_path_str).with_extension("sav");
           match &mut bus.cartridge.backup {
             BackupType::Eeprom(eeprom) => {
               eeprom.backup_file.file = Some(fs::OpenOptions::new()
                 .read(true)
                 .write(true)
-                .open(rom_path)
+                .open(save_path)
                 .unwrap());
             }
             BackupType::Flash(flash) => {
               flash.backup_file.file = Some(fs::OpenOptions::new()
                 .read(true)
                 .write(true)
-                .open(rom_path)
+                .open(save_path)
                 .unwrap());
             }
             BackupType::None => unreachable!()
