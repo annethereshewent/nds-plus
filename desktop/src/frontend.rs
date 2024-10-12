@@ -436,6 +436,8 @@ impl Frontend {
 
     let path = Path::new(&rom_path).with_extension("state");
 
+    println!("{:?}", path);
+
     fs::write(path, buf).unwrap();
   }
 

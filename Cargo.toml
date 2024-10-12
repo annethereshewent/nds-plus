@@ -16,5 +16,5 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 chrono = "0.4"
 num = "0.4.3"
-rmp-serde = "1.3.0"
+bincode = "1.2.1"
 bzip2 = "0.4.4"
