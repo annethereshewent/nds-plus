@@ -70,6 +70,7 @@ fn handle_frontend(
     UIAction::None => (),
     UIAction::LoadGame(path) => {
       *rom_path_str = path.clone().to_string_lossy().to_string();
+      frontend.rom_path = rom_path_str.to_string();
       let rom = fs::read(rom_path_str.clone()).unwrap();
       nds.reset(&rom);
       detect_backup_type(frontend, nds, rom_path_str.clone(), None);

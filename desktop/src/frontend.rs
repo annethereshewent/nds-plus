@@ -152,7 +152,7 @@ pub struct Frontend {
   audio_subsystem: AudioSubsystem,
   mic_samples: Arc<Mutex<Box<[i16]>>>,
   pub rom_loaded: bool,
-  rom_path: String,
+  pub rom_path: String,
   bios7_file: String,
   bios9_file: String,
   firmware: PathBuf,
@@ -456,7 +456,10 @@ impl Frontend {
 
     let rom_path = Path::new(&rom_path);
 
-    let buf = fs::read(state_path).unwrap();
+    let buf = match fs::read(state_path) {
+      Ok(bytes) => bytes,
+      Err(_) => return
+    };
 
     nds.load_save_state(&buf);
 
@@ -553,9 +556,9 @@ impl Frontend {
             bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
           } else if keycode.unwrap() == Keycode::Escape {
             self.show_menu = !self.show_menu;
-          } else if keycode.unwrap() == Keycode::F5 {
+          } else if keycode.unwrap() == Keycode::F5 && self.rom_loaded {
             Self::create_save_state(nds, self.rom_path.clone());
-          } else if keycode.unwrap() == Keycode::F7 {
+          } else if keycode.unwrap() == Keycode::F7 && self.rom_loaded {
             Self::load_save_state(
               nds,
               self.bios7_file.clone(),
