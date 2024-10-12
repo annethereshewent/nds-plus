@@ -1,11 +1,11 @@
 use std::{
-  cell::RefCell, collections::VecDeque, io::{Read, Write}, path::PathBuf, rc::Rc, sync::{
+  cell::RefCell, collections::VecDeque, io::Read, path::PathBuf, rc::Rc, sync::{
     Arc,
     Mutex
   }
 };
 
-use bzip2::{bufread::{BzDecoder, BzEncoder}, Compress, Compression};
+use bzip2::{bufread::{BzDecoder, BzEncoder}, Compression};
 use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
 
