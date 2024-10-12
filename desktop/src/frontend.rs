@@ -2,7 +2,7 @@ use std::{
  collections::{
     HashMap,
     VecDeque
-  }, path::PathBuf, sync::{
+  }, fs, path::{Path, PathBuf}, sync::{
     Arc,
     Mutex
   }
@@ -11,7 +11,7 @@ use std::{
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::Bus,
+    bus::{cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus},
     registers::{
       external_key_input_register::ExternalKeyInputRegister,
       key_input_register::KeyInputRegister
@@ -22,7 +22,7 @@ use ds_emulator::{
     GPU,
     SCREEN_HEIGHT,
     SCREEN_WIDTH
-  }
+  }, nds::Nds
 };
 
 use glow::RGBA;
@@ -151,14 +151,23 @@ pub struct Frontend {
   pub capture_device: Option<AudioDevice<DsAudioRecording>>,
   audio_subsystem: AudioSubsystem,
   mic_samples: Arc<Mutex<Box<[i16]>>>,
-  pub rom_loaded: bool
+  pub rom_loaded: bool,
+  rom_path: String,
+  bios7_file: String,
+  bios9_file: String,
+  firmware: PathBuf,
+  pub has_backup: bool
 }
 
 impl Frontend {
   pub fn new(
     sdl_context: &Sdl,
     audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-    mic_samples: Arc<Mutex<Box<[i16]>>>
+    mic_samples: Arc<Mutex<Box<[i16]>>>,
+    rom_path: String,
+    bios7_file: String,
+    bios9_file: String,
+    firmware: PathBuf
   ) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -335,7 +344,12 @@ impl Frontend {
       capture_device: None,
       audio_subsystem,
       mic_samples: mic_samples.clone(),
-      rom_loaded: false
+      rom_loaded: false,
+      rom_path,
+      bios7_file,
+      bios9_file,
+      has_backup: false,
+      firmware
     }
   }
 
@@ -378,7 +392,8 @@ impl Frontend {
     }
   }
 
-  pub fn handle_touchscreen(&mut self, bus: &mut Bus) {
+  pub fn handle_touchscreen(&mut self, nds: &mut Nds) {
+    let ref mut bus = *nds.bus.borrow_mut();
     if !self.use_control_stick {
       let state = self.event_pump.mouse_state();
 
@@ -416,57 +431,192 @@ impl Frontend {
     }
   }
 
-  pub fn handle_events(&mut self, bus: &mut Bus) {
+  pub fn create_save_state(nds: &mut Nds, rom_path: String) {
+    let buf = nds.create_save_state();
+
+    let path = Path::new(&rom_path).with_extension("state");
+
+    fs::write(path, buf).unwrap();
+  }
+
+  pub fn load_save_state(
+    nds: &mut Nds,
+    bios7_file: String,
+    bios9_file: String,
+    rom_path: String,
+    firmware: &PathBuf,
+    device: &mut AudioDevice<DsAudioCallback>,
+    capture_device: Option<&mut AudioDevice<DsAudioRecording>>,
+    logged_in: bool,
+    has_backup: bool,
+
+  ) {
+    let rom_path = rom_path;
+    let state_path = Path::new(&rom_path).with_extension("state");
+
+    let rom_path = Path::new(&rom_path);
+
+    let buf = fs::read(state_path).unwrap();
+
+    nds.load_save_state(&buf);
+
+    // reload bioses, firmware, and rom
+    {
+      let ref mut bus = *nds.bus.borrow_mut();
+      bus.arm7.bios7 = fs::read(bios7_file).unwrap();
+
+      bus.arm9.bios9 = fs::read(bios9_file).unwrap();
+
+      bus.cartridge.rom = fs::read(rom_path).unwrap();
+
+      let backup_file = Bus::load_firmware(Some(firmware.to_path_buf()), None);
+
+      bus.spi = SPI::new(backup_file);
+
+      // recreate mic and audio buffers
+      bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
+
+      if let Some(device) = capture_device {
+        let samples = device.lock().mic_samples.clone();
+
+        nds.mic_samples = samples;
+      }
+
+      let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+      bus.arm7.apu.audio_buffer = audio_buffer.clone();
+
+      device.lock().audio_samples = audio_buffer.clone();
+
+      if !logged_in && has_backup {
+        let save_path = Path::new(&rom_path).with_extension("sav");
+        match &mut bus.cartridge.backup {
+          BackupType::Eeprom(eeprom) => {
+            eeprom.backup_file.file = Some(fs::OpenOptions::new()
+              .read(true)
+              .write(true)
+              .open(save_path)
+              .unwrap());
+          }
+          BackupType::Flash(flash) => {
+            flash.backup_file.file = Some(fs::OpenOptions::new()
+              .read(true)
+              .write(true)
+              .open(save_path)
+              .unwrap());
+          }
+          BackupType::None => unreachable!()
+        }
+      }
+    }
+
+    nds.arm7_cpu.bus = nds.bus.clone();
+    nds.arm9_cpu.bus = nds.bus.clone();
+
+    // repopulate arm and thumb luts
+    nds.arm7_cpu.populate_arm_lut();
+    nds.arm9_cpu.populate_arm_lut();
+
+    nds.arm7_cpu.populate_thumb_lut();
+    nds.arm9_cpu.populate_thumb_lut();
+  }
+
+  pub fn handle_events(&mut self, nds: &mut Nds) {
+    // NOTE: i have to repeat this line like a million times:
+    // let ref mut bus = *nds.bus.borrow_mut();
+    // because if i don't rust will complain as usual about some stupid bullshit
+    // here's another fuck you to you, rust.
     for event in self.event_pump.poll_iter() {
       self.platform.handle_event(&mut self.imgui, &event);
       match event {
         Event::Quit { .. } => std::process::exit(0),
         Event::KeyDown { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            let ref mut bus = *nds.bus.borrow_mut();
             self.show_menu = false;
             bus.key_input_register.set(*button, false);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            let ref mut bus = *nds.bus.borrow_mut();
             self.show_menu = false;
             bus.arm7.extkeyin.set(*button, false);
           } else if keycode.unwrap() == Keycode::G {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.debug_on = !bus.debug_on
           } else if keycode.unwrap() == Keycode::F {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.gpu.engine_a.debug_on = !bus.gpu.engine_a.debug_on;
             bus.gpu.engine_b.debug_on = !bus.gpu.engine_b.debug_on;
             bus.gpu.engine3d.debug_on = !bus.gpu.engine3d.debug_on;
           } else if keycode.unwrap() == Keycode::T {
+            let ref mut bus = *nds.bus.borrow_mut();
             self.use_control_stick = !self.use_control_stick;
             bus.arm7.extkeyin.set(ExternalKeyInputRegister::PEN_DOWN, !self.use_control_stick);
           } else if keycode.unwrap() == Keycode::Escape {
             self.show_menu = !self.show_menu;
+          } else if keycode.unwrap() == Keycode::F5 {
+            Self::create_save_state(nds, self.rom_path.clone());
+          } else if keycode.unwrap() == Keycode::F7 {
+            Self::load_save_state(
+              nds,
+              self.bios7_file.clone(),
+              self.bios9_file.clone(),
+              self.rom_path.clone(),
+              &self.firmware,
+              &mut self.device,
+              self.capture_device.as_mut(),
+              self.cloud_service.lock().unwrap().logged_in,
+              self.has_backup
+            );
           }
         }
         Event::KeyUp { keycode, .. } => {
           if let Some(button) = self.key_map.get(&keycode.unwrap_or(Keycode::Return)) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.key_input_register.set(*button, true);
           } else if let Some(button) = self.ext_key_map.get(&keycode.unwrap()) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.arm7.extkeyin.set(*button, true);
           }
         }
         Event::ControllerButtonDown { button, .. } => {
           self.show_menu = false;
           if let Some(button) = self.ext_button_map.get(&button) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.arm7.extkeyin.set(*button, false);
           } else if let Some(button) = self.button_map.get(&button) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.key_input_register.set(*button, false);
           } else if button == Button::RightStick {
             self.use_control_stick = !self.use_control_stick;
             if self.use_control_stick {
+              let ref mut bus = *nds.bus.borrow_mut();
               bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
             } else {
+              let ref mut bus = *nds.bus.borrow_mut();
               bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
             }
+          } else if button == Button::LeftShoulder {
+            Self::create_save_state(nds, self.rom_path.clone());
+          } else if button == Button::RightShoulder {
+            Self::load_save_state(
+              nds,
+              self.bios7_file.clone(),
+              self.bios9_file.clone(),
+              self.rom_path.clone(),
+              &self.firmware,
+              &mut self.device,
+              self.capture_device.as_mut(),
+              self.cloud_service.lock().unwrap().logged_in,
+              self.has_backup
+            );
           }
         }
         Event::ControllerButtonUp { button, .. } => {
           if let Some(button) = self.ext_button_map.get(&button) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.arm7.extkeyin.set(*button, true);
           } else if let Some(button) = self.button_map.get(&button) {
+            let ref mut bus = *nds.bus.borrow_mut();
             bus.key_input_register.set(*button, true);
           }
         }
@@ -484,6 +634,7 @@ impl Frontend {
         _ => ()
       }
       if self.use_control_stick {
+        let ref mut bus = *nds.bus.borrow_mut();
         bus.touchscreen.touch_screen_controller(self.controller_x, self.controller_y);
       }
     }

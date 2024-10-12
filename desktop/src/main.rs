@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::{backup_file::BackupFile, cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus}, nds::Nds};
+use ds_emulator::{cpu::bus::{cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus}, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -81,6 +81,8 @@ fn handle_frontend(
         }
       };
 
+      frontend.has_backup = *has_backup;
+
       frontend.rom_loaded = true;
 
       return true;
@@ -113,91 +115,27 @@ fn handle_frontend(
         }
       };
 
+      frontend.has_backup = *has_backup;
+
       frontend.rom_loaded = true;
 
       return true;
     }
     UIAction::CreateSaveState => {
-      let buf = nds.create_save_state();
-
-      let path = Path::new(&rom_path_str).with_extension("state");
-
-      fs::write(path, buf).unwrap();
+      Frontend::create_save_state(nds, rom_path_str.clone());
     }
     UIAction::LoadSaveState => {
-      let state_path = Path::new(&rom_path_str).with_extension("state");
-
-      let rom_path = Path::new(&rom_path_str);
-
-      let buf = fs::read(state_path).unwrap();
-
-      nds.load_save_state(&buf);
-
-      // reload bioses, firmware, and rom
-      let mut bytes: Option<Vec<u8>> = None;
-      {
-        let ref mut bus = *nds.bus.borrow_mut();
-        bus.arm7.bios7 = fs::read(bios7_file).unwrap();
-
-        bus.arm9.bios9 = fs::read(bios9_file).unwrap();
-
-        bus.cartridge.rom = fs::read(rom_path).unwrap();
-
-        let backup_file = Bus::load_firmware(Some(firmware.to_path_buf()), None);
-
-        bus.spi = SPI::new(backup_file);
-
-        // recreate mic and audio buffers
-        bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
-
-        if let Some(device) = &mut frontend.capture_device {
-          let samples = device.lock().mic_samples.clone();
-
-          nds.mic_samples = samples;
-        }
-
-        let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
-
-        bus.arm7.apu.audio_buffer = audio_buffer.clone();
-
-        frontend.device.lock().audio_samples = audio_buffer.clone();
-
-        *logged_in = frontend.cloud_service.lock().unwrap().logged_in;
-
-
-
-        if !*logged_in && *has_backup {
-          let save_path = Path::new(&rom_path_str).with_extension("sav");
-          match &mut bus.cartridge.backup {
-            BackupType::Eeprom(eeprom) => {
-              eeprom.backup_file.file = Some(fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(save_path)
-                .unwrap());
-            }
-            BackupType::Flash(flash) => {
-              flash.backup_file.file = Some(fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(save_path)
-                .unwrap());
-            }
-            BackupType::None => unreachable!()
-          }
-        }
-
-      }
-
-      nds.arm7_cpu.bus = nds.bus.clone();
-      nds.arm9_cpu.bus = nds.bus.clone();
-
-      // repopulate arm and thumb luts
-      nds.arm7_cpu.populate_arm_lut();
-      nds.arm9_cpu.populate_arm_lut();
-
-      nds.arm7_cpu.populate_thumb_lut();
-      nds.arm9_cpu.populate_thumb_lut();
+      Frontend::load_save_state(
+        nds,
+        bios7_file.to_string(),
+        bios9_file.to_string(),
+        rom_path_str.clone(),
+        &firmware.to_path_buf(),
+        &mut frontend.device,
+        frontend.capture_device.as_mut(),
+        frontend.cloud_service.lock().unwrap().logged_in,
+        frontend.has_backup
+      );
 
       return true;
     }
@@ -279,7 +217,15 @@ fn main() {
 
   let sdl_context = sdl2::init().unwrap();
 
-  let mut frontend = Frontend::new(&sdl_context, audio_buffer.clone(), mic_samples.clone());
+  let mut frontend = Frontend::new(
+    &sdl_context,
+    audio_buffer.clone(),
+    mic_samples.clone(),
+    rom_path.clone(),
+    actual_bios7_file.to_string(),
+    actual_bios9_file.to_string(),
+    firmware_path.to_path_buf()
+  );
 
   let mut nds = Nds::new(
     Some(firmware_path.to_path_buf()),
@@ -308,6 +254,8 @@ fn main() {
       BackupType::Eeprom(_) | BackupType::Flash(_) => true,
       BackupType::None => false
     };
+
+    frontend.has_backup = has_backup;
 
     frontend.start_mic();
   }
@@ -352,13 +300,12 @@ fn main() {
         continue;
       }
 
-      let ref mut bus = *nds.bus.borrow_mut();
-
       frontend.end_frame();
 
-      frontend.handle_events(bus);
-      frontend.handle_touchscreen(bus);
+      frontend.handle_events(&mut nds);
+      frontend.handle_touchscreen(&mut nds);
       if has_backup {
+        let ref mut bus = *nds.bus.borrow_mut();
         let file = match &mut bus.cartridge.backup {
           BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
           BackupType::Flash(flash) => &mut flash.backup_file,
