@@ -85,6 +85,12 @@ impl Scheduler {
     }
   }
 
+  pub fn load_save_state(&mut self) {
+    for (event_type, cycles) in self.queue_serialized.iter() {
+      self.queue.push(*event_type, Reverse(*cycles));
+    }
+  }
+
   pub fn get_cycles_to_next_event(&mut self) -> usize {
     if let Some((_, Reverse(cycles))) = self.queue.peek() {
       *cycles

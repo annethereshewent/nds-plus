@@ -5,7 +5,7 @@ use std::{
   }
 };
 
-use bzip2::{bufread::BzEncoder, Compress, Compression};
+use bzip2::{bufread::{BzDecoder, BzEncoder}, Compress, Compression};
 use serde::{Deserialize, Serialize};
 use bincode;
 
@@ -85,7 +85,7 @@ impl Nds {
       bus.scheduler.create_save_state();
     }
 
-    let mut buf = bincode::serialize(self).unwrap();
+    let buf = bincode::serialize(self).unwrap();
 
     let mut compressor = BzEncoder::new(&*buf, Compression::best());
 
@@ -93,6 +93,20 @@ impl Nds {
     compressor.read_to_end(&mut compressed).unwrap();
 
     compressed
+  }
+
+  pub fn load_save_state(&mut self, data: &[u8]) {
+    let mut decompressor = BzDecoder::new(data);
+
+    let mut buf = Vec::new();
+    decompressor.read_to_end(&mut buf).unwrap();
+
+    // finally deserialize the data
+    *self = bincode::deserialize(&buf).unwrap();
+
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.scheduler.load_save_state();
   }
 
   pub fn reset(&mut self, rom: &Vec<u8>) {

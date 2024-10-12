@@ -56,7 +56,10 @@ fn handle_frontend(
   rom_path: &mut String,
   nds: &mut Nds,
   has_backup: &mut bool,
-  logged_in: &mut bool
+  logged_in: &mut bool,
+  bios7_file: &str,
+  bios9_file: &str,
+  firmware: &Path
 ) -> bool {
   match frontend.render_ui() {
     UIAction::None => (),
@@ -109,14 +112,39 @@ fn handle_frontend(
 
       return true;
     }
-    UIAction::SaveState => {
+    UIAction::CreateSaveState => {
       let buf = nds.create_save_state();
 
       let path = Path::new(&rom_path).with_extension("state");
 
       fs::write(path, buf).unwrap();
+    }
+    UIAction::LoadSaveState => {
+      let state_path = Path::new(&rom_path).with_extension("state");
+      let rom_path = Path::new(&rom_path);
 
-      println!("save state created!!!");
+
+      let buf = fs::read(state_path).unwrap();
+
+      nds.load_save_state(&buf);
+
+      // reload bioses, firmware, and rom
+
+
+      {
+        let ref mut bus = *nds.arm9_cpu.bus.borrow_mut();
+        bus.arm7.bios7 = fs::read(bios7_file).unwrap();
+
+        println!("{}", bus.arm7.bios7.len());
+
+        bus.arm9.bios9 = fs::read(bios9_file).unwrap();
+
+        println!("{}", bus.arm9.bios9.len());
+
+        bus.cartridge.rom = fs::read(rom_path).unwrap();
+      }
+
+      return true;
     }
   }
 
@@ -173,14 +201,23 @@ fn main() {
   let bios9_file = "./bios9.bin";
   let firmware_path = "./firmware.bin";
 
+  let mut actual_bios7_file = bios7_file;
+  let mut actual_bios9_file = bios9_file;
+
   let bios7_bytes = match fs::read(bios7_file) {
     Ok(bytes) => bytes,
-    Err(_) => fs::read(os_bios7_file).unwrap()
+    Err(_) => {
+      actual_bios7_file = os_bios7_file;
+      fs::read(os_bios7_file).unwrap()
+    }
   };
 
   let bios9_bytes = match fs::read(bios9_file) {
     Ok(bytes) => bytes,
-    Err(_) => fs::read(os_bios9_file).unwrap()
+    Err(_) => {
+      actual_bios9_file = os_bios9_file;
+      fs::read(os_bios9_file).unwrap()
+    }
   };
 
   let firmware_path = Path::new(firmware_path);
@@ -252,7 +289,10 @@ fn main() {
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut logged_in
+        &mut logged_in,
+        &actual_bios7_file,
+        &actual_bios9_file,
+        &firmware_path
       ) {
         continue;
       }
@@ -295,7 +335,10 @@ fn main() {
         &mut rom_path,
         &mut nds,
         &mut has_backup,
-        &mut logged_in
+        &mut logged_in,
+        &actual_bios7_file,
+        &actual_bios9_file,
+        &firmware_path
       ) {
         frontend.start_mic();
         continue;

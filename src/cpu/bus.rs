@@ -103,7 +103,7 @@ pub struct Arm9Bus {
   pub dma: DmaChannels,
   #[serde(skip_deserializing)]
   #[serde(skip_serializing)]
-  bios9: Vec<u8>,
+  pub bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
   pub interrupt_master_enable: bool,

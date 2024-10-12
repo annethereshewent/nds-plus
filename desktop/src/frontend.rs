@@ -66,7 +66,8 @@ pub enum UIAction {
   None,
   Reset(bool),
   LoadGame(PathBuf),
-  SaveState
+  CreateSaveState,
+  LoadSaveState
 }
 
 struct DsAudioCallback {
@@ -570,10 +571,21 @@ impl Frontend {
           if ui.menu_item("Quit") {
             std::process::exit(0);
           }
-          if self.rom_loaded && ui.menu_item("Create save state") {
-            action = UIAction::SaveState;
-          }
+
           menu.end();
+        }
+        if self.rom_loaded {
+          if let Some(menu) = ui.begin_menu("Save states") {
+            if ui.menu_item("Create save state") {
+              action = UIAction::CreateSaveState;
+            }
+            if ui.menu_item("Load save state") {
+              action = UIAction::LoadSaveState;
+            }
+
+            menu.end();
+          }
+
         }
         if let Some(menu) = ui.begin_menu("Cloud saves") {
           let mut cloud_service = self.cloud_service.lock().unwrap();
