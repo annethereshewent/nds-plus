@@ -1,10 +1,14 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
 
-#[derive(Default)]
+
+#[derive(Serialize, Deserialize, Default)]
 pub struct BackupFile {
   pub buffer: Vec<u8>,
-  file: Option<File>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub file: Option<File>,
   pub has_written: bool,
   pub last_write: u128,
   pub is_desktop_cloud: bool,

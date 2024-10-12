@@ -155,8 +155,6 @@ pub struct Bus {
   #[serde(skip_deserializing)]
   #[serde(skip_serializing)]
   pub spi: SPI,
-  #[serde(skip_deserializing)]
-  #[serde(skip_serializing)]
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
   pub key_input_register: KeyInputRegister,

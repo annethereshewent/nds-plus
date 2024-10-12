@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 // Initial Encryption Values
 // Below formulas can be used only with a copy of the 1048h-byte key tables from NDS/DSi BIOS.
 // The values can be found at: NDS.ARM7 ROM: 00000030h..00001077h
 pub const KEY_TABLE_SIZE: usize = 0x1048 / 4;
 
-#[derive(Default)]
+#[derive(Serialize, Deserialize)]
 pub struct Key1Encryption {
   internal_key_buf: Box<[u32]>,
   pub key_buf: Box<[u32]>,

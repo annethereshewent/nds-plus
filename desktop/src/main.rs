@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::{cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus}, nds::Nds};
+use ds_emulator::{cpu::bus::{backup_file::BackupFile, cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus}, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -17,7 +17,12 @@ extern crate ds_emulator;
 pub mod frontend;
 pub mod cloud_service;
 
-fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, bytes: Option<Vec<u8>>) {
+fn detect_backup_type(
+  frontend: &mut Frontend,
+  nds: &mut Nds,
+  rom_path: String,
+  bytes: Option<Vec<u8>>
+) {
   if frontend.cloud_service.lock().unwrap().logged_in {
     let ref mut bus = *nds.bus.borrow_mut();
 
@@ -53,7 +58,7 @@ fn detect_backup_type(frontend: &mut Frontend, nds: &mut Nds, rom_path: String, 
 
 fn handle_frontend(
   frontend: &mut Frontend,
-  rom_path: &mut String,
+  rom_path_str: &mut String,
   nds: &mut Nds,
   has_backup: &mut bool,
   logged_in: &mut bool,
@@ -64,10 +69,10 @@ fn handle_frontend(
   match frontend.render_ui() {
     UIAction::None => (),
     UIAction::LoadGame(path) => {
-      *rom_path = path.clone().to_string_lossy().to_string();
-      let rom = fs::read(rom_path.clone()).unwrap();
+      *rom_path_str = path.clone().to_string_lossy().to_string();
+      let rom = fs::read(rom_path_str.clone()).unwrap();
       nds.reset(&rom);
-      detect_backup_type(frontend, nds, rom_path.clone(), None);
+      detect_backup_type(frontend, nds, rom_path_str.clone(), None);
 
       *has_backup = {
         match &nds.bus.borrow().cartridge.backup {
@@ -99,7 +104,7 @@ fn handle_frontend(
 
       *logged_in = frontend.cloud_service.lock().unwrap().logged_in;
 
-      detect_backup_type(frontend, nds, rom_path.clone(), bytes);
+      detect_backup_type(frontend, nds, rom_path_str.clone(), bytes);
 
       *has_backup = {
         match &nds.bus.borrow().cartridge.backup {
@@ -115,20 +120,21 @@ fn handle_frontend(
     UIAction::CreateSaveState => {
       let buf = nds.create_save_state();
 
-      let path = Path::new(&rom_path).with_extension("state");
+      let path = Path::new(&rom_path_str).with_extension("state");
 
       fs::write(path, buf).unwrap();
     }
     UIAction::LoadSaveState => {
-      let state_path = Path::new(&rom_path).with_extension("state");
-      let rom_path = Path::new(&rom_path);
+      let state_path = Path::new(&rom_path_str).with_extension("state");
 
+      let rom_path = Path::new(&rom_path_str);
 
       let buf = fs::read(state_path).unwrap();
 
       nds.load_save_state(&buf);
 
       // reload bioses, firmware, and rom
+      let mut bytes: Option<Vec<u8>> = None;
       {
         let ref mut bus = *nds.bus.borrow_mut();
         bus.arm7.bios7 = fs::read(bios7_file).unwrap();
@@ -155,6 +161,31 @@ fn handle_frontend(
         bus.arm7.apu.audio_buffer = audio_buffer.clone();
 
         frontend.device.lock().audio_samples = audio_buffer.clone();
+
+        *logged_in = frontend.cloud_service.lock().unwrap().logged_in;
+
+
+
+        if !*logged_in && *has_backup {
+          match &mut bus.cartridge.backup {
+            BackupType::Eeprom(eeprom) => {
+              eeprom.backup_file.file = Some(fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(rom_path)
+                .unwrap());
+            }
+            BackupType::Flash(flash) => {
+              flash.backup_file.file = Some(fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(rom_path)
+                .unwrap());
+            }
+            BackupType::None => unreachable!()
+          }
+        }
+
       }
 
       nds.arm7_cpu.bus = nds.bus.clone();

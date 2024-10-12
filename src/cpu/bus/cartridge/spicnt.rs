@@ -1,22 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Baudrate {
-  #[default]
   Mhz4 = 0,
   Mhz2 = 1,
   Mhz1 = 2,
   Mhz512 = 3
 }
 
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SlotMode {
-  #[default]
   ParallelRom = 0,
   SerialSPI = 1
 }
 
-#[derive(Default)]
+#[derive(Serialize, Deserialize)]
 pub struct SPICNT {
   pub baudrate: Baudrate,
   pub hold_chipselect: bool,
