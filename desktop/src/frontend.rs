@@ -5,7 +5,7 @@ use std::{
   }, fs, path::{Path, PathBuf}, sync::{
     Arc,
     Mutex
-  }
+  }, time::{SystemTime, UNIX_EPOCH}
 };
 
 use ds_emulator::{
@@ -156,7 +156,8 @@ pub struct Frontend {
   bios7_file: String,
   bios9_file: String,
   firmware: PathBuf,
-  pub has_backup: bool
+  pub has_backup: bool,
+  save_state_time: u128
 }
 
 impl Frontend {
@@ -349,7 +350,8 @@ impl Frontend {
       bios7_file,
       bios9_file,
       has_backup: false,
-      firmware
+      firmware,
+      save_state_time: 0
     }
   }
 
@@ -594,20 +596,6 @@ impl Frontend {
               let ref mut bus = *nds.bus.borrow_mut();
               bus.arm7.extkeyin.insert(ExternalKeyInputRegister::PEN_DOWN);
             }
-          } else if button == Button::LeftShoulder {
-            Self::create_save_state(nds, self.rom_path.clone());
-          } else if button == Button::RightShoulder {
-            Self::load_save_state(
-              nds,
-              self.bios7_file.clone(),
-              self.bios9_file.clone(),
-              self.rom_path.clone(),
-              &self.firmware,
-              &mut self.device,
-              self.capture_device.as_mut(),
-              self.cloud_service.lock().unwrap().logged_in,
-              self.has_backup
-            );
           }
         }
         Event::ControllerButtonUp { button, .. } => {
@@ -626,6 +614,26 @@ impl Frontend {
             }
             Axis::LeftY => {
               self.controller_y = value;
+            }
+            Axis::TriggerLeft => {
+              if value == 0x7fff {
+                Self::create_save_state(nds, self.rom_path.clone());
+              }
+            }
+            Axis::TriggerRight => {
+              if value == 0x7fff {
+                Self::load_save_state(
+                  nds,
+                  self.bios7_file.clone(),
+                  self.bios9_file.clone(),
+                  self.rom_path.clone(),
+                  &self.firmware,
+                  &mut self.device,
+                  self.capture_device.as_mut(),
+                  self.cloud_service.lock().unwrap().logged_in,
+                  self.has_backup
+                );
+              }
             }
             _ => ()
           }
