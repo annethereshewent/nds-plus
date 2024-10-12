@@ -358,7 +358,7 @@ fn main() {
 
       frontend.handle_events(bus);
       frontend.handle_touchscreen(bus);
-      if logged_in && has_backup {
+      if has_backup {
         let file = match &mut bus.cartridge.backup {
           BackupType::Eeprom(eeprom) => &mut eeprom.backup_file,
           BackupType::Flash(flash) => &mut flash.backup_file,
@@ -370,15 +370,21 @@ fn main() {
           .expect("an error occurred")
           .as_millis();
 
-        if file.last_write != 0 && current_time - file.last_write > 1000 {
+        if file.last_write != 0 && current_time - file.last_write >= 500 {
           let cloud_service = frontend.cloud_service.clone();
           let bytes = file.buffer.clone();
-          std::thread::spawn(move || {
-            let mut cloud_service = cloud_service.lock().unwrap();
-            println!("saving file....");
-            cloud_service.upload_save(&bytes);
-            println!("finished saving!");
-          });
+          if logged_in {
+            std::thread::spawn(move || {
+              let mut cloud_service = cloud_service.lock().unwrap();
+              println!("saving file....");
+              cloud_service.upload_save(&bytes);
+              println!("finished saving!");
+            });
+          } else {
+            println!("saving file...");
+            file.flush();
+            println!("finished saving!")
+          }
           file.last_write = 0;
         }
       }

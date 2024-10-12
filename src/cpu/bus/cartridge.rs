@@ -167,7 +167,7 @@ impl Cartridge {
   }
 
   pub fn set_backup(&mut self, save_filename: PathBuf, entry: GameInfo) {
-    let backup_file = BackupFile::new(Some(save_filename), None, entry.ram_capacity, false);
+    let backup_file = BackupFile::new(Some(save_filename), None, entry.ram_capacity, true);
 
     println!("detected backup type {}", entry.save_type);
 

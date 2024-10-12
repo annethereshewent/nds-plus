@@ -184,7 +184,7 @@ impl Eeprom {
       match self.command {
         Command::WRLO | Command::WRHI | Command::WR => {
           self.backup_file.has_written = true;
-          if self.backup_file.is_desktop_cloud {
+          if self.backup_file.is_desktop {
             self.backup_file.last_write = SystemTime::now()
               .duration_since(UNIX_EPOCH)
               .expect("an error occurred")
