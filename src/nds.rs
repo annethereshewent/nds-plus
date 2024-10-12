@@ -1,12 +1,12 @@
 use std::{
-  cell::RefCell, collections::VecDeque, fs, io::Read, path::{Path, PathBuf}, rc::Rc, sync::{
+  cell::RefCell, collections::VecDeque, fs, path::{Path, PathBuf}, rc::Rc, sync::{
     Arc,
     Mutex
   }, thread
 };
 
-use bzip2::{bufread::{BzDecoder, BzEncoder}, Compression};
 use serde::{Deserialize, Serialize};
+use zstd::stream;
 
 use crate::{
   cpu::{
@@ -88,10 +88,7 @@ impl Nds {
 
     thread::spawn(move || {
       // compressing generally takes the longest, so punting it to a thread should save some time
-      let mut compressor = BzEncoder::new(&*buf, Compression::best());
-
-      let mut compressed = Vec::new();
-      compressor.read_to_end(&mut compressed).unwrap();
+      let compressed = zstd::encode_all(&*buf, 9).unwrap();
 
       let path = Path::new(&rom_path).with_extension("state");
 
@@ -102,10 +99,7 @@ impl Nds {
   }
 
   pub fn load_save_state(&mut self, data: &[u8]) {
-    let mut decompressor = BzDecoder::new(data);
-
-    let mut buf = Vec::new();
-    decompressor.read_to_end(&mut buf).unwrap();
+    let buf = zstd::decode_all(data).unwrap();
 
     // finally deserialize the data
     *self = bincode::deserialize(&buf).unwrap();
