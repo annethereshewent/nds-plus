@@ -14,7 +14,9 @@ pub enum EventType {
   StepAudio(usize),
   ResetAudio(usize),
   GenerateSample,
-  CheckGeometryFifo
+  CheckGeometryFifo,
+  RunDivCalculation,
+  RunSqrtCalculation
 }
 
 #[derive(Serialize, Deserialize)]

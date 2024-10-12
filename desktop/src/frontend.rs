@@ -568,6 +568,16 @@ impl Frontend {
               self.cloud_service.lock().unwrap().logged_in,
               self.has_backup
             );
+          } else if keycode.unwrap() == Keycode::H {
+            if !nds.stepping {
+              nds.stepping = true;
+              nds.paused = true
+            } else {
+              nds.stepping = false;
+              nds.paused = false;
+            }
+          } else if keycode.unwrap() == Keycode::Y {
+            nds.paused = !nds.paused;
           }
         }
         Event::KeyUp { keycode, .. } => {

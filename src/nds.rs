@@ -6,7 +6,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use zstd::stream;
 
 use crate::{
   cpu::{
@@ -23,7 +22,13 @@ pub struct Nds {
   pub bus: Rc<RefCell<Bus>>,
   #[serde(skip_deserializing)]
   #[serde(skip_serializing)]
-  pub mic_samples: Arc<Mutex<Box<[i16]>>>
+  pub mic_samples: Arc<Mutex<Box<[i16]>>>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub stepping: bool,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub paused: bool
 }
 
 impl Nds {
@@ -50,7 +55,9 @@ impl Nds {
       arm9_cpu: CPU::new(bus.clone()),
       arm7_cpu: CPU::new(bus.clone()),
       bus,
-      mic_samples
+      mic_samples,
+      stepping: false,
+      paused: false
     };
 
     nds.arm7_cpu.reload_pipeline32();
@@ -186,6 +193,12 @@ impl Nds {
             bus.arm9.dma.notify_geometry_fifo_event();
             bus.arm7.dma.notify_geometry_fifo_event();
           }
+        }
+        EventType::RunDivCalculation => {
+          bus.calculate_div();
+        }
+        EventType::RunSqrtCalculation => {
+          bus.calculate_sqrt();
         }
       }
     }

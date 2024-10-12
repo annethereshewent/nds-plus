@@ -8,7 +8,7 @@ use std::{
   }
 };
 
-use crate::{apu::Sample, gpu::color::Color, number::Number};
+use crate::{apu::Sample, gpu::color::Color, number::Number, scheduler::EventType};
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -848,17 +848,34 @@ impl Bus {
     self.arm9.sqrtcnt.write(value);
   }
 
-  pub fn start_sqrt_calculation(&mut self) -> u32 {
+  pub fn start_sqrt_calculation(&mut self) {
+    self.scheduler.remove(EventType::RunSqrtCalculation);
+    self.arm9.sqrtcnt.val |= 0x8000;
+    self.scheduler.schedule(EventType::RunSqrtCalculation, 13);
+
+  }
+
+  pub fn start_div_calculation(&mut self) {
+    self.scheduler.remove(EventType::RunDivCalculation);
+    self.arm9.divcnt.val |= 0x8000;
+    self.scheduler.schedule(EventType::RunDivCalculation, if self.arm9.divcnt.val & 0x3 == 0 { 18 } else { 34 } );
+  }
+
+  pub fn calculate_sqrt(&mut self) {
+    self.arm9.sqrtcnt.val &= !(1 << 15);
+
     let value = if self.arm9.sqrtcnt.mode() == BitMode::Bit32 {
       (self.arm9.sqrt_param as u32).sqrt()
     } else {
       self.arm9.sqrt_param.sqrt() as u32
     };
 
-    value
+    self.arm9.sqrt_result = value;
   }
 
-  pub fn start_div_calculation(&mut self) {
+  pub fn calculate_div(&mut self) {
+    self.arm9.divcnt.val &= !(1 << 15);
+
     if self.arm9.div_denomenator == 0 {
       self.arm9.divcnt.set_division_by_zero(true);
     } else {

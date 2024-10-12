@@ -265,9 +265,23 @@ fn main() {
     if frontend.rom_loaded {
       let frame_start = nds.arm7_cpu.cycles;
 
-      while !frame_finished {
-        frame_finished = nds.step();
-        nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
+      if !nds.stepping {
+        while !frame_finished {
+          frame_finished = nds.step();
+          nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
+        }
+      } else {
+        if !nds.paused {
+          while !frame_finished {
+            frame_finished = nds.step();
+            nds.bus.borrow_mut().frame_cycles = nds.arm7_cpu.cycles - frame_start;
+            nds.paused = true;
+          }
+        } else {
+          while nds.paused {
+            frontend.handle_events(&mut nds);
+          }
+        }
       }
 
       // need to do this or else will rust complain about borrowing and ownership
