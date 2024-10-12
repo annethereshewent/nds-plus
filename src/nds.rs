@@ -1,8 +1,8 @@
 use std::{
-  cell::RefCell, collections::VecDeque, io::Read, path::PathBuf, rc::Rc, sync::{
+  cell::RefCell, collections::VecDeque, fs, io::Read, path::{Path, PathBuf}, rc::Rc, sync::{
     Arc,
     Mutex
-  }
+  }, thread
 };
 
 use bzip2::{bufread::{BzDecoder, BzEncoder}, Compression};
@@ -77,7 +77,7 @@ impl Nds {
     }
   }
 
-  pub fn create_save_state(&mut self) -> Vec<u8> {
+  pub fn create_save_state(&mut self, rom_path: String) {
     {
       let ref mut bus = *self.bus.borrow_mut();
 
@@ -86,12 +86,19 @@ impl Nds {
 
     let buf = bincode::serialize(self).unwrap();
 
-    let mut compressor = BzEncoder::new(&*buf, Compression::best());
+    thread::spawn(move || {
+      // compressing generally takes the longest, so punting it to a thread should save some time
+      let mut compressor = BzEncoder::new(&*buf, Compression::best());
 
-    let mut compressed = Vec::new();
-    compressor.read_to_end(&mut compressed).unwrap();
+      let mut compressed = Vec::new();
+      compressor.read_to_end(&mut compressed).unwrap();
 
-    compressed
+      let path = Path::new(&rom_path).with_extension("state");
+
+      fs::write(path, compressed).unwrap();
+
+      println!("finished creating save state");
+    });
   }
 
   pub fn load_save_state(&mut self, data: &[u8]) {

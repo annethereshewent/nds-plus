@@ -432,11 +432,7 @@ impl Frontend {
   }
 
   pub fn create_save_state(nds: &mut Nds, rom_path: String) {
-    let buf = nds.create_save_state();
-
-    let path = Path::new(&rom_path).with_extension("state");
-
-    fs::write(path, buf).unwrap();
+    nds.create_save_state(rom_path);
   }
 
   pub fn load_save_state(
