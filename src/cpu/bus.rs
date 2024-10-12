@@ -1,7 +1,7 @@
 use std::{
   collections::VecDeque,
   fs,
-  path::PathBuf,
+  path::{PathBuf},
   sync::{
     Arc,
     Mutex
@@ -181,19 +181,7 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
-    let backup_file = if firmware_path.is_some() {
-      match fs::metadata(&firmware_path.as_ref().unwrap()) {
-        Ok(metadata) => {
-          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
-        }
-        Err(_) => None
-      }
-    } else if firmware_bytes.is_some() {
-      let capacity = firmware_bytes.as_ref().unwrap().len();
-      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
-    } else {
-      None
-    };
+    let backup_file = Self::load_firmware(firmware_path, firmware_bytes);
 
     Self {
       arm9: Arm9Bus {
@@ -365,6 +353,22 @@ impl Bus {
 
 
     cpu_cycles
+  }
+
+  pub fn load_firmware(firmware_path: Option<PathBuf>, firmware_bytes: Option<Vec<u8>>) -> Option<BackupFile> {
+    if firmware_path.is_some() {
+      match fs::metadata(&firmware_path.as_ref().unwrap()) {
+        Ok(metadata) => {
+          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
+        }
+        Err(_) => None
+      }
+    } else if firmware_bytes.is_some() {
+      let capacity = firmware_bytes.as_ref().unwrap().len();
+      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
+    } else {
+      None
+    }
   }
 
   pub fn check_dma(&mut self, is_arm9: bool) -> u32 {

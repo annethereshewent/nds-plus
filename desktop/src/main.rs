@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE}, nds::Nds};
+use ds_emulator::{cpu::bus::{cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE, Bus}, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -137,7 +137,11 @@ fn handle_frontend(
 
         bus.cartridge.rom = fs::read(rom_path).unwrap();
 
-        // recreate mic buffers
+        let backup_file = Bus::load_firmware(Some(firmware.to_path_buf()), None);
+
+        bus.spi = SPI::new(backup_file);
+
+        // recreate mic and audio buffers
         bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
 
         if let Some(device) = &mut frontend.capture_device {
@@ -145,6 +149,12 @@ fn handle_frontend(
 
           nds.mic_samples = samples;
         }
+
+        let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+        bus.arm7.apu.audio_buffer = audio_buffer.clone();
+
+        frontend.device.lock().audio_samples = audio_buffer.clone();
       }
 
       nds.arm7_cpu.bus = nds.bus.clone();

@@ -134,7 +134,7 @@ pub struct Frontend {
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
-  device: AudioDevice<DsAudioCallback>,
+  pub device: AudioDevice<DsAudioCallback>,
   use_control_stick: bool,
   controller_x: i16,
   controller_y: i16,

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use super::{backup_file::BackupFile, firmware_data::{FirmwareData, FIRMWARE_CAPACITY}, flash::Flash};
 
 #[derive(Default)]
