@@ -8,7 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
-use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
+use ds_emulator::{cpu::bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE}, nds::Nds};
 
 use frontend::{Frontend, UIAction};
 
@@ -129,20 +129,33 @@ fn handle_frontend(
       nds.load_save_state(&buf);
 
       // reload bioses, firmware, and rom
-
-
       {
-        let ref mut bus = *nds.arm9_cpu.bus.borrow_mut();
+        let ref mut bus = *nds.bus.borrow_mut();
         bus.arm7.bios7 = fs::read(bios7_file).unwrap();
-
-        println!("{}", bus.arm7.bios7.len());
 
         bus.arm9.bios9 = fs::read(bios9_file).unwrap();
 
-        println!("{}", bus.arm9.bios9.len());
-
         bus.cartridge.rom = fs::read(rom_path).unwrap();
+
+        // recreate mic buffers
+        bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
+
+        if let Some(device) = &mut frontend.capture_device {
+          let samples = device.lock().mic_samples.clone();
+
+          nds.mic_samples = samples;
+        }
       }
+
+      nds.arm7_cpu.bus = nds.bus.clone();
+      nds.arm9_cpu.bus = nds.bus.clone();
+
+      // repopulate arm and thumb luts
+      nds.arm7_cpu.populate_arm_lut();
+      nds.arm9_cpu.populate_arm_lut();
+
+      nds.arm7_cpu.populate_thumb_lut();
+      nds.arm9_cpu.populate_thumb_lut();
 
       return true;
     }

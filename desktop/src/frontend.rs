@@ -70,8 +70,8 @@ pub enum UIAction {
   LoadSaveState
 }
 
-struct DsAudioCallback {
-  audio_samples: Arc<Mutex<VecDeque<f32>>>
+pub struct DsAudioCallback {
+  pub audio_samples: Arc<Mutex<VecDeque<f32>>>
 }
 
 impl AudioCallback for DsAudioCallback {
@@ -105,8 +105,8 @@ impl AudioCallback for DsAudioCallback {
   }
 }
 
-struct DsAudioRecording {
-  mic_samples: Arc<Mutex<Box<[i16]>>>,
+pub struct DsAudioRecording {
+  pub mic_samples: Arc<Mutex<Box<[i16]>>>,
   index: usize
 }
 
@@ -134,7 +134,7 @@ pub struct Frontend {
   ext_button_map: HashMap<Button, ExternalKeyInputRegister>,
   ext_key_map: HashMap<Keycode, ExternalKeyInputRegister>,
   key_map: HashMap<Keycode, KeyInputRegister>,
-  _device: AudioDevice<DsAudioCallback>,
+  device: AudioDevice<DsAudioCallback>,
   use_control_stick: bool,
   controller_x: i16,
   controller_y: i16,
@@ -148,7 +148,7 @@ pub struct Frontend {
   textures: Textures<NativeTexture>,
   _gl_context: GLContext,
   pub cloud_service: Arc<Mutex<CloudService>>,
-  capture_device: Option<AudioDevice<DsAudioRecording>>,
+  pub capture_device: Option<AudioDevice<DsAudioRecording>>,
   audio_subsystem: AudioSubsystem,
   mic_samples: Arc<Mutex<Box<[i16]>>>,
   pub rom_loaded: bool
@@ -319,7 +319,7 @@ impl Frontend {
       ext_button_map,
       key_map,
       ext_key_map,
-      _device: device,
+      device,
       use_control_stick: false,
       controller_x: 0,
       controller_y: 0,

@@ -6,8 +6,8 @@ use std::{
 };
 
 use bzip2::{bufread::{BzDecoder, BzEncoder}, Compress, Compression};
+use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
-use bincode;
 
 use crate::{
   cpu::{
@@ -85,7 +85,9 @@ impl Nds {
       bus.scheduler.create_save_state();
     }
 
-    let buf = bincode::serialize(self).unwrap();
+    let mut buf = Vec::new();
+
+    self.serialize(&mut Serializer::new(&mut buf)).unwrap();
 
     let mut compressor = BzEncoder::new(&*buf, Compression::best());
 
@@ -102,7 +104,7 @@ impl Nds {
     decompressor.read_to_end(&mut buf).unwrap();
 
     // finally deserialize the data
-    *self = bincode::deserialize(&buf).unwrap();
+    *self = rmp_serde::from_slice(&*buf).unwrap();
 
     let ref mut bus = *self.bus.borrow_mut();
 

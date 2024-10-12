@@ -181,7 +181,6 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
-
     let backup_file = if firmware_path.is_some() {
       match fs::metadata(&firmware_path.as_ref().unwrap()) {
         Ok(metadata) => {

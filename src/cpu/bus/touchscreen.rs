@@ -9,10 +9,9 @@ const CYCLES_PER_FRAME: usize = 560190;
 pub struct Touchscreen {
   pub x: u16,
   pub y: u16,
-
   data: u16,
   return_byte: u8,
-  mic_buffer: Box<[i16]>,
+  pub mic_buffer: Box<[i16]>,
   read_pos: usize
 }
 
