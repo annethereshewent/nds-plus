@@ -123,9 +123,14 @@ fn handle_frontend(
       return true;
     }
     UIAction::CreateSaveState => {
-      Frontend::create_save_state(nds, rom_path_str.clone());
+      Frontend::create_save_state(
+        nds,
+        rom_path_str.clone(),
+        &mut frontend.save_entries,
+        false
+      );
     }
-    UIAction::LoadSaveState => {
+    UIAction::LoadSaveState(state_path) => {
       Frontend::load_save_state(
         nds,
         bios7_file.to_string(),
@@ -135,7 +140,8 @@ fn handle_frontend(
         &mut frontend.device,
         frontend.capture_device.as_mut(),
         frontend.cloud_service.lock().unwrap().logged_in,
-        frontend.has_backup
+        frontend.has_backup,
+        state_path
       );
 
       return true;
@@ -218,6 +224,21 @@ fn main() {
 
   let sdl_context = sdl2::init().unwrap();
 
+  // check to see if there are any save states
+  let save_state_folder = Path::new(&format!("./save_states/{}", &rom_path.split("/").last().unwrap())).with_extension("");
+
+  fs::create_dir_all(&save_state_folder).unwrap();
+
+  let paths = fs::read_dir(save_state_folder).unwrap();
+
+  let mut dir_entries = Vec::new();
+
+  for path in paths {
+    dir_entries.push(path.unwrap().file_name().to_string_lossy().to_string());
+  }
+
+  dir_entries.sort();
+
   let mut frontend = Frontend::new(
     &sdl_context,
     audio_buffer.clone(),
@@ -225,7 +246,8 @@ fn main() {
     rom_path.clone(),
     actual_bios7_file.to_string(),
     actual_bios9_file.to_string(),
-    firmware_path.to_path_buf()
+    firmware_path.to_path_buf(),
+    dir_entries
   );
 
   let mut nds = Nds::new(

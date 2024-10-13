@@ -5,7 +5,7 @@ use std::{
   }, fs, path::{Path, PathBuf}, sync::{
     Arc,
     Mutex
-  }, time::{SystemTime, UNIX_EPOCH}
+  }
 };
 
 use ds_emulator::{
@@ -67,7 +67,7 @@ pub enum UIAction {
   Reset(bool),
   LoadGame(PathBuf),
   CreateSaveState,
-  LoadSaveState
+  LoadSaveState(PathBuf)
 }
 
 pub struct DsAudioCallback {
@@ -157,7 +157,7 @@ pub struct Frontend {
   bios9_file: String,
   firmware: PathBuf,
   pub has_backup: bool,
-  save_state_time: u128
+  pub save_entries: Vec<String>
 }
 
 impl Frontend {
@@ -168,7 +168,8 @@ impl Frontend {
     rom_path: String,
     bios7_file: String,
     bios9_file: String,
-    firmware: PathBuf
+    firmware: PathBuf,
+    save_entries: Vec<String>
   ) -> Self {
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -351,7 +352,7 @@ impl Frontend {
       bios9_file,
       has_backup: false,
       firmware,
-      save_state_time: 0
+      save_entries
     }
   }
 
@@ -433,8 +434,30 @@ impl Frontend {
     }
   }
 
-  pub fn create_save_state(nds: &mut Nds, rom_path: String) {
-    nds.create_save_state(rom_path);
+  pub fn create_save_state(nds: &mut Nds, rom_path: String, state_paths: &mut Vec<String>, quick_save: bool) {
+    // first check to see if any save states exist
+    let folder_path = Path::new(&format!("./save_states/{}", rom_path.split("/").last().unwrap())).with_extension("");
+
+    let (save_name, state_path) = if quick_save {
+      (format!("{}/save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
+    } else {
+      // check how many saves are currently in the directory, and name the file accordingly
+      let paths = fs::read_dir(&folder_path).unwrap();
+
+      let mut num_saves = 0;
+
+      for _ in paths {
+        num_saves += 1;
+      }
+
+      (format!("{}/save_{}.state", folder_path.to_str().unwrap(), num_saves + 1), format!("save_{}.state", num_saves + 1).to_string())
+    };
+
+    if !quick_save {
+      state_paths.push(state_path);
+    }
+    nds.create_save_state(save_name);
+
   }
 
   pub fn load_save_state(
@@ -447,11 +470,8 @@ impl Frontend {
     capture_device: Option<&mut AudioDevice<DsAudioRecording>>,
     logged_in: bool,
     has_backup: bool,
-
+    state_path: PathBuf
   ) {
-    let rom_path = rom_path;
-    let state_path = Path::new(&rom_path).with_extension("state");
-
     let rom_path = Path::new(&rom_path);
 
     let buf = match fs::read(state_path) {
@@ -555,8 +575,16 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::Escape {
             self.show_menu = !self.show_menu;
           } else if keycode.unwrap() == Keycode::F5 && self.rom_loaded {
-            Self::create_save_state(nds, self.rom_path.clone());
+            Self::create_save_state(
+              nds,
+              self.rom_path.clone(),
+              &mut self.save_entries,
+              true
+            );
           } else if keycode.unwrap() == Keycode::F7 && self.rom_loaded {
+            let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+            let state_path = Path::new(&format!("./save_states/{}/save_1.state", path.to_str().unwrap())).to_path_buf();
+
             Self::load_save_state(
               nds,
               self.bios7_file.clone(),
@@ -566,7 +594,8 @@ impl Frontend {
               &mut self.device,
               self.capture_device.as_mut(),
               self.cloud_service.lock().unwrap().logged_in,
-              self.has_backup
+              self.has_backup,
+              state_path
             );
           } else if keycode.unwrap() == Keycode::H {
             if !nds.stepping {
@@ -627,11 +656,20 @@ impl Frontend {
             }
             Axis::TriggerLeft => {
               if value == 0x7fff {
-                Self::create_save_state(nds, self.rom_path.clone());
-              }
+
+                Self::create_save_state(
+                  nds,
+                  self.rom_path.clone(),
+                  &mut self.save_entries,
+                  true
+                );
+              };
             }
             Axis::TriggerRight => {
               if value == 0x7fff {
+                let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+                let state_path = Path::new(&format!("./save_states/{}/save_1.state", path.to_str().unwrap())).to_path_buf();
+
                 Self::load_save_state(
                   nds,
                   self.bios7_file.clone(),
@@ -641,7 +679,8 @@ impl Frontend {
                   &mut self.device,
                   self.capture_device.as_mut(),
                   self.cloud_service.lock().unwrap().logged_in,
-                  self.has_backup
+                  self.has_backup,
+                  state_path
                 );
               }
             }
@@ -747,8 +786,60 @@ impl Frontend {
             if ui.menu_item("Create save state") {
               action = UIAction::CreateSaveState;
             }
-            if ui.menu_item("Load save state") {
-              action = UIAction::LoadSaveState;
+            if let Some(menu) = ui.begin_menu("Load save state") {
+              for entry in &self.save_entries {
+                let mut save_name = entry.split("/").last().unwrap().to_string();
+
+                save_name = save_name.replace("_", " ");
+                save_name = save_name.replace(".state", "");
+
+                let mut c = save_name.chars();
+                save_name = match c.next() {
+                  None => String::new(),
+                  Some(f) => f.to_uppercase().chain(c).collect(),
+                };
+
+                if ui.menu_item(save_name) {
+                  let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+
+                  let save_entry = format!("./save_states/{}/{}", folder_path.to_str().unwrap(), entry);
+                  action = UIAction::LoadSaveState(Path::new(&save_entry).to_path_buf());
+                }
+              }
+              menu.end();
+            }
+            if let Some(menu) = ui.begin_menu("Delete save state") {
+              let mut delete_pos = -1;
+              for entry in &self.save_entries {
+                let mut save_name = entry.split("/").last().unwrap().to_string();
+
+                save_name = save_name.replace("_", " ");
+                save_name = save_name.replace(".state", "");
+
+                let mut c = save_name.chars();
+                save_name = match c.next() {
+                  None => String::new(),
+                  Some(f) => f.to_uppercase().chain(c).collect(),
+                };
+
+                if ui.menu_item(save_name) {
+                  let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+
+                  let save_entry = format!("./save_states/{}/{}", folder_path.to_str().unwrap(), entry);
+
+                  fs::remove_file(save_entry).unwrap();
+
+                  if let Some(pos) = self.save_entries.iter().position(|entry2| entry2.to_string() == *entry) {
+                    delete_pos = pos as isize;
+                  }
+                }
+              }
+
+              if delete_pos != -1 {
+                self.save_entries.remove(delete_pos as usize);
+              }
+
+              menu.end();
             }
 
             menu.end();

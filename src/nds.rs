@@ -84,7 +84,7 @@ impl Nds {
     }
   }
 
-  pub fn create_save_state(&mut self, rom_path: String) {
+  pub fn create_save_state(&mut self, save_state_name: String) {
     {
       let ref mut bus = *self.bus.borrow_mut();
 
@@ -97,9 +97,7 @@ impl Nds {
       // compressing generally takes the longest, so punting it to a thread should save some time
       let compressed = zstd::encode_all(&*buf, 9).unwrap();
 
-      let path = Path::new(&rom_path).with_extension("state");
-
-      fs::write(path, compressed).unwrap();
+      fs::write(save_state_name, compressed).unwrap();
 
       println!("finished creating save state");
     });
