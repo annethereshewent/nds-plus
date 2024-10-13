@@ -542,7 +542,7 @@ impl Frontend {
             bus.arm7.extkeyin.set(*button, false);
           } else if keycode.unwrap() == Keycode::G {
             let ref mut bus = *nds.bus.borrow_mut();
-            bus.debug_on = !bus.debug_on
+            bus.debug_on = !bus.debug_on;
           } else if keycode.unwrap() == Keycode::F {
             let ref mut bus = *nds.bus.borrow_mut();
             bus.gpu.engine_a.debug_on = !bus.gpu.engine_a.debug_on;
