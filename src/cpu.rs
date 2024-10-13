@@ -64,6 +64,8 @@ pub struct CPU<const IS_ARM9: bool> {
   next_fetch: MemoryAccess,
   pub cycles: usize,
   pub bus: Rc<RefCell<Bus>>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   pub found: HashMap<u32, bool>
 }
 
