@@ -25,7 +25,8 @@ mod ffi {
     Down,
     Left,
     Right,
-    ButtonR3
+    ButtonR3,
+    ButtonHome
   }
   extern "Rust" {
     type MobileEmulator;
@@ -88,6 +89,9 @@ mod ffi {
 
     #[swift_bridge(swift_name="updateAudioBuffer")]
     fn update_audio_buffer(&mut self, buffer: &[f32]);
+
+    #[swift_bridge(swift_name="setPause")]
+    fn set_pause(&mut self, val: bool);
   }
 }
 
@@ -134,8 +138,12 @@ impl MobileEmulator {
     let frame_start = self.nds.arm7_cpu.cycles;
 
     while !(frame_finished) {
-      frame_finished = self.nds.step();
-      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - frame_start;
+      if !self.nds.paused {
+        frame_finished = self.nds.step();
+        self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - frame_start;
+      } else {
+        break;
+      }
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();
@@ -162,6 +170,7 @@ impl MobileEmulator {
       ButtonEvent::Up => bus.key_input_register.set(KeyInputRegister::Up, !value),
       ButtonEvent::Start => bus.key_input_register.set(KeyInputRegister::Start, !value),
       ButtonEvent::Select => bus.key_input_register.set(KeyInputRegister::Select, !value),
+      _ => ()
     }
   }
 
@@ -263,6 +272,14 @@ impl MobileEmulator {
       BackupType::None => unreachable!(),
       BackupType::Eeprom(eeprom) => eeprom.backup_file.buffer.len(),
       BackupType::Flash(flash) => flash.backup_file.buffer.len(),
+    }
+  }
+
+  pub fn set_pause(&mut self, val: bool) {
+    if val {
+      self.nds.paused = true;
+    } else {
+      self.nds.paused = false;
     }
   }
 
