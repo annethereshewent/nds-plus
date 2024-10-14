@@ -104,12 +104,18 @@ impl MobileEmulator {
     game_data: &[u8],
   ) -> Self {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
-    let mic_samples = Arc::new(Mutex::new([0; 2048]));
+    let mic_samples = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
+
+    let firmware = if firmware_bytes.len() > 0 {
+      Some(firmware_bytes.to_vec())
+    } else {
+      None
+    };
 
     let mut emu = Self {
       nds: Nds::new(
         None,
-        Some(firmware_bytes.to_vec()),
+        firmware,
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
         audio_buffer,
