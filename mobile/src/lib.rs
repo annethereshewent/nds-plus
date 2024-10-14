@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, sync::{Arc, Mutex}};
 
 use ds_emulator::{
-  apu::Sample, cpu::{bus::{cartridge::{BackupType, Header}, touchscreen::SAMPLE_SIZE}, registers::{
+  apu::Sample, cpu::{bus::{backup_file::BackupFile, cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE}, registers::{
     external_key_input_register::ExternalKeyInputRegister,
     key_input_register::KeyInputRegister
   }}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds
@@ -92,12 +92,34 @@ mod ffi {
 
     #[swift_bridge(swift_name="setPause")]
     fn set_pause(&mut self, val: bool);
+
+    #[swift_bridge(swift_name="createSaveState")]
+    fn create_save_state(&mut self) -> *const u8;
+
+    #[swift_bridge(swift_name="loadSaveState")]
+    fn load_save_state(&mut self, data: &[u8]);
+
+    #[swift_bridge(swift_name="compressedLength")]
+    fn compressed_len(&self) -> usize;
+
+    #[swift_bridge(swift_name="reloadBios")]
+    fn reload_bios(&mut self, bios7: &[u8], bios9: &[u8]);
+
+    #[swift_bridge(swift_name="reloadFirmware")]
+    fn reload_firmware(&mut self, firmware: &[u8]);
+
+    #[swift_bridge(swift_name="hleFirmware")]
+    fn hle_firmware(&mut self);
+
+    #[swift_bridge(swift_name="reloadRom")]
+    fn reload_rom(&mut self, rom: &[u8]);
   }
 }
 
 
 pub struct MobileEmulator {
-  nds: Nds
+  nds: Nds,
+  compressed_len: usize
 }
 
 impl MobileEmulator {
@@ -105,7 +127,7 @@ impl MobileEmulator {
     bios7_bytes: &[u8],
     bios9_bytes: &[u8],
     firmware_bytes: &[u8],
-    game_data: &[u8],
+    game_data: &[u8]
   ) -> Self {
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
     let mic_samples = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
@@ -123,8 +145,9 @@ impl MobileEmulator {
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
         audio_buffer,
-        mic_samples.clone()
-      )
+        mic_samples.clone(),
+      ),
+      compressed_len: 0
     };
 
     emu.nds.init(&game_data.to_vec(), true);
@@ -172,6 +195,41 @@ impl MobileEmulator {
       ButtonEvent::Select => bus.key_input_register.set(KeyInputRegister::Select, !value),
       _ => ()
     }
+  }
+
+  pub fn reload_bios(&mut self, bios7: &[u8], bios9: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    bus.arm7.bios7 = bios7.to_vec();
+    bus.arm9.bios9 = bios9.to_vec();
+  }
+
+  pub fn reload_firmware(&mut self, firmware: &[u8]) {
+    let bytes = firmware.to_vec();
+
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    let backup_file = Some(
+      BackupFile::new(
+        None,
+        Some(bytes),
+        firmware.len(),
+        false
+      )
+    );
+
+    bus.spi = SPI::new(backup_file);
+  }
+
+  pub fn hle_firmware(&mut self) {
+    let ref mut bus = self.nds.bus.borrow_mut();
+
+    bus.spi = SPI::new(None);
+  }
+
+  pub fn reload_rom(&mut self, rom: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.cartridge.rom = rom.to_vec();
   }
 
   pub fn get_engine_a_picture_pointer(&self) -> *const u8 {
@@ -281,6 +339,45 @@ impl MobileEmulator {
     } else {
       self.nds.paused = false;
     }
+  }
+
+  pub fn create_save_state(&mut self) -> *const u8 {
+    let buf = self.nds.create_save_state();
+
+    let compressed = zstd::encode_all(&*buf, 9).unwrap();
+
+    self.compressed_len  = compressed.len();
+
+    compressed.as_ptr()
+  }
+
+  pub fn compressed_len(&self) -> usize {
+    self.compressed_len
+  }
+
+  pub fn load_save_state(&mut self, data: &[u8]) {
+    self.nds.load_save_state(data);
+
+    {
+      let ref mut bus = *self.nds.bus.borrow_mut();
+
+      // recreate mic and audio buffers
+      bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
+
+      let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+      bus.arm7.apu.audio_buffer = audio_buffer;
+    }
+
+    self.nds.arm7_cpu.bus = self.nds.bus.clone();
+    self.nds.arm9_cpu.bus = self.nds.bus.clone();
+
+    // repopulate arm and thumb luts
+    self.nds.arm7_cpu.populate_arm_lut();
+    self.nds.arm9_cpu.populate_arm_lut();
+
+    self.nds.arm7_cpu.populate_thumb_lut();
+    self.nds.arm9_cpu.populate_thumb_lut();
   }
 
   pub fn update_audio_buffer(&mut self, buffer: &[f32]) {

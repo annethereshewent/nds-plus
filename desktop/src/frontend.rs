@@ -456,7 +456,16 @@ impl Frontend {
     if !quick_save {
       state_paths.push(state_path);
     }
-    nds.create_save_state(save_name);
+    let buf = nds.create_save_state();
+
+    std::thread::spawn(move || {
+      // compressing generally takes the longest, so punting it to a thread should save some time
+      let compressed = zstd::encode_all(&*buf, 9).unwrap();
+
+      fs::write(save_name, compressed).unwrap();
+
+      println!("finished creating save state");
+    });
 
   }
 

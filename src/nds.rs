@@ -84,23 +84,14 @@ impl Nds {
     }
   }
 
-  pub fn create_save_state(&mut self, save_state_name: String) {
+  pub fn create_save_state(&mut self) -> Vec<u8> {
     {
       let ref mut bus = *self.bus.borrow_mut();
 
       bus.scheduler.create_save_state();
     }
 
-    let buf = bincode::serialize(self).unwrap();
-
-    thread::spawn(move || {
-      // compressing generally takes the longest, so punting it to a thread should save some time
-      let compressed = zstd::encode_all(&*buf, 9).unwrap();
-
-      fs::write(save_state_name, compressed).unwrap();
-
-      println!("finished creating save state");
-    });
+    bincode::serialize(self).unwrap()
   }
 
   pub fn load_save_state(&mut self, data: &[u8]) {
