@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{cpu::registers::interrupt_request_register::InterruptRequestRegister, scheduler::{EventType, Scheduler}};
 
 pub const CYCLE_LUT: [u32; 4] = [1, 64, 256, 1024];
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Timer {
   pub id: usize,
   pub reload_value: u16,
@@ -120,7 +122,8 @@ impl Timer {
 }
 
 bitflags! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct TimerControl: u16 {
     const COUNT_UP_TIMING = 0b1 << 2;
     const IRQ_ENABLE = 0b1 << 6;

@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::SCREEN_HEIGHT;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct WindowVerticalRegister {
   pub val: u16,
   pub y1: u16,

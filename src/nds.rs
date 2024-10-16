@@ -1,9 +1,11 @@
 use std::{
-  cell::RefCell, collections::VecDeque, path::PathBuf, rc::Rc, sync::{
+  cell::RefCell, collections::VecDeque, fs, path::{Path, PathBuf}, rc::Rc, sync::{
     Arc,
     Mutex
-  }
+  }, thread
 };
+
+use serde::{Deserialize, Serialize};
 
 use crate::{
   cpu::{
@@ -13,11 +15,20 @@ use crate::{
   scheduler::EventType
 };
 
+#[derive(Serialize, Deserialize)]
 pub struct Nds {
   pub arm9_cpu: CPU<true>,
   pub arm7_cpu: CPU<false>,
   pub bus: Rc<RefCell<Bus>>,
-  pub mic_samples: Arc<Mutex<[i16; 2048]>>
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub mic_samples: Arc<Mutex<Box<[i16]>>>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub stepping: bool,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub paused: bool
 }
 
 impl Nds {
@@ -27,7 +38,7 @@ impl Nds {
     bios7_bytes: Vec<u8>,
     bios9_bytes: Vec<u8>,
     audio_buffer: Arc<Mutex<VecDeque<f32>>>,
-    mic_samples: Arc<Mutex<[i16; 2048]>>
+    mic_samples: Arc<Mutex<Box<[i16]>>>
   ) -> Self {
     let bus = Rc::new(
       RefCell::new(
@@ -44,7 +55,9 @@ impl Nds {
       arm9_cpu: CPU::new(bus.clone()),
       arm7_cpu: CPU::new(bus.clone()),
       bus,
-      mic_samples
+      mic_samples,
+      stepping: false,
+      paused: false
     };
 
     nds.arm7_cpu.reload_pipeline32();
@@ -69,6 +82,27 @@ impl Nds {
       self.arm7_cpu.reload_pipeline32();
       self.arm9_cpu.reload_pipeline32();
     }
+  }
+
+  pub fn create_save_state(&mut self) -> Vec<u8> {
+    {
+      let ref mut bus = *self.bus.borrow_mut();
+
+      bus.scheduler.create_save_state();
+    }
+
+    bincode::serialize(self).unwrap()
+  }
+
+  pub fn load_save_state(&mut self, data: &[u8]) {
+    let buf = zstd::decode_all(data).unwrap();
+
+    // finally deserialize the data
+    *self = bincode::deserialize(&buf).unwrap();
+
+    let ref mut bus = *self.bus.borrow_mut();
+
+    bus.scheduler.load_save_state();
   }
 
   pub fn reset(&mut self, rom: &Vec<u8>) {
@@ -148,6 +182,12 @@ impl Nds {
             bus.arm9.dma.notify_geometry_fifo_event();
             bus.arm7.dma.notify_geometry_fifo_event();
           }
+        }
+        EventType::RunDivCalculation => {
+          bus.calculate_div();
+        }
+        EventType::RunSqrtCalculation => {
+          bus.calculate_sqrt();
         }
       }
     }

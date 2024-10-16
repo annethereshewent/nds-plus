@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::SCREEN_WIDTH;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct WindowHorizontalRegister {
   pub x1: u16,
   pub x2: u16,

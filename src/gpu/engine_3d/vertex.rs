@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::color::Color;
 
 use super::texcoord::Texcoord;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Vertex {
   pub screen_x: u32,
   pub screen_y: u32,

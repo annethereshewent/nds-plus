@@ -1,11 +1,17 @@
 use std::{fs::{self, File}, io::{Read, Seek, SeekFrom, Write}, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
+
+
+#[derive(Serialize, Deserialize, Default)]
 pub struct BackupFile {
   pub buffer: Vec<u8>,
-  file: Option<File>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub file: Option<File>,
   pub has_written: bool,
   pub last_write: u128,
-  pub is_desktop_cloud: bool,
+  pub is_desktop: bool,
   path: Option<PathBuf>
 }
 
@@ -14,7 +20,7 @@ impl BackupFile {
     path: Option<PathBuf>,
     bytes: Option<Vec<u8>>,
     capacity: usize,
-    is_desktop_cloud: bool
+    is_desktop: bool
   ) -> Self {
     if path.is_some() {
       let path = path.unwrap();
@@ -41,7 +47,7 @@ impl BackupFile {
         has_written: false,
         last_write: 0,
         path: Some(path_clone),
-        is_desktop_cloud
+        is_desktop
       }
     } else if bytes.is_some() {
       let bytes = bytes.unwrap();
@@ -58,7 +64,7 @@ impl BackupFile {
         has_written: false,
         last_write: 0,
         path,
-        is_desktop_cloud
+        is_desktop
       }
     } else {
       let buffer = vec![0; capacity];
@@ -68,7 +74,7 @@ impl BackupFile {
         has_written: false,
         last_write: 0,
         path,
-        is_desktop_cloud
+        is_desktop
       }
     }
   }
@@ -92,7 +98,7 @@ impl BackupFile {
       has_written: false,
       last_write: 0,
       path: self.path.clone(),
-      is_desktop_cloud: self.is_desktop_cloud
+      is_desktop: self.is_desktop
     }
   }
 
@@ -102,12 +108,6 @@ impl BackupFile {
 
   pub fn write(&mut self, address: usize, value: u8) {
     self.buffer[address] = value;
-
-    if self.file.is_some() {
-      self.file.as_ref().unwrap().seek(SeekFrom::Start(address as u64)).unwrap();
-
-      self.file.as_ref().unwrap().write_all(&[value]).unwrap();
-    }
   }
 
   pub fn flush(&mut self) {

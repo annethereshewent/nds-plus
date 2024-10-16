@@ -1,8 +1,9 @@
-use std::cmp::Reverse;
+use std::{cmp::Reverse, collections::HashMap};
 
 use priority_queue::PriorityQueue;
+use serde::{Deserialize, Serialize};
 
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
 pub enum EventType {
   HBlank,
   HDraw,
@@ -13,19 +14,26 @@ pub enum EventType {
   StepAudio(usize),
   ResetAudio(usize),
   GenerateSample,
-  CheckGeometryFifo
+  CheckGeometryFifo,
+  RunDivCalculation,
+  RunSqrtCalculation
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Scheduler {
   pub cycles: usize,
-  pub queue: PriorityQueue<EventType, Reverse<usize>>
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub queue: PriorityQueue<EventType, Reverse<usize>>,
+  pub queue_serialized: HashMap<EventType, usize>
 }
 
 impl Scheduler {
   pub fn new() -> Self {
     Self {
       cycles: 0,
-      queue: PriorityQueue::new()
+      queue: PriorityQueue::new(),
+      queue_serialized: HashMap::new()
     }
   }
 
@@ -71,6 +79,18 @@ impl Scheduler {
     }
 
     to_subtract
+  }
+
+  pub fn create_save_state(&mut self) {
+    for (event_type, Reverse(cycles)) in self.queue.iter() {
+      self.queue_serialized.insert(*event_type, *cycles);
+    }
+  }
+
+  pub fn load_save_state(&mut self) {
+    for (event_type, cycles) in self.queue_serialized.iter() {
+      self.queue.push(*event_type, Reverse(*cycles));
+    }
   }
 
   pub fn get_cycles_to_next_event(&mut self) -> usize {

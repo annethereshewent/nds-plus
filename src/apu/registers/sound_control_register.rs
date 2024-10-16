@@ -1,4 +1,6 @@
-#[derive(Copy, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum OutputSource {
   Mixer = 0,
   Ch1 = 1,
@@ -6,6 +8,7 @@ pub enum OutputSource {
   Ch1and3 = 3
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SoundControlRegister {
   pub master_volume: u16,
   pub val: u16,

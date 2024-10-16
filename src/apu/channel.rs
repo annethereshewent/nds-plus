@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::scheduler::{
   EventType,
   Scheduler
@@ -19,6 +21,7 @@ pub enum ChannelType {
   Noise
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Channel {
   pub soundcnt: SoundChannelControlRegister,
   pub source_address: u32,

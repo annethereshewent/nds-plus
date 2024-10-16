@@ -17,6 +17,7 @@ use registers::{
   power_control_register2::PowerControlRegister2,
   vram_control_register::VramControlRegister
 };
+use serde::{Deserialize, Serialize};
 use vram::{Bank, VRam};
 
 use crate::{
@@ -61,7 +62,7 @@ const BANK_G: u32 = Bank::BankG as u32;
 const BANK_H: u32 = Bank::BankH as u32;
 const BANK_I: u32 = Bank::BankI as u32;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct BgProps {
   pub x: i32,
   pub y: i32,
@@ -88,6 +89,7 @@ impl BgProps {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct GPU {
   pub engine_a: Engine2d<false>,
   pub engine_b: Engine2d<true>,

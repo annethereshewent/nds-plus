@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::{polygon_attributes::PolygonAttributes, texture_params::TextureParams, PrimitiveType};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Polygon {
   pub start: usize,
   pub end: usize,

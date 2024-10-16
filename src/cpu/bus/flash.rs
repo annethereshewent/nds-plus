@@ -1,14 +1,18 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
+
 use super::backup_file::BackupFile;
 
+#[derive(Serialize, Deserialize, Default)]
 enum CommandMode {
+  #[default]
   AwaitingCommand,
   ProcessingData,
   ReadingRegister
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Serialize, Deserialize, Default)]
 enum Command {
   WREN,
   WRDI,
@@ -21,6 +25,7 @@ enum Command {
   SE,
   DP,
   RDP,
+  #[default]
   None,
   IR
 }
@@ -44,6 +49,7 @@ impl Command {
     }
   }
 }
+#[derive(Serialize, Deserialize, Default)]
 pub struct Flash {
   pub backup_file: BackupFile,
   write_enable: bool,
@@ -127,7 +133,7 @@ impl Flash {
     if !hold {
       if self.command == Command::PW {
         self.backup_file.has_written = true;
-        if self.backup_file.is_desktop_cloud {
+        if self.backup_file.is_desktop {
           self.backup_file.last_write = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("an error occurred")

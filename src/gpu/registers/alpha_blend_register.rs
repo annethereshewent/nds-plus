@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct AlphaBlendRegister {
   pub eva: u8,
   pub evb: u8

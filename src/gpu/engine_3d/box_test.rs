@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::{matrix::Matrix, vertex::Vertex, Engine3d};
 
+#[derive(Serialize, Deserialize)]
 pub struct BoxTest {
   pub x: i16,
   pub y: i16,

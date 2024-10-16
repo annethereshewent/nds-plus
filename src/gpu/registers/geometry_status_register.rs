@@ -1,14 +1,17 @@
 use std::collections::VecDeque;
 
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::engine_3d::GeometryCommandEntry;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GeometryIrq {
   Never = 0 ,
   LessThanHalfFull = 1,
   Empty = 2
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct GeometryStatusRegister {
   pub test_busy: bool,
   pub box_test_result: bool,

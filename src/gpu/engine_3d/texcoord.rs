@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Texcoord {
   pub u: i16,
   pub v: i16

@@ -1,8 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::{Deserialize, Serialize};
+
 use super::backup_file::BackupFile;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 enum WriteProtect {
   None = 0,
   UpperQuarter = 1,
@@ -10,14 +12,14 @@ enum WriteProtect {
   All = 3
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 enum CommandMode {
   AwaitingCommand,
   ReadingRegister,
   ProcessingData
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 enum Command {
   WREN,
   WRDI,
@@ -50,6 +52,7 @@ impl Command {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Eeprom {
   address_width: usize,
   pub backup_file: BackupFile,
@@ -181,7 +184,7 @@ impl Eeprom {
       match self.command {
         Command::WRLO | Command::WRHI | Command::WR => {
           self.backup_file.has_written = true;
-          if self.backup_file.is_desktop_cloud {
+          if self.backup_file.is_desktop {
             self.backup_file.last_write = SystemTime::now()
               .duration_since(UNIX_EPOCH)
               .expect("an error occurred")

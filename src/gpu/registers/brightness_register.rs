@@ -1,5 +1,8 @@
 use std::cmp;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct BrightnessRegister {
   pub evy: u8
 }

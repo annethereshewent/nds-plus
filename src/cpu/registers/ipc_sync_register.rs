@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::interrupt_request_register::InterruptRequestRegister;
 
+#[derive(Serialize, Deserialize)]
 pub struct IPCSyncRegister {
   pub data_output: u32,
   pub data_input: u32,

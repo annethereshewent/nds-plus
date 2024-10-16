@@ -1,7 +1,7 @@
 use chrono::{Datelike, Local, Timelike};
+use serde::{Deserialize, Serialize};
 
-
-
+#[derive(Serialize, Deserialize)]
 pub struct DateTimeRegister {
   pub status_register1: StatusRegister1,
   pub status_register2: StatusRegister2,
@@ -103,6 +103,7 @@ impl DateTimeRegister {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct StatusRegister1 {
   general_purpose_bits: u8,
   twenty_four_hour_mode: bool
@@ -127,6 +128,7 @@ impl StatusRegister1 {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct StatusRegister2 {
   pub int1_mode: u8,
   general_purpose_bits: u8,
@@ -159,6 +161,7 @@ impl StatusRegister2 {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AlarmRegister {
   day: u8,
   cmp_day: bool,

@@ -1,5 +1,8 @@
 use std::ops::RangeInclusive;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct TCMControlRegister {
   val: u32
 }

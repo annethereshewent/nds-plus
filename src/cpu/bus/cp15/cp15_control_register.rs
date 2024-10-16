@@ -35,7 +35,12 @@
   Various bits in this register may be read-only (fi
 */
 
+use serde::{Deserialize, Serialize};
+
 bitflags! {
+  #[derive(Default)]
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct CP15ControlRegister: u32 {
     const PU_ENABLE = 1;
     const ALIGNMENT_FAULTCHECK = 1 << 1;

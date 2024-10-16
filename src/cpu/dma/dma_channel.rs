@@ -1,4 +1,5 @@
 use registers::dma_control_register::DmaTiming;
+use serde::{Deserialize, Serialize};
 
 use crate::scheduler::{EventType, Scheduler};
 
@@ -18,6 +19,7 @@ pub struct DmaParams {
   pub destination_address: u32
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DmaChannel {
   id: usize,
   pub source_address: u32,

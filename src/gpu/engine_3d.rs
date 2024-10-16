@@ -7,6 +7,7 @@ use matrix::Matrix;
 use polygon::Polygon;
 use polygon_attributes::PolygonAttributes;
 use rendering_attributes::RenderingAttributes;
+use serde::{Deserialize, Serialize};
 use specular_color::SpecularColor;
 use texcoord::Texcoord;
 use texture_params::{TextureParams, TransformationMode};
@@ -45,7 +46,7 @@ pub const FIFO_CAPACITY: usize = 256;
 pub const POLYGON_BUFFER_SIZE: usize = 2048;
 pub const VERTEX_BUFFER_SIZE: usize = 6144;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Pixel3d {
   pub color: Option<Color>,
   pub depth: u32,
@@ -62,7 +63,7 @@ impl Pixel3d {
   }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PrimitiveType {
   Triangles,
   Quads,
@@ -90,7 +91,7 @@ impl PrimitiveType {
   }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 enum MatrixMode {
   Projection,
   Position,
@@ -98,7 +99,7 @@ enum MatrixMode {
   Texture
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, Debug)]
 pub enum Command {
   Nop,
   MtxMode,
@@ -273,7 +274,7 @@ impl Command {
   }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct GeometryCommandEntry {
   command: Command,
   param: u32
@@ -295,6 +296,7 @@ impl GeometryCommandEntry {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Engine3d {
   fifo: VecDeque<GeometryCommandEntry>,
   packed_commands: u32,
@@ -311,7 +313,7 @@ pub struct Engine3d {
   fog_table: [u8; 32],
   edge_colors: [Color; 8],
   toon_table: [Color; 32],
-  shininess_table: [u8; 128],
+  shininess_table: Box<[u8]>,
   matrix_mode: MatrixMode,
   current_position_matrix: Matrix,
   current_vector_matrix: Matrix,
@@ -382,7 +384,7 @@ impl Engine3d {
       fog_offset: 0,
       edge_colors:  [Color::new(); 8],
       toon_table: [Color::new(); 32],
-      shininess_table: [0; 128],
+      shininess_table: vec![0; 128].into_boxed_slice(),
       fog_table: [0; 32],
       matrix_mode: MatrixMode::Projection,
       current_position_matrix: Matrix::new(),

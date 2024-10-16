@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use super::date_time_register::DateTimeRegister;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 enum CommandMode {
   AwaitingCommand(bool),
   AcceptingCommand,
@@ -8,14 +10,14 @@ enum CommandMode {
   FinishingCommand
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 enum Access {
   Reading = 0,
   Writing = 1,
   None
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 enum Param {
   StatusRegister1 = 0,
   StatusRegister2 = 1,
@@ -42,6 +44,7 @@ impl Param {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RealTimeClockRegister {
   data: bool,
   sck: bool,

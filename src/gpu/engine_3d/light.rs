@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::gpu::color::Color;
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Light {
   pub color: Color,
   pub x: i16,

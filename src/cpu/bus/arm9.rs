@@ -411,13 +411,13 @@ impl Bus {
         self.arm9.sqrt_param &= 0xffffffff00000000;
         self.arm9.sqrt_param |= value as u64;
 
-        self.arm9.sqrt_result = self.start_sqrt_calculation();
+        self.start_sqrt_calculation();
       }
       0x400_02bc => {
         self.arm9.sqrt_param &= 0xffffffff;
         self.arm9.sqrt_param |= (value as u64) << 32;
 
-        self.arm9.sqrt_result = self.start_sqrt_calculation();
+        self.start_sqrt_calculation();
       }
       0x400_0304 => self.gpu.powcnt1 = PowerControlRegister1::from_bits_retain(value as u16),
       0x400_0330..=0x400_033f => {

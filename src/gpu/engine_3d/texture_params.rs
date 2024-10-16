@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq)]
 pub enum TextureFormat {
   None,
   A3I5Translucent,
@@ -12,7 +14,7 @@ pub enum TextureFormat {
 }
 
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TransformationMode {
   None = 0,
   TexCoord = 1,
@@ -21,7 +23,7 @@ pub enum TransformationMode {
 }
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct TextureParams {
   pub vram_offset: u32,
   pub texture_s_size: u32,

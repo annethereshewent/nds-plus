@@ -1,4 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct PowerControlRegister1: u16 {
     const LCD_ENABLE = 1;
     const ENGINE_A_ENABLE = 1 << 1;

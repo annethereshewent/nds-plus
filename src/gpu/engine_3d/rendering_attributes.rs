@@ -1,4 +1,6 @@
-#[derive(Clone, Copy, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct RenderingAttributes {
   pub is_translucent: bool,
   pub front_facing: bool,

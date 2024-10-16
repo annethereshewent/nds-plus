@@ -1,10 +1,12 @@
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use crate::number::Number;
 
 use super::{registers::vram_control_register::VramControlRegister, BANK_C};
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize, Debug)]
 pub enum Bank {
   BankA = 0,
   BankB = 1,
@@ -48,6 +50,7 @@ const ARM7_WRAM_BLOCKS: usize = 2;
 
 const BLOCK_SIZE: usize = 16 * 1024;
 
+#[derive(Serialize, Deserialize)]
 pub struct VRam {
   pub banks: [Vec<u8>; 9],
   pub lcdc: HashSet<Bank>,

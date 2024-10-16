@@ -1,4 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct WindowInRegister: u16 {
     const Window0ObjEnable = 0b1 << 4;
     const Window0ColorEffect = 0b1 << 5;

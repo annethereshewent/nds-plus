@@ -1,16 +1,19 @@
-#[derive(Clone, Copy)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum DeviceSelect {
   PowerManager = 0,
   Firmware = 1,
   Touchscreen = 2
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum TransferSize {
   Bit8 = 0,
   Bit16 = 1
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SPIControlRegister {
   pub baudrate: u16,
   pub busy: bool,

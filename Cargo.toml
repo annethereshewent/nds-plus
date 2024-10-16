@@ -7,12 +7,12 @@ authors = ["Anne Castrillon"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "2.3.1"
-strum = "0.25"
-strum_macros = "0.25"
+bitflags = { version = "2.3.1", features = ["serde"] }
 priority-queue = "1.0.5"
 num-integer = "0.1.43"
 serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 chrono = "0.4"
 num = "0.4.3"
+bincode = "1.2.1"
+zstd = "0.13"

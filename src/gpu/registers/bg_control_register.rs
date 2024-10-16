@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 bitflags! {
-  #[derive(Copy, Clone, Debug)]
+  #[derive(Copy, Clone, Serialize, Deserialize)]
+  #[serde(transparent)]
   pub struct BgControlRegister: u16 {
     const MOSAIC = 0b1 << 6;
     const PALETTES = 0b1 << 7;

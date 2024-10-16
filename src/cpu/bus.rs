@@ -1,14 +1,14 @@
 use std::{
   collections::VecDeque,
   fs,
-  path::PathBuf,
+  path::{PathBuf},
   sync::{
     Arc,
     Mutex
   }
 };
 
-use crate::{apu::Sample, gpu::color::Color, number::Number};
+use crate::{apu::Sample, gpu::color::Color, number::Number, scheduler::EventType};
 use backup_file::BackupFile;
 use cartridge::{
   Cartridge,
@@ -16,6 +16,7 @@ use cartridge::{
 };
 use cp15::CP15;
 use num_integer::Roots;
+use serde::{Deserialize, Serialize};
 use spi::SPI;
 use touchscreen::Touchscreen;
 
@@ -88,7 +89,7 @@ const WRAM_SIZE: usize = 0x1_0000;
 const SHARED_WRAM_SIZE: usize = 0x8000;
 
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum HaltMode {
   None = 0,
   GbaMode = 1,
@@ -96,10 +97,13 @@ pub enum HaltMode {
   Sleep = 3
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Arm9Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
-  bios9: Vec<u8>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
+  pub bios9: Vec<u8>,
   pub cp15: CP15,
   pub postflg: bool,
   pub interrupt_master_enable: bool,
@@ -118,9 +122,12 @@ pub struct Arm9Bus {
   pub dma_fill: [u32; 4]
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Arm7Bus {
   pub timers: Timers,
   pub dma: DmaChannels,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub bios7: Vec<u8>,
   pub wram: Box<[u8]>,
   pub postflg: bool,
@@ -136,6 +143,7 @@ pub struct Arm7Bus {
   pub rtc: RealTimeClockRegister
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Bus {
   pub arm9: Arm9Bus,
   pub arm7: Arm7Bus,
@@ -144,6 +152,8 @@ pub struct Bus {
   dtcm: Box<[u8]>,
   main_memory: Box<[u8]>,
   shared_wram: Box<[u8]>,
+  #[serde(skip_deserializing)]
+  #[serde(skip_serializing)]
   pub spi: SPI,
   pub cartridge: Cartridge,
   pub wramcnt: WRAMControlRegister,
@@ -169,20 +179,7 @@ impl Bus {
 
     let mut scheduler = Scheduler::new();
 
-
-    let backup_file = if firmware_path.is_some() {
-      match fs::metadata(&firmware_path.as_ref().unwrap()) {
-        Ok(metadata) => {
-          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
-        }
-        Err(_) => None
-      }
-    } else if firmware_bytes.is_some() {
-      let capacity = firmware_bytes.as_ref().unwrap().len();
-      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
-    } else {
-      None
-    };
+    let backup_file = Self::load_firmware(firmware_path, firmware_bytes);
 
     Self {
       arm9: Arm9Bus {
@@ -354,6 +351,22 @@ impl Bus {
 
 
     cpu_cycles
+  }
+
+  pub fn load_firmware(firmware_path: Option<PathBuf>, firmware_bytes: Option<Vec<u8>>) -> Option<BackupFile> {
+    if firmware_path.is_some() {
+      match fs::metadata(&firmware_path.as_ref().unwrap()) {
+        Ok(metadata) => {
+          Some(BackupFile::new(firmware_path, firmware_bytes, metadata.len() as usize, false))
+        }
+        Err(_) => None
+      }
+    } else if firmware_bytes.is_some() {
+      let capacity = firmware_bytes.as_ref().unwrap().len();
+      Some(BackupFile::new(firmware_path, firmware_bytes, capacity, false))
+    } else {
+      None
+    }
   }
 
   pub fn check_dma(&mut self, is_arm9: bool) -> u32 {
@@ -835,17 +848,34 @@ impl Bus {
     self.arm9.sqrtcnt.write(value);
   }
 
-  pub fn start_sqrt_calculation(&mut self) -> u32 {
+  pub fn start_sqrt_calculation(&mut self) {
+    self.scheduler.remove(EventType::RunSqrtCalculation);
+    self.arm9.sqrtcnt.val |= 0x8000;
+    self.scheduler.schedule(EventType::RunSqrtCalculation, 13);
+
+  }
+
+  pub fn start_div_calculation(&mut self) {
+    self.scheduler.remove(EventType::RunDivCalculation);
+    self.arm9.divcnt.val |= 0x8000;
+    self.scheduler.schedule(EventType::RunDivCalculation, if self.arm9.divcnt.val & 0x3 == 0 { 18 } else { 34 } );
+  }
+
+  pub fn calculate_sqrt(&mut self) {
+    self.arm9.sqrtcnt.val &= !(1 << 15);
+
     let value = if self.arm9.sqrtcnt.mode() == BitMode::Bit32 {
       (self.arm9.sqrt_param as u32).sqrt()
     } else {
       self.arm9.sqrt_param.sqrt() as u32
     };
 
-    value
+    self.arm9.sqrt_result = value;
   }
 
-  pub fn start_div_calculation(&mut self) {
+  pub fn calculate_div(&mut self) {
+    self.arm9.divcnt.val &= !(1 << 15);
+
     if self.arm9.div_denomenator == 0 {
       self.arm9.divcnt.set_division_by_zero(true);
     } else {

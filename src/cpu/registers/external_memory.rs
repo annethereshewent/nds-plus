@@ -1,21 +1,24 @@
-#[derive(Copy, Clone, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AccessRights {
   Arm9 = 0,
   Arm7 = 1
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AccessPriority {
   Arm9 = 0,
   Arm7 = 1
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum MemoryMode {
   Asynchronous = 0,
   Synchronous = 1
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ExternalMemory {
   pub arm7_exmem: ExternalMemoryControlRegister,
   pub arm9_exmem: ExternalMemoryControlRegister,
@@ -92,6 +95,7 @@ impl ExternalMemory {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ExternalMemoryControlRegister {
   pub gba_sram_access_time: u16,
   pub gba_rom_1st_access: u16,

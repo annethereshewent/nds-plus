@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct DivisionControlRegister {
-  val: u16
+  pub val: u16
 }
 
 #[derive(PartialEq)]
@@ -18,8 +21,6 @@ impl DivisionControlRegister {
 
   pub fn write(&mut self, val: u16) {
     self.val = val & 0x3;
-
-    self.val |= self.val & 0x8000;
   }
 
   pub fn read(&self) -> u16 {
@@ -52,7 +53,7 @@ impl DivisionControlRegister {
     }
   }
 
-  pub fn is_busy(&self) -> bool{
+  pub fn is_busy(&self) -> bool {
     self.val >> 15 & 0b1 == 1
   }
 }

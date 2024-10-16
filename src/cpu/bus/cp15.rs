@@ -1,4 +1,5 @@
 use cp15_control_register::CP15ControlRegister;
+use serde::{Deserialize, Serialize};
 use tcm_control_register::TCMControlRegister;
 
 pub const CP15_INDEX: usize = 15;
@@ -7,6 +8,7 @@ pub mod cp15_control_register;
 pub mod tcm_control_register;
 
 
+#[derive(Serialize, Deserialize)]
 pub struct CP15 {
   pub control: CP15ControlRegister,
   pub itcm_control: TCMControlRegister,

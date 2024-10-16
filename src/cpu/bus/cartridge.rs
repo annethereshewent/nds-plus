@@ -35,7 +35,7 @@ pub struct GameInfo {
   ram_capacity: usize
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Header {
   game_title: String,
   pub game_code: u32,
@@ -110,13 +110,17 @@ impl Header {
   }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum BackupType {
   None,
   Flash(Flash),
   Eeprom(Eeprom)
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Cartridge {
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
   pub rom: Vec<u8>,
   pub control: CartridgeControlRegister,
   pub spicnt: SPICNT,
@@ -163,7 +167,7 @@ impl Cartridge {
   }
 
   pub fn set_backup(&mut self, save_filename: PathBuf, entry: GameInfo) {
-    let backup_file = BackupFile::new(Some(save_filename), None, entry.ram_capacity, false);
+    let backup_file = BackupFile::new(Some(save_filename), None, entry.ram_capacity, true);
 
     println!("detected backup type {}", entry.save_type);
 
