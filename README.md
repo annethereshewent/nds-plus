@@ -39,15 +39,15 @@ For Mac, you will need to open the .app file by right clicking on it, hit "Show 
 - Support for web, desktop, and iOS (coming soon)
 - Ability to use control stick in Super Mario 64 DS
 - Save management on the web and iOS clients: upload, download and delete saves
-- Cloud saves are now available! Store saves in Google drive for use anywhere on both web, desktop and iOS.
-- Support for microphone on iOS, web, and desktop
+- Cloud saves are now available! Store saves in Google drive for use anywhere on both desktop, web, and iOS.
+- Support for microphone on desktop, web, and iOS
+- Save states on desktop and iOS
 
 ## TODO
 
 - Texture/rendering issues
 - CPU bugs
 - iOS app (almost complete!)
-- Save states
 - Debugging tools
 
 ## Controls
