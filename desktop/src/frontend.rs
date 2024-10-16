@@ -5,7 +5,7 @@ use std::{
   }, fs, path::{Path, PathBuf}, sync::{
     Arc,
     Mutex
-  }
+  }, time::{SystemTime, UNIX_EPOCH}
 };
 
 use ds_emulator::{
@@ -441,16 +441,14 @@ impl Frontend {
     let (save_name, state_path) = if quick_save {
       (format!("{}/save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
     } else {
-      // check how many saves are currently in the directory, and name the file accordingly
-      let paths = fs::read_dir(&folder_path).unwrap();
+      let current_time = SystemTime::now()
+          .duration_since(UNIX_EPOCH)
+          .expect("an error occurred")
+          .as_millis();
 
-      let mut num_saves = 0;
+      let filename = format!("save_{}.state", current_time);
 
-      for _ in paths {
-        num_saves += 1;
-      }
-
-      (format!("{}/save_{}.state", folder_path.to_str().unwrap(), num_saves + 1), format!("save_{}.state", num_saves + 1).to_string())
+      (format!("{}/{}", folder_path.to_str().unwrap(), filename), filename)
     };
 
     if !quick_save {

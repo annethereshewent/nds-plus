@@ -234,7 +234,11 @@ fn main() {
   let mut dir_entries = Vec::new();
 
   for path in paths {
-    dir_entries.push(path.unwrap().file_name().to_string_lossy().to_string());
+    let path = path.unwrap();
+    let filename = path.file_name().into_string().unwrap();
+    if filename.contains(".state") {
+      dir_entries.push(filename);
+    }
   }
 
   dir_entries.sort();
