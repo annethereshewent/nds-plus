@@ -21,6 +21,8 @@ serde = { version = "1.0", features = ["derive"] }
 url-escape = "0.1.1"
 native-dialog = "0.7.0"
 zstd = "0.13"
+directories = "5.0.1"
+chrono = "0.4"
 
 [dependencies.sdl2]
 version = "0.34.5"

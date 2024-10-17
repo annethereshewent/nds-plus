@@ -8,6 +8,8 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH}
 };
 
+use chrono::DateTime;
+use directories::UserDirs;
 use ds_emulator::{
   apu::Sample,
   cpu::{
@@ -435,35 +437,40 @@ impl Frontend {
   }
 
   pub fn create_save_state(nds: &mut Nds, rom_path: String, state_paths: &mut Vec<String>, quick_save: bool) {
-    // first check to see if any save states exist
-    let folder_path = Path::new(&format!("./save_states/{}", rom_path.split("/").last().unwrap())).with_extension("");
+    if let Some(user_dirs) = UserDirs::new() {
+      let document_path = user_dirs.document_dir().unwrap();
 
-    let (save_name, state_path) = if quick_save {
-      (format!("{}/save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
-    } else {
-      let current_time = SystemTime::now()
-          .duration_since(UNIX_EPOCH)
-          .expect("an error occurred")
-          .as_millis();
+       // first check to see if any save states exist
+      let folder_path = Path::new(&format!("{}/NDS-Plus/save_states/{}", document_path.to_str().unwrap(),  rom_path.split("/").last().unwrap())).with_extension("");
 
-      let filename = format!("save_{}.state", current_time);
+      let (save_name, state_path) = if quick_save {
+        (format!("{}/save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
+      } else {
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("an error occurred")
+            .as_millis();
 
-      (format!("{}/{}", folder_path.to_str().unwrap(), filename), filename)
-    };
+        let filename = format!("save_{}.state", current_time);
 
-    if !quick_save {
-      state_paths.push(state_path);
+        (format!("{}/{}", folder_path.to_str().unwrap(), filename), filename)
+      };
+
+      if !quick_save {
+        state_paths.push(state_path);
+      }
+      let buf = nds.create_save_state();
+
+      std::thread::spawn(move || {
+        // compressing generally takes the longest, so punting it to a thread should save some time
+        let compressed = zstd::encode_all(&*buf, 9).unwrap();
+
+        fs::write(save_name, compressed).unwrap();
+
+        println!("finished creating save state");
+      });
     }
-    let buf = nds.create_save_state();
 
-    std::thread::spawn(move || {
-      // compressing generally takes the longest, so punting it to a thread should save some time
-      let compressed = zstd::encode_all(&*buf, 9).unwrap();
-
-      fs::write(save_name, compressed).unwrap();
-
-      println!("finished creating save state");
-    });
 
   }
 
@@ -589,8 +596,16 @@ impl Frontend {
               true
             );
           } else if keycode.unwrap() == Keycode::F7 && self.rom_loaded {
+            let user_dirs = UserDirs::new().unwrap();
+            let documents_dir = user_dirs.document_dir().unwrap();
             let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
-            let state_path = Path::new(&format!("./save_states/{}/save_1.state", path.to_str().unwrap())).to_path_buf();
+            let state_path = Path::new(
+              &format!(
+                "{}/NDS-Plus/save_states/{}/save_1.state",
+                documents_dir.to_str().unwrap(),
+                path.to_str().unwrap()
+              )
+            ).to_path_buf();
 
             Self::load_save_state(
               nds,
@@ -674,8 +689,16 @@ impl Frontend {
             }
             Axis::TriggerRight => {
               if value == 0x7fff {
+                let user_dirs = UserDirs::new().unwrap();
+                let documents_dir = user_dirs.document_dir().unwrap();
                 let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
-                let state_path = Path::new(&format!("./save_states/{}/save_1.state", path.to_str().unwrap())).to_path_buf();
+                let state_path = Path::new(
+                  &format!(
+                    "{}/NDS-Plus/save_states/{}/save_1.state",
+                    documents_dir.to_str().unwrap(),
+                    path.to_str().unwrap()
+                  )
+                ).to_path_buf();
 
                 Self::load_save_state(
                   nds,
@@ -795,21 +818,28 @@ impl Frontend {
             }
             if let Some(menu) = ui.begin_menu("Load save state") {
               for entry in &self.save_entries {
-                let mut save_name = entry.split("/").last().unwrap().to_string();
+                let mut save_name_str = entry.split("/").last().unwrap().to_string();
 
-                save_name = save_name.replace("_", " ");
-                save_name = save_name.replace(".state", "");
+                let save_name = if save_name_str == "save_1.state" {
+                  "Quick save".to_string()
+                } else {
+                  save_name_str = save_name_str.replace("save_", "");
+                  save_name_str = save_name_str.replace(".state", "");
 
-                let mut c = save_name.chars();
-                save_name = match c.next() {
-                  None => String::new(),
-                  Some(f) => f.to_uppercase().chain(c).collect(),
+                  let timestamp = save_name_str.parse::<i64>().unwrap();
+                  let date = DateTime::from_timestamp_millis(timestamp).unwrap();
+
+                  format!("Save on {}", date.format("%m-%d-%Y %H:%M:%S"))
                 };
 
                 if ui.menu_item(save_name) {
                   let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
 
-                  let save_entry = format!("./save_states/{}/{}", folder_path.to_str().unwrap(), entry);
+                  let user_dirs = UserDirs::new().unwrap();
+                  let documents_dir = user_dirs.document_dir().unwrap();
+
+
+                  let save_entry = format!("{}/NDS-Plus/save_states/{}/{}", documents_dir.to_str().unwrap(), folder_path.to_str().unwrap(), entry);
                   action = UIAction::LoadSaveState(Path::new(&save_entry).to_path_buf());
                 }
               }
@@ -818,21 +848,26 @@ impl Frontend {
             if let Some(menu) = ui.begin_menu("Delete save state") {
               let mut delete_pos = -1;
               for entry in &self.save_entries {
-                let mut save_name = entry.split("/").last().unwrap().to_string();
+                let mut save_name_str = entry.split("/").last().unwrap().to_string();
 
-                save_name = save_name.replace("_", " ");
-                save_name = save_name.replace(".state", "");
+                let save_name = if save_name_str == "save_1.state" {
+                  "Quick save".to_string()
+                } else {
+                  save_name_str = save_name_str.replace("save_", "");
+                  save_name_str = save_name_str.replace(".state", "");
 
-                let mut c = save_name.chars();
-                save_name = match c.next() {
-                  None => String::new(),
-                  Some(f) => f.to_uppercase().chain(c).collect(),
+                  let timestamp = save_name_str.parse::<i64>().unwrap();
+                  let date = DateTime::from_timestamp_millis(timestamp).unwrap();
+
+                  format!("Save on {}", date.format("%m-%d-%Y %H:%M:%S"))
                 };
 
                 if ui.menu_item(save_name) {
+                  let user_dirs = UserDirs::new().unwrap();
+                  let documents_dir = user_dirs.document_dir().unwrap();
                   let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
 
-                  let save_entry = format!("./save_states/{}/{}", folder_path.to_str().unwrap(), entry);
+                  let save_entry = format!("{}/NDS-Plus/save_states/{}/{}", documents_dir.to_str().unwrap(), folder_path.to_str().unwrap(), entry);
 
                   fs::remove_file(save_entry).unwrap();
 
