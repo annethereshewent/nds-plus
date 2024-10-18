@@ -24,10 +24,10 @@ export class WasmEmulator {
 /**
 * @param {Uint8Array} bios7_bytes
 * @param {Uint8Array} bios9_bytes
-* @param {Uint8Array} firmware_bytes
+* @param {Uint8Array | undefined} firmware_bytes
 * @param {Uint8Array} game_data
 */
-  constructor(bios7_bytes: Uint8Array, bios9_bytes: Uint8Array, firmware_bytes: Uint8Array, game_data: Uint8Array);
+  constructor(bios7_bytes: Uint8Array, bios9_bytes: Uint8Array, firmware_bytes: Uint8Array | undefined, game_data: Uint8Array);
 /**
 * @param {number} x
 * @param {number} y

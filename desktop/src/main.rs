@@ -8,6 +8,7 @@ use std::{
   }, time::{SystemTime, UNIX_EPOCH},
 };
 
+use directories::UserDirs;
 use ds_emulator::{cpu::bus::cartridge::BackupType, nds::Nds};
 
 use frontend::{Frontend, UIAction};
@@ -85,6 +86,31 @@ fn handle_frontend(
       frontend.has_backup = *has_backup;
 
       frontend.rom_loaded = true;
+
+      let user_dirs = UserDirs::new().unwrap();
+
+      let documents_path = user_dirs.document_dir().unwrap();
+
+      let save_state_folder = Path::new(&format!("{}/NDS-Plus/save_states/{}", documents_path.to_str().unwrap(),  &rom_path_str.split("/").last().unwrap())).with_extension("");
+
+      fs::create_dir_all(&save_state_folder).unwrap();
+
+      let paths = fs::read_dir(save_state_folder).unwrap();
+
+      // finally check for save states
+      let mut dir_entries = Vec::new();
+
+      for path in paths {
+        let path = path.unwrap();
+        let filename = path.file_name().into_string().unwrap();
+        if filename.contains(".state") {
+          dir_entries.push(filename);
+        }
+      }
+
+      dir_entries.sort();
+
+      frontend.save_entries = dir_entries;
 
       return true;
     }
@@ -224,8 +250,12 @@ fn main() {
 
   let sdl_context = sdl2::init().unwrap();
 
+  let user_dirs = UserDirs::new().unwrap();
+
+  let documents_path = user_dirs.document_dir().unwrap();
+
   // check to see if there are any save states
-  let save_state_folder = Path::new(&format!("./save_states/{}", &rom_path.split("/").last().unwrap())).with_extension("");
+  let save_state_folder = Path::new(&format!("{}/NDS-Plus/save_states/{}", documents_path.to_str().unwrap(),  &rom_path.split("/").last().unwrap())).with_extension("");
 
   fs::create_dir_all(&save_state_folder).unwrap();
 

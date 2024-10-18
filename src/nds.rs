@@ -94,10 +94,7 @@ impl Nds {
     bincode::serialize(self).unwrap()
   }
 
-  pub fn load_save_state(&mut self, data: &[u8]) {
-    let buf = zstd::decode_all(data).unwrap();
-
-    // finally deserialize the data
+  pub fn load_save_state(&mut self, buf: &[u8]) {
     *self = bincode::deserialize(&buf).unwrap();
 
     let ref mut bus = *self.bus.borrow_mut();

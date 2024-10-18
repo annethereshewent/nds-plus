@@ -15,4 +15,3 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 chrono = "0.4"
 num = "0.4.3"
 bincode = "1.2.1"
-zstd = "0.13"

@@ -333,71 +333,83 @@ export class UI {
       this.audio?.stopAudio()
       this.renderer?.cancelRendering()
 
-
       if (this.biosData7 != null && this.biosData9 != null && this.firmware != null) {
         this.emulator = new WasmEmulator(this.biosData7, this.biosData9, this.firmware, this.gameData)
-        this.joypad = new Joypad(this.emulator)
-        this.joypad.addKeyboardEventListeners()
-
-        const gameCode = this.emulator.get_game_code()
-
-        const entry = gameDbJson.filter((entry: GameDBEntry) => entry.game_code == gameCode)[0]
-
-        if (entry != null) {
-          let bytes = new Uint8Array(0)
-
-          let gameName = this.fileName.split('/').pop()
-          gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
-
-          if (gameName != null) {
-            const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
-
-            if (saveEntry != null && saveEntry.data != null) {
-              this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
-            } else {
-              this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
-            }
-          }
-
-        } else {
-          alert("Couldn't find game in DB, resorting to no save")
-        }
-
-        const topCanvas = document.getElementById("top-canvas") as HTMLCanvasElement
-        const bottomCanvas = document.getElementById("bottom-canvas") as HTMLCanvasElement
-
-        const topContext = topCanvas.getContext("2d")
-        const bottomContext = bottomCanvas.getContext("2d")
-
-        this.audio = new Audio(this.emulator)
-
-        if (topContext != null && bottomContext != null && this.wasm != null) {
-          this.renderer = new Renderer(
-            this.emulator,
-            topCanvas,
-            bottomCanvas,
-            topContext,
-            bottomContext,
-            this.wasm
-          )
-
-          this.renderer.addCanvasListeners()
-        } else {
-          throw new Error("could not initialize canvases for rendering")
-        }
-
-        this.audio.startAudio()
-        this.audio.startMicrophone()
-        requestAnimationFrame((time) => this.renderer?.run(time, () => {
-            this.joypad?.handleJoypadInput()
-            this.checkSaves()
-            this.audio?.updateMicBuffer()
-
-          }, () => this.resetSystem())
-        )
       } else {
-        throw new Error("bios and firmware data not loaded")
+        // load freebios files and hle the firmware
+        const bios7Response = await fetch("./freebios/drastic_bios_arm7.bin")
+        const bios7Body = await bios7Response.arrayBuffer()
+
+        this.biosData7 = new Uint8Array(bios7Body)
+
+        const bios9Response = await fetch("/freebios/drastic_bios_arm9.bin")
+        const bios9Body = await bios9Response.arrayBuffer()
+
+        this.biosData9 = new Uint8Array(bios9Body)
+
+        // typescript won't let me use null, so it has to be undefined
+        this.emulator = new WasmEmulator(this.biosData7, this.biosData9, undefined, this.gameData)
       }
+
+      this.joypad = new Joypad(this.emulator)
+      this.joypad.addKeyboardEventListeners()
+
+      const gameCode = this.emulator.get_game_code()
+
+      const entry = gameDbJson.filter((entry: GameDBEntry) => entry.game_code == gameCode)[0]
+
+      if (entry != null) {
+        let bytes = new Uint8Array(0)
+
+        let gameName = this.fileName.split('/').pop()
+        gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
+
+        if (gameName != null) {
+          const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
+
+          if (saveEntry != null && saveEntry.data != null) {
+            this.emulator.set_backup(entry.save_type, entry.ram_capacity, saveEntry.data)
+          } else {
+            this.emulator.set_backup(entry.save_type, entry.ram_capacity, bytes)
+          }
+        }
+
+      } else {
+        alert("Couldn't find game in DB, resorting to no save")
+      }
+
+      const topCanvas = document.getElementById("top-canvas") as HTMLCanvasElement
+      const bottomCanvas = document.getElementById("bottom-canvas") as HTMLCanvasElement
+
+      const topContext = topCanvas.getContext("2d")
+      const bottomContext = bottomCanvas.getContext("2d")
+
+      this.audio = new Audio(this.emulator)
+
+      if (topContext != null && bottomContext != null && this.wasm != null) {
+        this.renderer = new Renderer(
+          this.emulator,
+          topCanvas,
+          bottomCanvas,
+          topContext,
+          bottomContext,
+          this.wasm
+        )
+
+        this.renderer.addCanvasListeners()
+      } else {
+        throw new Error("could not initialize canvases for rendering")
+      }
+
+      this.audio.startAudio()
+      this.audio.startMicrophone()
+      requestAnimationFrame((time) => this.renderer?.run(time, () => {
+          this.joypad?.handleJoypadInput()
+          this.checkSaves()
+          this.audio?.updateMicBuffer()
+
+        }, () => this.resetSystem())
+      )
     }
   }
 

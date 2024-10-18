@@ -61,6 +61,10 @@ function passArray8ToWasm0(arg, malloc) {
     return ptr;
 }
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+
 const cachedTextEncoder = (typeof TextEncoder !== 'undefined' ? new TextEncoder('utf-8') : { encode: () => { throw Error('TextEncoder not available') } } );
 
 const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
@@ -155,7 +159,7 @@ export class WasmEmulator {
     /**
     * @param {Uint8Array} bios7_bytes
     * @param {Uint8Array} bios9_bytes
-    * @param {Uint8Array} firmware_bytes
+    * @param {Uint8Array | undefined} firmware_bytes
     * @param {Uint8Array} game_data
     */
     constructor(bios7_bytes, bios9_bytes, firmware_bytes, game_data) {
@@ -163,8 +167,8 @@ export class WasmEmulator {
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passArray8ToWasm0(bios9_bytes, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passArray8ToWasm0(firmware_bytes, wasm.__wbindgen_malloc);
-        const len2 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(firmware_bytes) ? 0 : passArray8ToWasm0(firmware_bytes, wasm.__wbindgen_malloc);
+        var len2 = WASM_VECTOR_LEN;
         const ptr3 = passArray8ToWasm0(game_data, wasm.__wbindgen_malloc);
         const len3 = WASM_VECTOR_LEN;
         const ret = wasm.wasmemulator_new(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
