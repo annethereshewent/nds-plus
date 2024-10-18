@@ -451,7 +451,7 @@ impl Frontend {
         &format!(
           "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}",
           document_path.to_str().unwrap(),
-          rom_path.split("/").last().unwrap()
+          rom_path.split(delimiter).last().unwrap()
         )
       ).with_extension("");
 
