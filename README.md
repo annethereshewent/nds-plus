@@ -10,15 +10,11 @@ For MacOS, use `./nds-plus <path to rom file> [--start-bios]`
 
 The optional `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
 
-Simply copy the bios files to the root path of the app, and make sure they are named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively.
+To use your own files, simply copy the bios files to the root path of the app, and make sure they are named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively.
 
 ### Web Client
 
-To test the latest version of the emulator on web, go to https://nds-emulator.onrender.com. You will need copies of the ARM7 and ARM9 BIOSes as well as the DS firmware.
-
-## Using your own binary files
-
-Make sure that your binary files are named `bios7.bin` for the ARM7 bios, `bios9.bin` for the ARM9 bios, and `firmware.bin` for the firmware. 
+To test the latest version of the emulator on web, go to https://nds-emulator.onrender.com. Copies of the bios and firmware files are now optional!
 
 ## Features
 
