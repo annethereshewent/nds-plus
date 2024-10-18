@@ -62,13 +62,13 @@ impl WasmEmulator {
   pub fn new(
     bios7_bytes: &[u8],
     bios9_bytes: &[u8],
-    firmware_bytes: &[u8],
+    firmware_bytes: Option<Box<[u8]>>,
     game_data: &[u8],
   ) -> Self {
     // panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
-    let mic_samples = Arc::new(Mutex::new([0; 2048]));
+    let mic_samples = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
 
     let mut key_map = HashMap::new();
 
@@ -88,10 +88,16 @@ impl WasmEmulator {
     extkey_map.insert(ButtonEvent::ButtonY, ExternalKeyInputRegister::BUTTON_Y);
     extkey_map.insert(ButtonEvent::ButtonX, ExternalKeyInputRegister::BUTTON_X);
 
+    let firmware = if let Some(firmware_bytes) = firmware_bytes {
+      Some(firmware_bytes.to_vec())
+    } else {
+      None
+    };
+
     let mut emu = Self {
       nds: Nds::new(
         None,
-        Some(firmware_bytes.to_vec()),
+        firmware,
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
         audio_buffer,

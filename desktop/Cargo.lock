@@ -285,7 +285,6 @@ dependencies = [
  "priority-queue",
  "serde",
  "serde_json",
- "zstd",
 ]
 
 [[package]]

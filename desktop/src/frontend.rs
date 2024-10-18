@@ -488,10 +488,12 @@ impl Frontend {
   ) {
     let rom_path = Path::new(&rom_path);
 
-    let buf = match fs::read(state_path) {
+    let mut buf = match fs::read(state_path) {
       Ok(bytes) => bytes,
       Err(_) => return
     };
+
+    buf = zstd::decode_all(&*buf).unwrap();
 
     nds.load_save_state(&buf);
 
