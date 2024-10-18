@@ -91,7 +91,15 @@ fn handle_frontend(
 
       let documents_path = user_dirs.document_dir().unwrap();
 
-      let save_state_folder = Path::new(&format!("{}/NDS-Plus/save_states/{}", documents_path.to_str().unwrap(),  &rom_path_str.split("/").last().unwrap())).with_extension("");
+      let os =  env::consts::OS;
+
+      let delimiter = if os == "windows" {
+        "\\"
+      } else {
+        "/"
+      };
+
+      let save_state_folder = Path::new(&format!("{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}", documents_path.to_str().unwrap(),  &rom_path_str.split(delimiter).last().unwrap())).with_extension("");
 
       fs::create_dir_all(&save_state_folder).unwrap();
 
@@ -255,7 +263,17 @@ fn main() {
   let documents_path = user_dirs.document_dir().unwrap();
 
   // check to see if there are any save states
-  let save_state_folder = Path::new(&format!("{}/NDS-Plus/save_states/{}", documents_path.to_str().unwrap(),  &rom_path.split("/").last().unwrap())).with_extension("");
+  let delimiter = if std::env::consts::OS == "windows" {
+    "\\"
+  } else {
+    "/"
+  };
+
+  let save_state_folder = Path::new(
+    &format!("{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}",
+    documents_path.to_str().unwrap(),
+    &rom_path.split("/").last().unwrap()
+  )).with_extension("");
 
   fs::create_dir_all(&save_state_folder).unwrap();
 

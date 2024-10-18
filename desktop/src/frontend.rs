@@ -440,11 +440,23 @@ impl Frontend {
     if let Some(user_dirs) = UserDirs::new() {
       let document_path = user_dirs.document_dir().unwrap();
 
-       // first check to see if any save states exist
-      let folder_path = Path::new(&format!("{}/NDS-Plus/save_states/{}", document_path.to_str().unwrap(),  rom_path.split("/").last().unwrap())).with_extension("");
+      // first check to see if any save states exist
+      let delimiter = if std::env::consts::OS == "windows" {
+        "\\"
+      } else {
+        "/"
+      };
+
+      let folder_path = Path::new(
+        &format!(
+          "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}",
+          document_path.to_str().unwrap(),
+          rom_path.split("/").last().unwrap()
+        )
+      ).with_extension("");
 
       let (save_name, state_path) = if quick_save {
-        (format!("{}/save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
+        (format!("{}{delimiter}save_1.state", folder_path.to_str().unwrap()), "save_1.state".to_string())
       } else {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -453,7 +465,7 @@ impl Frontend {
 
         let filename = format!("save_{}.state", current_time);
 
-        (format!("{}/{}", folder_path.to_str().unwrap(), filename), filename)
+        (format!("{}{delimiter}{}", folder_path.to_str().unwrap(), filename), filename)
       };
 
       if !quick_save {
@@ -600,10 +612,19 @@ impl Frontend {
           } else if keycode.unwrap() == Keycode::F7 && self.rom_loaded {
             let user_dirs = UserDirs::new().unwrap();
             let documents_dir = user_dirs.document_dir().unwrap();
-            let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+            let delimiter = if std::env::consts::OS == "windows" {
+              "\\"
+            } else {
+              "/"
+            };
+
+            let path = Path::new(self.rom_path.split(delimiter).last().unwrap()).with_extension("");
+
+
+
             let state_path = Path::new(
               &format!(
-                "{}/NDS-Plus/save_states/{}/save_1.state",
+                "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}{delimiter}save_1.state",
                 documents_dir.to_str().unwrap(),
                 path.to_str().unwrap()
               )
@@ -693,10 +714,17 @@ impl Frontend {
               if value == 0x7fff {
                 let user_dirs = UserDirs::new().unwrap();
                 let documents_dir = user_dirs.document_dir().unwrap();
-                let path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+
+                let delimiter = if std::env::consts::OS == "windows" {
+                  "\\"
+                } else {
+                  "/"
+                };
+
+                let path = Path::new(self.rom_path.split(delimiter).last().unwrap()).with_extension("");
                 let state_path = Path::new(
                   &format!(
-                    "{}/NDS-Plus/save_states/{}/save_1.state",
+                    "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}{delimiter}save_1.state",
                     documents_dir.to_str().unwrap(),
                     path.to_str().unwrap()
                   )
@@ -835,13 +863,23 @@ impl Frontend {
                 };
 
                 if ui.menu_item(save_name) {
-                  let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+                  let delimiter = if std::env::consts::OS == "windows" {
+                    "\\"
+                  } else {
+                    "/"
+                  };
+                  let folder_path = Path::new(self.rom_path.split(delimiter).last().unwrap()).with_extension("");
 
                   let user_dirs = UserDirs::new().unwrap();
                   let documents_dir = user_dirs.document_dir().unwrap();
 
+                  let save_entry = format!(
+                    "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}{delimiter}{}",
+                    documents_dir.to_str().unwrap(),
+                    folder_path.to_str().unwrap(),
+                    entry
+                  );
 
-                  let save_entry = format!("{}/NDS-Plus/save_states/{}/{}", documents_dir.to_str().unwrap(), folder_path.to_str().unwrap(), entry);
                   action = UIAction::LoadSaveState(Path::new(&save_entry).to_path_buf());
                 }
               }
@@ -867,9 +905,20 @@ impl Frontend {
                 if ui.menu_item(save_name) {
                   let user_dirs = UserDirs::new().unwrap();
                   let documents_dir = user_dirs.document_dir().unwrap();
-                  let folder_path = Path::new(self.rom_path.split("/").last().unwrap()).with_extension("");
+                  let delimiter = if std::env::consts::OS == "windows" {
+                    "\\"
+                  } else {
+                    "/"
+                  };
 
-                  let save_entry = format!("{}/NDS-Plus/save_states/{}/{}", documents_dir.to_str().unwrap(), folder_path.to_str().unwrap(), entry);
+                  let folder_path = Path::new(self.rom_path.split(delimiter).last().unwrap()).with_extension("");
+
+                  let save_entry = format!(
+                    "{}{delimiter}NDS-Plus{delimiter}save_states{delimiter}{}{delimiter}{}",
+                    documents_dir.to_str().unwrap(),
+                    folder_path.to_str().unwrap(),
+                    entry
+                  );
 
                   fs::remove_file(save_entry).unwrap();
 
