@@ -4,19 +4,13 @@ This is a DS emulator written in Rust! Binaries for Mac and Windows are now avai
 
 ## Getting Started
 
-### Windows Users
+Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments for Windows: `.\nds-plus.exe <path to rom file> [--start-bios]`
 
-Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments: `.\nds-plus.exe <path to rom file> [--start-bios]`
+For MacOS, use `./nds-plus <path to rom file> [--start-bios]`
 
-The `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
+The optional `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
 
-Please see the section below on how to use your own files.
-
-### Mac Users
-
-Simply extract the zip and open the .app file and everything should work out of the box. Please see section "Using your own binary files" for how to use your own provided binary files.
-
-To open from the command line, simply run `./NDS\ Plus.app/Contents/MacOS/nds-plus <path to rom file> [--start-bios]`.
+Simply copy the bios files to the root path of the app, and make sure they are named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively.
 
 ### Web Client
 
@@ -25,14 +19,6 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 ## Using your own binary files
 
 Make sure that your binary files are named `bios7.bin` for the ARM7 bios, `bios9.bin` for the ARM9 bios, and `firmware.bin` for the firmware. 
-
-### Windows 
-
-For Windows, simply put the files in the same directory as the executable.
-
-### Mac
-
-For Mac, you will need to open the .app file by right clicking on it, hit "Show Package Contents," then go to the `Contents/MacOS` directory. Copy the files over and you should be all set!
 
 ## Features
 
@@ -66,7 +52,12 @@ Keyboard:
 - *R Button*: V Key
 - *Select*: Tab
 - *Start*: Return
-- *T key*: Toggle control stick mode on/off (For Super Mario 64 DS)
+
+Hotkeys:
+
+- *T*: Toggle control stick mode on/off (for Super Mario 64 DS)
+- *F5*: Quick save state
+- *F7*: Quick load state
 
 Joypad (tested on PS5 controller, should be similar on Xbox/other similar controllers)
 
@@ -80,6 +71,8 @@ Joypad (tested on PS5 controller, should be similar on Xbox/other similar contro
 - *Select*: Select
 - *Start*: Start
 - *R3 Button*: Toggle control stick mode on/off (For Super Mario 64 DS)
+- *L2 Button*: Quick save state
+- *R2 Button*: Quick load state
 
 ## Screenshots
 
