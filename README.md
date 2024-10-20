@@ -79,5 +79,11 @@ Joypad (tested on PS5 controller, should be similar on Xbox/other similar contro
 <img width="250" alt="Screenshot 2024-08-22 at 7 43 05 PM" src="https://github.com/user-attachments/assets/1d41de7b-1089-4daa-943e-e5d79b6f9c6e">
 <img width="250" alt="Screenshot 2024-08-22 at 7 39 35 PM" src="https://github.com/user-attachments/assets/43fb5b61-2037-4915-9cc6-5dfeacb3a62d">
 
+## Special Thanks
 
+Special thanks to the following individuals and organizations! Without their help this project wouldn't have gotten as far as it did.
+
+- <a href="https://www.problemkaputt.de/gbatek.htm">GBATek</a> for being a really good resource on anything related to the Nintendo DS.
+- The <a href="https://emudev.org/">EmuDev</a> discord server for providing a lot of helpful answers to any questions I had.
+- <a href="https://github.com/abdllrhmanzedan">abdllzrhmanzedan</a> for providing all the designs for the iOS app. 
 
