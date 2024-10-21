@@ -497,7 +497,7 @@ impl Bus {
     };
   }
 
-  fn load_icon(&mut self) {
+  pub fn load_icon(&mut self) {
     let offset = unsafe { *(&self.cartridge.rom[0x68] as *const u8 as *const u32) };
 
     let icon_base = (0x20 + offset) as usize;

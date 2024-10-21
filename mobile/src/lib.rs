@@ -113,6 +113,9 @@ mod ffi {
 
     #[swift_bridge(swift_name="reloadRom")]
     fn reload_rom(&mut self, rom: &[u8]);
+
+    #[swift_bridge(swift_name="loadIcon")]
+    fn load_icon(&mut self);
   }
 }
 
@@ -238,6 +241,10 @@ impl MobileEmulator {
 
   pub fn get_engine_b_picture_pointer(&self) -> *const u8 {
     self.nds.bus.borrow().gpu.engine_b.pixels.as_ptr()
+  }
+
+  pub fn load_icon(&mut self) {
+    self.nds.bus.borrow_mut().load_icon();
   }
 
   pub fn get_game_icon_pointer(&self) -> *const u8 {
