@@ -1,5 +1,6 @@
-import { WasmEmulator } from "../../pkg/ds_emulator_wasm"
+import { InitOutput, WasmEmulator } from "../../pkg/ds_emulator_wasm"
 import { ButtonEvent } from "../../pkg/ds_emulator_wasm"
+import { StateManager } from "./state_manager"
 
 const CROSS_BUTTON = 0
 const CIRCLE_BUTTON = 1
@@ -33,9 +34,11 @@ export class Joypad {
 
   private updatingControlStick = false
 
+  private stateManager: StateManager
 
-  constructor(emulator: WasmEmulator) {
+  constructor(emulator: WasmEmulator, wasm: InitOutput|null) {
     this.emulator = emulator
+    this.stateManager = new StateManager(emulator, wasm)
   }
 
   handleJoypadInput() {
@@ -142,6 +145,16 @@ export class Joypad {
         case "Tab":
           e.preventDefault()
           this.keyboardButtons[SELECT] = true
+          break
+        case "F5":
+          e.preventDefault()
+          this.stateManager.createSaveState()
+          break
+        case "F7":
+          e.preventDefault()
+          this.emulator.set_pause(true)
+          this.stateManager.loadSaveState()
+          this.emulator.set_pause(false)
           break
       }
     })

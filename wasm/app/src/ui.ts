@@ -351,7 +351,7 @@ export class UI {
         this.emulator = new WasmEmulator(this.biosData7, this.biosData9, undefined, this.gameData)
       }
 
-      this.joypad = new Joypad(this.emulator)
+      this.joypad = new Joypad(this.emulator, this.wasm)
       this.joypad.addKeyboardEventListeners()
 
       const gameCode = this.emulator.get_game_code()

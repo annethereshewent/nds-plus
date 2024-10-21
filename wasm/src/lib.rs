@@ -53,7 +53,8 @@ macro_rules! console_log {
 pub struct WasmEmulator {
   nds: Nds,
   key_map: HashMap<ButtonEvent, KeyInputRegister>,
-  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>
+  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>,
+  state_len: usize
 }
 
 #[wasm_bindgen]
@@ -101,10 +102,11 @@ impl WasmEmulator {
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
         audio_buffer,
-        mic_samples
+        mic_samples,
       ),
       key_map,
-      extkey_map
+      extkey_map,
+      state_len: 0
     };
 
     emu.nds.init(&game_data.to_vec(), true);
@@ -246,6 +248,51 @@ impl WasmEmulator {
     } else {
       (-value * i16::MIN as f32) as i16
     }
+  }
+
+  pub fn create_save_state(&mut self) -> *const u8 {
+    let buf = self.nds.create_save_state();
+
+    self.state_len = buf.len();
+
+    buf.as_ptr()
+  }
+
+  pub fn save_state_length(&self) -> usize {
+    self.state_len
+  }
+
+  pub fn set_pause(&mut self, val: bool) {
+    if val {
+      self.nds.paused = true;
+    } else {
+      self.nds.paused = false;
+    }
+  }
+
+  pub fn load_save_state(&mut self, data: &[u8]) {
+    self.nds.load_save_state(&data);
+
+    {
+      let ref mut bus = *self.nds.bus.borrow_mut();
+
+      // recreate mic and audio buffers
+      bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
+
+      let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+      bus.arm7.apu.audio_buffer = audio_buffer;
+    }
+
+    self.nds.arm7_cpu.bus = self.nds.bus.clone();
+    self.nds.arm9_cpu.bus = self.nds.bus.clone();
+
+    // repopulate arm and thumb luts
+    self.nds.arm7_cpu.populate_arm_lut();
+    self.nds.arm9_cpu.populate_arm_lut();
+
+    self.nds.arm7_cpu.populate_thumb_lut();
+    self.nds.arm9_cpu.populate_thumb_lut();
   }
 
   pub fn step_frame(&mut self) {

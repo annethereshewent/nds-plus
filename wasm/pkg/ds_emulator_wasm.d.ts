@@ -97,6 +97,22 @@ export class WasmEmulator {
 */
   update_mic_buffer(samples: Float32Array): void;
 /**
+* @returns {number}
+*/
+  create_save_state(): number;
+/**
+* @returns {number}
+*/
+  save_state_length(): number;
+/**
+* @param {boolean} val
+*/
+  set_pause(val: boolean): void;
+/**
+* @param {Uint8Array} data
+*/
+  load_save_state(data: Uint8Array): void;
+/**
 */
   step_frame(): void;
 }
@@ -123,6 +139,10 @@ export interface InitOutput {
   readonly wasmemulator_press_screen: (a: number) => void;
   readonly wasmemulator_touch_screen_controller: (a: number, b: number, c: number) => void;
   readonly wasmemulator_update_mic_buffer: (a: number, b: number, c: number) => void;
+  readonly wasmemulator_create_save_state: (a: number) => number;
+  readonly wasmemulator_save_state_length: (a: number) => number;
+  readonly wasmemulator_set_pause: (a: number, b: number) => void;
+  readonly wasmemulator_load_save_state: (a: number, b: number, c: number) => void;
   readonly wasmemulator_step_frame: (a: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -294,6 +294,34 @@ export class WasmEmulator {
         wasm.wasmemulator_update_mic_buffer(this.__wbg_ptr, ptr0, len0);
     }
     /**
+    * @returns {number}
+    */
+    create_save_state() {
+        const ret = wasm.wasmemulator_create_save_state(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @returns {number}
+    */
+    save_state_length() {
+        const ret = wasm.wasmemulator_save_state_length(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @param {boolean} val
+    */
+    set_pause(val) {
+        wasm.wasmemulator_set_pause(this.__wbg_ptr, val);
+    }
+    /**
+    * @param {Uint8Array} data
+    */
+    load_save_state(data) {
+        const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_load_save_state(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
     */
     step_frame() {
         wasm.wasmemulator_step_frame(this.__wbg_ptr);
