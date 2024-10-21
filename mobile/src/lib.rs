@@ -363,7 +363,9 @@ impl MobileEmulator {
   }
 
   pub fn load_save_state(&mut self, data: &[u8]) {
-    self.nds.load_save_state(data);
+    let buf = zstd::decode_all(&*data).unwrap();
+
+    self.nds.load_save_state(&buf);
 
     {
       let ref mut bus = *self.nds.bus.borrow_mut();
