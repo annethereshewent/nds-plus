@@ -537,4 +537,23 @@ export class UI {
 
     return data
   }
+
+  showStateCreatedNotification() {
+    const notification = document.getElementById("state-notification")
+
+    if (notification != null) {
+      notification.style.display = "block"
+
+      let opacity = 1.0
+
+      let interval = setInterval(() => {
+        opacity -= 0.1
+        notification.style.opacity = `${opacity}`
+
+        if (opacity <= 0) {
+          clearInterval(interval)
+        }
+      }, 100)
+    }
+  }
 }

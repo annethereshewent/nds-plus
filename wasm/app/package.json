@@ -5,8 +5,8 @@
   "main": "webpack.config.js",
   "dependencies": {
     "bulma": "^1.0.2",
-    "jszip": "^3.10.1",
-    "@oneidentity/zstd-js": "^1.0.3"
+    "fflate": "^0.8.2",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "css-loader": "^7.1.2",

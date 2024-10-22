@@ -1,6 +1,7 @@
 
 import { InitOutput, WasmEmulator } from '../../pkg/ds_emulator_wasm'
 import { StateDatabase } from './state_database'
+import { zlibSync, unzlibSync } from 'fflate'
 
 export class StateManager {
   emulator: WasmEmulator
@@ -18,26 +19,9 @@ export class StateManager {
     if (this.wasm != null) {
       const data = new Uint8Array(this.wasm.memory.buffer, this.emulator.create_save_state(), this.emulator.save_state_length())
 
-      const stream = new Blob([data]).stream()
+      const compressed = zlibSync(data, { level: 9 })
 
-      const compressedReadableStream = stream.pipeThrough(
-        new CompressionStream("gzip")
-      )
-
-      const reader = compressedReadableStream.getReader()
-
-      let compressedData = new Uint8Array()
-
-      let result: ReadableStreamReadResult<Uint8Array>
-      while ((result = await reader.read())) {
-        if (result.done) {
-          break
-        } else {
-          compressedData = new Uint8Array([...compressedData, ...result.value])
-        }
-      }
-
-      this.db.createSaveState(this.gameName, compressedData)
+      this.db.createSaveState(this.gameName, compressed)
     }
   }
 
@@ -45,24 +29,7 @@ export class StateManager {
     const compressed = await this.db.loadSaveState(this.gameName)
 
     if (compressed != null) {
-      const stream = new Blob([compressed]).stream()
-
-      const decompressedReadableStream = stream.pipeThrough(
-        new DecompressionStream('gzip')
-      )
-
-      const reader = decompressedReadableStream.getReader()
-
-      let data = new Uint8Array()
-
-      let result: ReadableStreamReadResult<Uint8Array>
-      while ((result = await reader.read())) {
-        if (result.done) {
-          break
-        } else {
-          data = new Uint8Array([...data, ...result.value])
-        }
-      }
+      const data = unzlibSync(compressed)
 
       return data
     }

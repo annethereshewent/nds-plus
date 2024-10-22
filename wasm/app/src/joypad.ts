@@ -152,9 +152,12 @@ export class Joypad {
           break
         case "F5":
           e.preventDefault()
-          console.log("creating save state!")
-          await this.stateManager.createSaveState()
-          console.log("save state created!")
+
+          this.stateManager.createSaveState()
+          .then(() => {
+            this.ui.showStateCreatedNotification()
+          })
+
           break
         case "F7":
           e.preventDefault()
