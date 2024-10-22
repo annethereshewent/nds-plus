@@ -1,6 +1,8 @@
 import { InitOutput, WasmEmulator } from "../../pkg/ds_emulator_wasm"
 import { ButtonEvent } from "../../pkg/ds_emulator_wasm"
+import { DsDatabase } from "./ds_database"
 import { StateManager } from "./state_manager"
+import { UI } from "./ui"
 
 const CROSS_BUTTON = 0
 const CIRCLE_BUTTON = 1
@@ -35,10 +37,12 @@ export class Joypad {
   private updatingControlStick = false
 
   private stateManager: StateManager
+  private ui: UI
 
-  constructor(emulator: WasmEmulator, wasm: InitOutput|null) {
+  constructor(emulator: WasmEmulator, wasm: InitOutput|null, gameName: string, ui: UI) {
     this.emulator = emulator
-    this.stateManager = new StateManager(emulator, wasm)
+    this.stateManager = new StateManager(emulator, wasm, gameName)
+    this.ui = ui
   }
 
   handleJoypadInput() {
@@ -97,7 +101,7 @@ export class Joypad {
   }
 
   addKeyboardEventListeners() {
-    document.addEventListener("keydown", (e) => {
+    document.addEventListener("keydown", async (e) => {
       switch (e.key) {
         case "w":
           this.keyboardButtons[UP] = true
@@ -148,13 +152,42 @@ export class Joypad {
           break
         case "F5":
           e.preventDefault()
-          this.stateManager.createSaveState()
+          console.log("creating save state!")
+          await this.stateManager.createSaveState()
+          console.log("save state created!")
           break
         case "F7":
           e.preventDefault()
-          this.emulator.set_pause(true)
-          this.stateManager.loadSaveState()
-          this.emulator.set_pause(false)
+          if (this.ui.biosData7 != null && this.ui.biosData9 != null && this.ui.gameData != null) {
+            this.emulator.set_pause(true)
+            const data = await this.stateManager.loadSaveState()
+
+            if (data != null) {
+              this.emulator.load_save_state(data)
+
+              const { biosData7, biosData9, gameData } = this.ui
+
+              console.log("reloading bioses")
+              this.emulator.reload_bios(biosData7, biosData9)
+
+              if (this.ui.firmware != null) {
+                this.emulator.reload_firmware(this.ui.firmware)
+              } else {
+                this.emulator.hle_firmware()
+              }
+
+              console.log("reloaded firmware")
+
+              this.emulator.reload_rom(gameData)
+
+              console.log("reloaded rom")
+
+              this.emulator.set_pause(false)
+              console.log("loaded save state successfully")
+            }
+          }
+
+
           break
       }
     })

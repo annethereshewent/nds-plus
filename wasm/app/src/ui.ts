@@ -351,9 +351,6 @@ export class UI {
         this.emulator = new WasmEmulator(this.biosData7, this.biosData9, undefined, this.gameData)
       }
 
-      this.joypad = new Joypad(this.emulator, this.wasm)
-      this.joypad.addKeyboardEventListeners()
-
       const gameCode = this.emulator.get_game_code()
 
       const entry = gameDbJson.filter((entry: GameDBEntry) => entry.game_code == gameCode)[0]
@@ -365,6 +362,8 @@ export class UI {
         gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
 
         if (gameName != null) {
+          this.joypad = new Joypad(this.emulator, this.wasm, gameName.replace(".nds", ""), this)
+          this.joypad.addKeyboardEventListeners()
           const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
           if (saveEntry != null && saveEntry.data != null) {

@@ -3,7 +3,7 @@ use std::{cmp::Reverse, collections::HashMap};
 use priority_queue::PriorityQueue;
 use serde::{Deserialize, Serialize};
 
-#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Copy, Clone, Debug)]
 pub enum EventType {
   HBlank,
   HDraw,

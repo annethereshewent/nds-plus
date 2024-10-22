@@ -4,7 +4,7 @@ extern crate console_error_panic_hook;
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE},
+    bus::{backup_file::BackupFile, cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE},
     registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}
   },
   gpu::registers::power_control_register1::PowerControlRegister1,
@@ -66,7 +66,7 @@ impl WasmEmulator {
     firmware_bytes: Option<Box<[u8]>>,
     game_data: &[u8],
   ) -> Self {
-    // panic::set_hook(Box::new(console_error_panic_hook::hook));
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
     let mic_samples = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
@@ -253,9 +253,48 @@ impl WasmEmulator {
   pub fn create_save_state(&mut self) -> *const u8 {
     let buf = self.nds.create_save_state();
 
+    console_log!("{:?}", self.nds.bus.borrow().scheduler.queue_serialized);
+
     self.state_len = buf.len();
 
     buf.as_ptr()
+  }
+
+  pub fn reload_bios(&mut self, bios7: &[u8], bios9: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    bus.arm7.bios7 = bios7.to_vec();
+    bus.arm9.bios9 = bios9.to_vec();
+
+    console_log!("bios7 len = {} bios9 len = {}", bios7.len(), bios9.len());
+  }
+
+  pub fn reload_firmware(&mut self, firmware: &[u8]) {
+    let bytes = firmware.to_vec();
+
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    let backup_file = Some(
+      BackupFile::new(
+        None,
+        Some(bytes),
+        firmware.len(),
+        false
+      )
+    );
+
+    bus.spi = SPI::new(backup_file);
+  }
+
+  pub fn hle_firmware(&mut self) {
+    let ref mut bus = self.nds.bus.borrow_mut();
+
+    bus.spi = SPI::new(None);
+  }
+
+  pub fn reload_rom(&mut self, rom: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.cartridge.rom = rom.to_vec();
   }
 
   pub fn save_state_length(&self) -> usize {
@@ -275,6 +314,8 @@ impl WasmEmulator {
 
     {
       let ref mut bus = *self.nds.bus.borrow_mut();
+
+      console_log!("{:?}", bus.scheduler.queue_serialized);
 
       // recreate mic and audio buffers
       bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
@@ -301,8 +342,12 @@ impl WasmEmulator {
     let start_cycles = self.nds.arm7_cpu.cycles;
 
     while !(frame_finished) {
-      frame_finished = self.nds.step();
-      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - start_cycles;
+      if !self.nds.paused {
+        frame_finished = self.nds.step();
+        self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - start_cycles;
+      } else {
+        break;
+      }
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();

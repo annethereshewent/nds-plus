@@ -54,36 +54,16 @@ export class DsDatabase {
     return new Promise((resolve, reject) => {
       const objectStore = this.getObjectStore()
 
-      const request = objectStore?.get(gameName)
+      const request = objectStore?.put({
+        gameName,
+        data
+      })
 
       if (request != null) {
-        request.onsuccess = (event) => {
-          const existing = request.result
-
-          if (existing != null) {
-            existing.data = data
-
-            const request = objectStore?.put(existing)
-
-            if (request != null) {
-              request.onsuccess = (event) => resolve(true)
-              request.onerror = (event) => resolve(false)
-            } else {
-              resolve(false)
-            }
-          } else {
-            const saveEntry: SaveEntry = {
-              gameName,
-              data
-            }
-            const request = objectStore?.add(saveEntry)
-
-            if (request != null) {
-              request.onsuccess = (event) => resolve(true)
-              request.onerror = (event) => resolve(false)
-            }
-          }
-        }
+        request.onsuccess = (event) => resolve(true)
+        request.onerror = (event) => resolve(false)
+      } else {
+        resolve(false)
       }
     })
   }
