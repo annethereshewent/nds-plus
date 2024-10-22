@@ -99,6 +99,26 @@ export class UI {
     }
   }
 
+  closeStatesModal() {
+    this.emulator?.set_pause(false)
+    const statesModal = document.getElementById("states-modal")
+
+    if (statesModal != null) {
+      statesModal.className = "modal hide"
+      statesModal.style.display = "none"
+    }
+  }
+
+  closeSavesModal() {
+    this.emulator?.set_pause(false)
+    const savesModal = document.getElementById("saves-modal")
+
+    if (savesModal != null) {
+      savesModal.className = "modal hide"
+      savesModal.style.display = "none"
+    }
+  }
+
   addEventListeners() {
     document.getElementById("bios7-button")?.addEventListener("click", () => document.getElementById("bios7-input")?.click())
     document.getElementById("bios9-button")?.addEventListener("click", () => document.getElementById("bios9-input")?.click())
@@ -114,6 +134,8 @@ export class UI {
     document.getElementById("save-management")?.addEventListener("click", () => this.displaySavesModal())
     document.getElementById("save-states")?.addEventListener("click", () => this.displaySaveStatesModal())
     document.getElementById("create-save-state")?.addEventListener("click", () => this.createSaveState())
+    document.getElementById("states-modal-close")?.addEventListener("click", () => this.closeStatesModal())
+    document.getElementById("hide-saves-modal")?.addEventListener("click", () => this.closeSavesModal())
 
     document.addEventListener("keydown", (e) => {
       if (e.key == 'Escape') {
@@ -161,6 +183,12 @@ export class UI {
 
         spanEl.innerText = `Save on ${now.format("lll")}`
 
+        const loadStateEl = document.createElement("i")
+
+        loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
+
+        loadStateEl.addEventListener("click", () => this.loadState(entry.states[stateName].state))
+
         const deleteStateEl = document.createElement('i')
 
         deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
@@ -169,6 +197,7 @@ export class UI {
 
         divEl.append(spanEl)
         divEl.append(deleteStateEl)
+        divEl.append(loadStateEl)
         statesList.append(divEl)
       }
     }
@@ -182,6 +211,8 @@ export class UI {
     if (saves != null && savesModal != null && savesList != null) {
       savesModal.className = "modal show"
       savesModal.style.display = "block"
+
+      this.emulator?.set_pause(true)
 
       savesList.innerHTML = ''
       for (const save of saves) {
@@ -246,6 +277,7 @@ export class UI {
       const statesList = document.getElementById("states-list")
 
       if (modal != null && statesList != null) {
+        this.emulator?.set_pause(true)
         modal.style.display = "block"
 
         statesList.innerHTML = ""
@@ -264,8 +296,6 @@ export class UI {
 
             if (stateEntry.stateName != "quick_save.state") {
               const timestamp = parseInt(stateEntry.stateName.replace(".state", ""))
-
-              console.log(timestamp)
 
               const time = moment.unix(timestamp).format('lll')
 
@@ -350,13 +380,12 @@ export class UI {
 
         this.emulator.reload_rom(gameData)
 
-        this.emulator.set_pause(false)
+        this.closeStatesModal()
       }
     }
   }
 
   async deleteState(stateName: string) {
-    this.emulator?.set_pause(true)
     if (confirm("Are you sure you want to delete this save state?")) {
       await this.db.deleteState(this.gameName, stateName)
 
@@ -364,7 +393,6 @@ export class UI {
 
       el?.remove()
     }
-    this.emulator?.set_pause(false)
   }
 
   async deleteSave(gameName: string) {
