@@ -20,8 +20,19 @@
   cursor: pointer;
   margin-right: 10px;
 }
+.states-list {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+}
 .state-buttons {
   margin-top: 20px;
+}
+.state-image {
+  width: 128px;
+  height: 192px;
+  margin-right: 20px;
+  margin-bottom: 20px;
 }
 .fa-solid {
   font-size: 20px;

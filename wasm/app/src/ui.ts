@@ -2,7 +2,7 @@ import init, { WasmEmulator, InitOutput } from "../../pkg/ds_emulator_wasm.js"
 import JSZip from 'jszip'
 import { DsDatabase } from "./ds_database"
 import { Audio } from "./audio"
-import { Renderer } from "./renderer"
+import { Renderer, SCREEN_HEIGHT, SCREEN_WIDTH } from "./renderer"
 import { Joypad } from "./joypad"
 import wasmData from '../../pkg/ds_emulator_wasm_bg.wasm'
 import { CloudService } from "./cloud_service"
@@ -170,35 +170,20 @@ export class UI {
     const stateName = `${now.unix()}.state`
 
     if (this.gameName != "") {
-      const entry = await this.stateManager?.createSaveState(stateName)
+      const imageBytes = this.getImageBytes()
+      const entry = await this.stateManager?.createSaveState(imageBytes, stateName)
       const statesList = document.getElementById("states-list")
 
       if (entry != null && statesList != null) {
-        const divEl = document.createElement("div")
+        const imgEl = document.createElement("img")
 
-        divEl.className = "save-entry"
-        divEl.id = stateName
+        imgEl.className = "state-image"
 
-        const spanEl = document.createElement("span")
+        const imgBlob = new Blob([imageBytes])
 
-        spanEl.innerText = `Save on ${now.format("lll")}`
+        imgEl.src = URL.createObjectURL(imgBlob)
 
-        const loadStateEl = document.createElement("i")
-
-        loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
-
-        loadStateEl.addEventListener("click", () => this.loadState(entry.states[stateName].state))
-
-        const deleteStateEl = document.createElement('i')
-
-        deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
-
-        deleteStateEl.addEventListener('click', () => this.deleteState(stateName))
-
-        divEl.append(spanEl)
-        divEl.append(deleteStateEl)
-        divEl.append(loadStateEl)
-        statesList.append(divEl)
+        statesList.append(imgEl)
       }
     }
   }
@@ -287,40 +272,50 @@ export class UI {
         if (entry != null) {
           for (const key in entry.states) {
             const stateEntry = entry.states[key]
-            const divEl = document.createElement("div")
+            const imgEl = document.createElement("img")
 
-            divEl.className = "save-entry"
-            divEl.id = stateEntry.stateName
+            imgEl.className = "state-image"
 
-            const spanEl = document.createElement("span")
+            const imgBlob = new Blob([stateEntry.imageBytes])
 
-            if (stateEntry.stateName != "quick_save.state") {
-              const timestamp = parseInt(stateEntry.stateName.replace(".state", ""))
+            imgEl.src = URL.createObjectURL(imgBlob)
 
-              const time = moment.unix(timestamp).format('lll')
+            statesList.append(imgEl)
+            // const stateEntry = entry.states[key]
+            // const divEl = document.createElement("div")
 
-              spanEl.innerText = `Save on ${time}`
-            } else {
-              spanEl.innerText = "Quick save"
-            }
+            // divEl.className = "save-entry"
+            // divEl.id = stateEntry.stateName
 
-            const loadStateEl = document.createElement("i")
+            // const spanEl = document.createElement("span")
 
-            loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
+            // if (stateEntry.stateName != "quick_save.state") {
+            //   const timestamp = parseInt(stateEntry.stateName.replace(".state", ""))
 
-            loadStateEl.addEventListener("click", () => this.loadState(stateEntry.state))
+            //   const time = moment.unix(timestamp).format('lll')
 
-            const deleteStateEl = document.createElement("i")
+            //   spanEl.innerText = `Save on ${time}`
+            // } else {
+            //   spanEl.innerText = "Quick save"
+            // }
 
-            deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
+            // const loadStateEl = document.createElement("i")
 
-            deleteStateEl.addEventListener("click", () => this.deleteState(stateEntry.stateName))
+            // loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
 
-            divEl.append(spanEl)
-            divEl.append(deleteStateEl)
-            divEl.append(loadStateEl)
+            // loadStateEl.addEventListener("click", () => this.loadState(stateEntry.state))
 
-            statesList.append(divEl)
+            // const deleteStateEl = document.createElement("i")
+
+            // deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
+
+            // deleteStateEl.addEventListener("click", () => this.deleteState(stateEntry.stateName))
+
+            // divEl.append(spanEl)
+            // divEl.append(deleteStateEl)
+            // divEl.append(loadStateEl)
+
+            // statesList.append(divEl)
           }
         }
       }
@@ -339,6 +334,84 @@ export class UI {
     if (entry != null) {
       this.generateFile(entry.data!!, gameName)
     }
+  }
+
+  getImageBytes() {
+    if (this.emulator != null && this.wasm != null) {
+      let imageBytes = new Uint8Array()
+      if (this.emulator.is_top_a()) {
+        imageBytes = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+
+        const lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+
+        imageBytes = new Uint8Array([...imageBytes, ...lowerScreen])
+      } else {
+        imageBytes = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+
+        const lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+
+        imageBytes = new Uint8Array([...imageBytes, ...lowerScreen])
+      }
+
+
+      // finally add header and dimension information
+      let headerArray = new Uint8Array(70)
+      const view = new DataView(headerArray.buffer)
+
+      // see https://stackoverflow.com/questions/50620821/uint8array-to-image-in-javascript
+      const headerSize = 70
+
+      view.setUint16(0, 0x424D, false)
+      // File size.
+      view.setUint32(2, imageBytes.length, true)
+      // Offset to image data.
+      view.setUint32(10, headerSize, true)
+      // Size of BITMAPINFOHEADER
+      view.setUint32(14, 40, true);
+      // Width
+      view.setInt32(18, SCREEN_WIDTH, true)
+      // Height (signed because negative values flip
+      // the image vertically).
+      view.setInt32(22, -(SCREEN_HEIGHT * 2), true)
+      // Number of color planes (colors stored as
+      // separate images; must be 1).
+      view.setUint16(26, 1, true)
+      // Bits per pixel.
+      view.setUint16(28, 32, true)
+      // Compression method, 6 = BI_ALPHABITFIELDS
+      view.setUint32(30, 6, true)
+      // Image size in bytes.
+      view.setUint32(34, SCREEN_WIDTH * (SCREEN_HEIGHT * 2) * 4, true)
+      // Horizontal resolution, pixels per metre.
+      // This will be unused in this situation.
+      view.setInt32(38, 10000, true)
+      // Vertical resolution, pixels per metre.
+      view.setInt32(42, 10000, true)
+      // Number of colors. 0 = all
+      view.setUint32(46, 0, true)
+      // Number of important colors. 0 = all
+      view.setUint32(50, 0, true)
+
+      // color table. Because we used BI_ALPHABITFIELDS
+      // this specifies the R, G, B and A bitmasks.
+
+      // Red
+      view.setUint32(54, 0x000000FF, true)
+      // Green
+      view.setUint32(58, 0x0000FF00, true)
+      // Blue
+      view.setUint32(62, 0x00FF0000, true)
+      // Alpha
+      view.setUint32(66, 0xFF000000, true)
+
+      headerArray = new Uint8Array(view.buffer)
+
+      imageBytes = new Uint8Array([...headerArray, ...imageBytes])
+
+      return imageBytes
+    }
+
+    return new Uint8Array()
   }
 
   generateFile(data: Uint8Array, gameName: string) {

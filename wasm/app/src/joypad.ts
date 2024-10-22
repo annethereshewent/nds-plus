@@ -122,7 +122,8 @@ export class Joypad {
   }
 
   createSaveState() {
-    this.stateManager.createSaveState()
+    const imageBytes = this.ui.getImageBytes()
+    this.stateManager.createSaveState(imageBytes)
     .then(() => {
       this.ui.showStateCreatedNotification()
     })

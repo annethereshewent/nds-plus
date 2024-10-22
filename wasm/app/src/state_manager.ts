@@ -22,13 +22,13 @@ export class StateManager {
     this.db = db
   }
 
-  async createSaveState(stateName = "quick_save.state"): Promise<GameStateEntry|null> {
+  async createSaveState(imageBytes: Uint8Array, stateName = "quick_save.state"): Promise<GameStateEntry|null> {
     if (this.wasm != null) {
       const data = new Uint8Array(this.wasm.memory.buffer, this.emulator.create_save_state(), this.emulator.save_state_length())
 
       return new Promise((resolve, reject) => {
         zlib(data, { level: 2 }, async (err, compressed) => {
-          const entry = await this.db.createSaveState(this.gameName, compressed, stateName)
+          const entry = await this.db.createSaveState(this.gameName, compressed, imageBytes, stateName)
           resolve(entry)
         })
       })
