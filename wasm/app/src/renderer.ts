@@ -62,7 +62,7 @@ export class Renderer {
         this.cancelRendering()
         errorCallback()
 
-        console.log(e)
+        throw new Error("an error occurred while emulating.")
       }
 
       this.frames++
