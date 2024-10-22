@@ -182,6 +182,12 @@ export class UI {
   }
 
   displayMenu(stateName: string) {
+    const menus = document.getElementsByClassName("state-menu") as HTMLCollectionOf<HTMLElement>
+
+    for (const menu of menus) {
+      menu.style.display = "none"
+    }
+
     const menu = document.getElementById(`menu-${stateName}`)
 
     if (menu != null) {
@@ -234,8 +240,8 @@ export class UI {
 
 
     divEl.append(imgEl)
-    divEl.append(menu)
     divEl.append(pEl)
+    divEl.append(menu)
 
     statesList.append(divEl)
 
@@ -374,7 +380,6 @@ export class UI {
       const view = new DataView(headerArray.buffer)
 
       // see https://stackoverflow.com/questions/50620821/uint8array-to-image-in-javascript
-
 
       // magic value
       view.setUint16(0, 0x424D, false)

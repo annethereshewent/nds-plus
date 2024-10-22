@@ -30,8 +30,8 @@
     margin-right: 20px;
     margin-bottom: 20px;
     .state-menu {
-      position: relative;
-      margin-top: -50px;
+      position: fixed;
+      margin-top: -75px;
       margin-left: 20px;
       background: var(--bulma-card-background-color) !important;
       z-index: 999;
