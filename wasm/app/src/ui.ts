@@ -368,13 +368,15 @@ export class UI {
       }
 
 
+      const headerSize = 70
       // finally add header and dimension information
-      let headerArray = new Uint8Array(70)
+      let headerArray = new Uint8Array(headerSize)
       const view = new DataView(headerArray.buffer)
 
       // see https://stackoverflow.com/questions/50620821/uint8array-to-image-in-javascript
-      const headerSize = 70
 
+
+      // magic value
       view.setUint16(0, 0x424D, false)
       // File size.
       view.setUint32(2, imageBytes.length, true)
