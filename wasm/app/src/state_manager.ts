@@ -1,18 +1,24 @@
 
 import { InitOutput, WasmEmulator } from '../../pkg/ds_emulator_wasm'
-import { StateDatabase } from './state_database'
+import { DsDatabase } from './ds_database'
 import { zlib, unzlib } from 'fflate'
 
 export class StateManager {
   emulator: WasmEmulator
   wasm: InitOutput|null = null
-  db = new StateDatabase()
+  db: DsDatabase
   gameName: string
 
-  constructor(emulator: WasmEmulator, wasm: InitOutput|null, gameName: string) {
+  constructor(
+    emulator: WasmEmulator,
+    wasm: InitOutput|null,
+    gameName: string,
+    db: DsDatabase
+  ) {
     this.emulator = emulator
     this.wasm = wasm
     this.gameName = gameName
+    this.db = db
   }
 
   async createSaveState() {

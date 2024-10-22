@@ -40,9 +40,14 @@ export class Joypad {
   private stateManager: StateManager
   private ui: UI
 
-  constructor(emulator: WasmEmulator, wasm: InitOutput|null, gameName: string, ui: UI) {
+  constructor(
+    emulator: WasmEmulator,
+    wasm: InitOutput|null,
+    gameName: string,
+    ui: UI
+  ) {
     this.emulator = emulator
-    this.stateManager = new StateManager(emulator, wasm, gameName)
+    this.stateManager = new StateManager(emulator, wasm, gameName, ui.db)
     this.ui = ui
   }
 
@@ -86,7 +91,6 @@ export class Joypad {
     if (gamepad?.buttons[L2_BUTTON].pressed && !this.updatingSaveState) {
       this.updatingSaveState = true
 
-      console.log('creating save state')
       this.createSaveState()
 
       setTimeout(() => {
@@ -97,7 +101,6 @@ export class Joypad {
     if (gamepad?.buttons[R2_BUTTON].pressed && !this.updatingSaveState) {
       this.updatingSaveState = true
 
-      console.log('loading save state')
       this.loadSaveState()
 
       setTimeout(() => {
