@@ -28,6 +28,9 @@ export class StateManager {
 
       return new Promise((resolve, reject) => {
         zlib(data, { level: 2 }, async (err, compressed) => {
+          if (err) {
+            console.log(err)
+          }
           const entry = await this.db.createSaveState(this.gameName, compressed, imageBytes, stateName)
           resolve(entry)
         })
@@ -40,6 +43,9 @@ export class StateManager {
   async decompress(compressed: Uint8Array): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       unzlib(compressed, (err, data) => {
+        if (err) {
+          console.log(err)
+        }
         resolve(data)
       })
     })
