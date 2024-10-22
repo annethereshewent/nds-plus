@@ -220,12 +220,12 @@ export class UI {
 
     const menu = document.createElement("aside")
 
-    menu.className = "menu hide"
+    menu.className = "state-menu hide"
     menu.id = `menu-${entry.stateName}`
     menu.style.display = "none"
 
     menu.innerHTML = `
-      <ul class="menu-list">
+      <ul class="state-menu-list">
         <li><a id="load-${entry.stateName}">Load state</a></li>
         <li><a id="delete-${entry.stateName}">Delete state</a></li>
       </ul>

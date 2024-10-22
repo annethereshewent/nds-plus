@@ -29,6 +29,20 @@
     width: 128px;
     margin-right: 20px;
     margin-bottom: 20px;
+    .state-menu {
+      position: relative;
+      margin-top: -50px;
+      margin-left: 20px;
+      background: var(--bulma-card-background-color) !important;
+      z-index: 999;
+      border: 1px solid black;
+      box-shadow: var(--bulma-card-shadow);
+      .state-menu-list {
+        li {
+          list-style-type: none;
+        }
+      }
+    }
     .state-image {
       width: 128px;
       height: 192px;
