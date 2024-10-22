@@ -1,7 +1,7 @@
 
 import { InitOutput, WasmEmulator } from '../../pkg/ds_emulator_wasm'
 import { StateDatabase } from './state_database'
-import { zlibSync, unzlibSync } from 'fflate'
+import { zlib, unzlib } from 'fflate'
 
 export class StateManager {
   emulator: WasmEmulator
@@ -19,21 +19,28 @@ export class StateManager {
     if (this.wasm != null) {
       const data = new Uint8Array(this.wasm.memory.buffer, this.emulator.create_save_state(), this.emulator.save_state_length())
 
-      const compressed = zlibSync(data, { level: 9 })
+      return new Promise((resolve, reject) => {
+        zlib(data, { level: 2 }, async (err, compressed) => {
+          await this.db.createSaveState(this.gameName, compressed)
+          resolve(true)
+        })
+      })
 
-      this.db.createSaveState(this.gameName, compressed)
     }
   }
 
   async loadSaveState(): Promise<Uint8Array|null> {
     const compressed = await this.db.loadSaveState(this.gameName)
 
-    if (compressed != null) {
-      const data = unzlibSync(compressed)
+    return new Promise((resolve, reject) => {
+      if (compressed != null) {
+        unzlib(compressed, (err, data) => {
+          resolve(data)
+        })
+      } else {
+        resolve(null)
+      }
+    })
 
-      return data
-    }
-
-    return null
   }
 }

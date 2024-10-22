@@ -66,7 +66,7 @@ impl WasmEmulator {
     firmware_bytes: Option<Box<[u8]>>,
     game_data: &[u8],
   ) -> Self {
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    // panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
     let mic_samples = Arc::new(Mutex::new(vec![0; 2048].into_boxed_slice()));
@@ -253,8 +253,6 @@ impl WasmEmulator {
   pub fn create_save_state(&mut self) -> *const u8 {
     let buf = self.nds.create_save_state();
 
-    console_log!("{:?}", self.nds.bus.borrow().scheduler.queue_serialized);
-
     self.state_len = buf.len();
 
     buf.as_ptr()
@@ -264,8 +262,6 @@ impl WasmEmulator {
     let ref mut bus = *self.nds.bus.borrow_mut();
     bus.arm7.bios7 = bios7.to_vec();
     bus.arm9.bios9 = bios9.to_vec();
-
-    console_log!("bios7 len = {} bios9 len = {}", bios7.len(), bios9.len());
   }
 
   pub fn reload_firmware(&mut self, firmware: &[u8]) {
@@ -314,8 +310,6 @@ impl WasmEmulator {
 
     {
       let ref mut bus = *self.nds.bus.borrow_mut();
-
-      console_log!("{:?}", bus.scheduler.queue_serialized);
 
       // recreate mic and audio buffers
       bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();

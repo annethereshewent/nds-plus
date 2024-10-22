@@ -170,7 +170,6 @@ export class Joypad {
 
               const { biosData7, biosData9, gameData } = this.ui
 
-              console.log("reloading bioses")
               this.emulator.reload_bios(biosData7, biosData9)
 
               if (this.ui.firmware != null) {
@@ -179,14 +178,9 @@ export class Joypad {
                 this.emulator.hle_firmware()
               }
 
-              console.log("reloaded firmware")
-
               this.emulator.reload_rom(gameData)
 
-              console.log("reloaded rom")
-
               this.emulator.set_pause(false)
-              console.log("loaded save state successfully")
             }
           }
 
