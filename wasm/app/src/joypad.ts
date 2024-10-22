@@ -35,6 +35,7 @@ export class Joypad {
   private useControlStick = false
 
   private updatingControlStick = false
+  private updatingSaveState = false
 
   private stateManager: StateManager
   private ui: UI
@@ -81,6 +82,28 @@ export class Joypad {
         this.updatingControlStick = false
       }, 300)
     }
+
+    if (gamepad?.buttons[L2_BUTTON].pressed && !this.updatingSaveState) {
+      this.updatingSaveState = true
+
+      console.log('creating save state')
+      this.createSaveState()
+
+      setTimeout(() => {
+        this.updatingSaveState = false
+      }, 300)
+    }
+
+    if (gamepad?.buttons[R2_BUTTON].pressed && !this.updatingSaveState) {
+      this.updatingSaveState = true
+
+      console.log('loading save state')
+      this.loadSaveState()
+
+      setTimeout(() => {
+        this.updatingSaveState = false
+      }, 300)
+    }
   }
 
   updateAnalogStatus() {
@@ -100,8 +123,40 @@ export class Joypad {
     }
   }
 
+  createSaveState() {
+    this.stateManager.createSaveState()
+    .then(() => {
+      this.ui.showStateCreatedNotification()
+    })
+  }
+
+  async loadSaveState() {
+    if (this.ui.biosData7 != null && this.ui.biosData9 != null && this.ui.gameData != null) {
+      this.emulator.set_pause(true)
+      const data = await this.stateManager.loadSaveState()
+
+      if (data != null) {
+        this.emulator.load_save_state(data)
+
+        const { biosData7, biosData9, gameData } = this.ui
+
+        this.emulator.reload_bios(biosData7, biosData9)
+
+        if (this.ui.firmware != null) {
+          this.emulator.reload_firmware(this.ui.firmware)
+        } else {
+          this.emulator.hle_firmware()
+        }
+
+        this.emulator.reload_rom(gameData)
+
+        this.emulator.set_pause(false)
+      }
+    }
+  }
+
   addKeyboardEventListeners() {
-    document.addEventListener("keydown", async (e) => {
+    document.addEventListener("keydown", (e) => {
       switch (e.key) {
         case "w":
           this.keyboardButtons[UP] = true
@@ -152,39 +207,11 @@ export class Joypad {
           break
         case "F5":
           e.preventDefault()
-
-          this.stateManager.createSaveState()
-          .then(() => {
-            this.ui.showStateCreatedNotification()
-          })
-
+          this.createSaveState()
           break
         case "F7":
           e.preventDefault()
-          if (this.ui.biosData7 != null && this.ui.biosData9 != null && this.ui.gameData != null) {
-            this.emulator.set_pause(true)
-            const data = await this.stateManager.loadSaveState()
-
-            if (data != null) {
-              this.emulator.load_save_state(data)
-
-              const { biosData7, biosData9, gameData } = this.ui
-
-              this.emulator.reload_bios(biosData7, biosData9)
-
-              if (this.ui.firmware != null) {
-                this.emulator.reload_firmware(this.ui.firmware)
-              } else {
-                this.emulator.hle_firmware()
-              }
-
-              this.emulator.reload_rom(gameData)
-
-              this.emulator.set_pause(false)
-            }
-          }
-
-
+          this.loadSaveState()
           break
       }
     })
