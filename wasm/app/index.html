@@ -9,42 +9,62 @@
 
     <div id="navbar-main" class="navbar-menu">
       <div class="navbar-start">
-        <div class="navbar-item">
-          <div class="buttons">
-            <button id="bios7-button" class="button is-warning is-small">
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link">
+            Optional files
+          </a>
+          <div class="navbar-dropdown">
+            <button id="bios7-button" class="navbar-item is-text is-warning is-small">
               <i class="fa-solid fa-upload"></i>
               Load Arm7 Bios
             </button>
-            <button id="bios9-button" class="button is-warning is-small">
+            <button id="bios9-button" class="navbar-item is-text is-warning is-small">
               <i class="fa-solid fa-upload"></i>
               Load Arm9 Bios
             </button>
-            <button id="firmware-button" class="button is-warning is-small">
+            <button id="firmware-button" class="navbar-item is-text is-warning is-small">
               <i class="fa-solid fa-upload"></i>
-              Load Firmware
+              Load firmware
             </button>
+          </div>
+        </div>
+        <div class="navbar-item">
+          <div class="buttons">
             <button id="game-button" class="button is-primary is-small">
               <i class="fa-solid fa-upload"></i>
               Load Game
             </button>
           </div>
         </div>
-      </div>
-      <div class="navbar-end">
         <div class="navbar-item">
           <div class="buttons">
             <button id="cloud-button" class="button is-info is-small">
               <i class="fa-solid fa-cloud"></i>
-              Google Cloud Sign In
+              Google Sign In
             </button>
             <button id="cloud-logged-in" class="button is-danger is-small">
               <i class="fa-solid fa-cloud"></i>
-              Log out of Google Cloud
+              Log out of Google
             </span>
-            <button id="manage-saves-button" class="button is-success is-small">
-              <i class="fa-solid fa-save"></i>
-              Manage Saves
-            </button>
+          </div>
+        </div>
+      </div>
+      <div class="navbar-end">
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link">
+            Saves
+          </a>
+
+          <div class="navbar-dropdown">
+            <a id="save-states" class="navbar-item">
+              Save States
+            </a>
+            <a id="save-management" class="navbar-item">
+              Save Management
+            </a>
+          </div>
+        </div>
+        <div class="navbar-item">
             <button class="button is-info is-small" onclick="displayHelpModal()">
               <i class="fa-solid fa-circle-info"></i>
               Help
@@ -140,7 +160,7 @@
     </div>
   </div>
   <div id="saves-modal" class="modal hide">
-    <div class="modal-bacoground"></div>
+    <div class="modal-background"></div>
     <div class="modal-content">
       <div class="card">
         <header class="card-header">
@@ -150,6 +170,25 @@
           <div class="content">
             <button class="modal-close" aria-label="close" onclick="hideSavesModal()">Close</button>
             <div id="saves-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="states-modal" class="modal hide">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+      <div class="card">
+        <header class="card-header">
+          <p class="card-header-title">Save States</p>
+        </header>
+        <div class="card-content">
+          <div class="content">
+            <button class="modal-close" aria-label="close" onclick="hideStatesModal()">Close</button>
+            <div id="states-list"></div>
+            <div class="state-buttons">
+              <button id="create-save-state" class="button is-success is-small">Create new save state</button>
+            </div>
           </div>
         </div>
       </div>
@@ -179,6 +218,13 @@
 
       savesModal.className = "modal hide"
       savesModal.style = "display: none"
+    }
+
+    function hideStatesModal() {
+      const statesModal = document.getElementById("states-modal")
+
+      statesModal.className = "modal hide"
+      statesModal.style = "display: none"
     }
   </script>
 </body>

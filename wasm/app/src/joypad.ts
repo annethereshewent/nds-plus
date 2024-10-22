@@ -40,14 +40,9 @@ export class Joypad {
   private stateManager: StateManager
   private ui: UI
 
-  constructor(
-    emulator: WasmEmulator,
-    wasm: InitOutput|null,
-    gameName: string,
-    ui: UI
-  ) {
+  constructor(emulator: WasmEmulator, ui: UI) {
     this.emulator = emulator
-    this.stateManager = new StateManager(emulator, wasm, gameName, ui.db)
+    this.stateManager = ui.stateManager!
     this.ui = ui
   }
 

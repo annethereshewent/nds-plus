@@ -116,7 +116,7 @@ export class DsDatabase {
     return objectStore
   }
 
-  createSaveState(gameName: string, data: Uint8Array, stateName: string = "quick_save.state"): Promise<boolean> {
+  createSaveState(gameName: string, data: Uint8Array, stateName: string = "quick_save.state"): Promise<GameStateEntry|null> {
     const objectStore = this.getStateObjectStore()
 
     const request = objectStore?.get(gameName)
@@ -138,7 +138,7 @@ export class DsDatabase {
               state.state = data
             }
             objectStore?.put(existing)
-            resolve(true)
+            resolve(existing)
           } else {
             // create a new state
             const gameStateEntry: GameStateEntry = {
@@ -153,16 +153,54 @@ export class DsDatabase {
 
             objectStore?.put(gameStateEntry)
 
-            resolve(true)
+            resolve(gameStateEntry)
           }
         }
 
+        request.onerror = () => resolve(null)
+      } else {
+        resolve(null)
+      }
+    })
+  }
+
+  deleteState(gameName: string, stateName: string) {
+    const objectStore = this.getStateObjectStore()
+
+    const request = objectStore?.get(gameName)
+    return new Promise((resolve, reject) => {
+      if (request != null) {
+        request.onsuccess = (e) => {
+
+
+          const entry = request.result as GameStateEntry
+
+          delete(entry.states[stateName])
+
+          objectStore?.put(entry)
+
+          resolve(true)
+        }
         request.onerror = () => resolve(false)
       } else {
         resolve(false)
       }
     })
+  }
 
+  getSaveStates(gameName: string): Promise<GameStateEntry|null> {
+    return new Promise((resolve ,reject) => {
+      const objectStore = this.getStateObjectStore()
+
+      const request = objectStore?.get(gameName)
+
+      if (request != null) {
+        request.onsuccess = (e) => resolve(request.result as GameStateEntry)
+        request.onerror = (e) => resolve(null)
+      } else {
+        resolve(null)
+      }
+    })
   }
 
   loadSaveState(gameName: string, stateName: string = "quick_save.state"): Promise<Uint8Array|null> {

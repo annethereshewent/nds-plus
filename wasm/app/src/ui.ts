@@ -6,6 +6,8 @@ import { Renderer } from "./renderer"
 import { Joypad } from "./joypad"
 import wasmData from '../../pkg/ds_emulator_wasm_bg.wasm'
 import { CloudService } from "./cloud_service"
+import { StateManager } from "./state_manager"
+import moment from 'moment'
 
 interface GameDBEntry {
   save_type: string,
@@ -21,6 +23,7 @@ export class UI {
   firmware: Uint8Array|null = null
 
   fileName = ""
+  gameName = ""
   gameData: Uint8Array|null = null
 
   updateSaveGame = ""
@@ -39,6 +42,8 @@ export class UI {
   joypad: Joypad|null = null
 
   cloudService = new CloudService()
+
+  stateManager: StateManager|null = null
 
   constructor() {
     const bios7Json = JSON.parse(localStorage.getItem("ds_bios7") || "null")
@@ -106,11 +111,15 @@ export class UI {
     document.getElementById("game-input")?.addEventListener("change", (e) => this.handleGameChange(e))
     document.getElementById("save-input")?.addEventListener("change", (e) => this.handleSaveChange(e))
 
-    document.getElementById("manage-saves-button")?.addEventListener("click", () => this.displaySavesModal())
+    document.getElementById("save-management")?.addEventListener("click", () => this.displaySavesModal())
+    document.getElementById("save-states")?.addEventListener("click", () => this.displaySaveStatesModal())
+    document.getElementById("create-save-state")?.addEventListener("click", () => this.createSaveState())
 
     document.addEventListener("keydown", (e) => {
       if (e.key == 'Escape') {
         e.preventDefault()
+
+        this.emulator?.set_pause(false)
         const helpModal = document.getElementById("help-modal")
         if (helpModal != null) {
           helpModal.className = "modal hide"
@@ -122,8 +131,47 @@ export class UI {
           savesModal.className = "modal hide"
           savesModal.style.display = "none"
         }
+
+        const statesModal = document.getElementById("states-modal")
+
+        if (statesModal != null) {
+          statesModal.className = "modal hide"
+          statesModal.style.display = "none"
+        }
       }
     })
+  }
+
+  async createSaveState() {
+    const now = moment()
+
+    const stateName = `${now.unix()}.state`
+
+    if (this.gameName != "") {
+      const entry = await this.stateManager?.createSaveState(stateName)
+      const statesList = document.getElementById("states-list")
+
+      if (entry != null && statesList != null) {
+        const divEl = document.createElement("div")
+
+        divEl.className = "save-entry"
+        divEl.id = stateName
+
+        const spanEl = document.createElement("span")
+
+        spanEl.innerText = `Save on ${now.format("lll")}`
+
+        const deleteStateEl = document.createElement('i')
+
+        deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
+
+        deleteStateEl.addEventListener('click', () => this.deleteState(stateName))
+
+        divEl.append(spanEl)
+        divEl.append(deleteStateEl)
+        statesList.append(divEl)
+      }
+    }
   }
 
   async displaySavesModal() {
@@ -192,6 +240,63 @@ export class UI {
     }
   }
 
+  async displaySaveStatesModal() {
+    if (this.gameName != "") {
+      const modal = document.getElementById("states-modal")
+      const statesList = document.getElementById("states-list")
+
+      if (modal != null && statesList != null) {
+        modal.style.display = "block"
+
+        statesList.innerHTML = ""
+
+        const entry = await this.db.getSaveStates(this.gameName)
+
+        if (entry != null) {
+          for (const key in entry.states) {
+            const stateEntry = entry.states[key]
+            const divEl = document.createElement("div")
+
+            divEl.className = "save-entry"
+            divEl.id = stateEntry.stateName
+
+            const spanEl = document.createElement("span")
+
+            if (stateEntry.stateName != "quick_save.state") {
+              const timestamp = parseInt(stateEntry.stateName.replace(".state", ""))
+
+              console.log(timestamp)
+
+              const time = moment.unix(timestamp).format('lll')
+
+              spanEl.innerText = `Save on ${time}`
+            } else {
+              spanEl.innerText = "Quick save"
+            }
+
+            const loadStateEl = document.createElement("i")
+
+            loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
+
+            loadStateEl.addEventListener("click", () => this.loadState(stateEntry.state))
+
+            const deleteStateEl = document.createElement("i")
+
+            deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
+
+            deleteStateEl.addEventListener("click", () => this.deleteState(stateEntry.stateName))
+
+            divEl.append(spanEl)
+            divEl.append(deleteStateEl)
+            divEl.append(loadStateEl)
+
+            statesList.append(divEl)
+          }
+        }
+      }
+    }
+  }
+
   updateSave(gameName: string) {
     this.updateSaveGame = gameName
 
@@ -226,10 +331,40 @@ export class UI {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 
-  async deleteLocalSave(gameName: string) {
-    const result = await this.db.deleteSave(gameName)
+  async loadState(compressed: Uint8Array) {
+    if (this.biosData7 != null && this.biosData9 != null && this.gameData != null) {
+      this.emulator?.set_pause(true)
+      if (this.emulator != null && this.stateManager != null) {
+        const data = await this.stateManager.decompress(compressed)
+        this.emulator.load_save_state(data)
 
+        const { biosData7, biosData9, gameData } = this
 
+        this.emulator.reload_bios(biosData7, biosData9)
+
+        if (this.firmware != null) {
+          this.emulator.reload_firmware(this.firmware)
+        } else {
+          this.emulator.hle_firmware()
+        }
+
+        this.emulator.reload_rom(gameData)
+
+        this.emulator.set_pause(false)
+      }
+    }
+  }
+
+  async deleteState(stateName: string) {
+    this.emulator?.set_pause(true)
+    if (confirm("Are you sure you want to delete this save state?")) {
+      await this.db.deleteState(this.gameName, stateName)
+
+      const el = document.getElementById(stateName)
+
+      el?.remove()
+    }
+    this.emulator?.set_pause(false)
   }
 
   async deleteSave(gameName: string) {
@@ -310,6 +445,7 @@ export class UI {
       if (gameName != null) {
         gameName = gameName.substring(0, gameName.lastIndexOf('.'))
 
+
         if (!this.cloudService.usingCloud) {
           this.db.setSave(gameName, saveData)
         } else {
@@ -362,7 +498,9 @@ export class UI {
         gameName = gameName?.substring(0, gameName.lastIndexOf('.'))
 
         if (gameName != null) {
-          this.joypad = new Joypad(this.emulator, this.wasm, gameName.replace(".nds", ""), this)
+          this.gameName = gameName
+          this.stateManager = new StateManager(this.emulator!, this.wasm, this.gameName, this.db)
+          this.joypad = new Joypad(this.emulator, this)
           this.joypad.addKeyboardEventListeners()
           const saveEntry = !this.cloudService.usingCloud ? await this.db.getSave(gameName) : await this.cloudService.getSave(gameName)
 
