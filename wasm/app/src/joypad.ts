@@ -130,27 +130,9 @@ export class Joypad {
   }
 
   async loadSaveState() {
-    if (this.ui.biosData7 != null && this.ui.biosData9 != null && this.ui.gameData != null) {
-      this.emulator.set_pause(true)
-      const data = await this.stateManager.loadSaveState()
-
-      if (data != null) {
-        this.emulator.load_save_state(data)
-
-        const { biosData7, biosData9, gameData } = this.ui
-
-        this.emulator.reload_bios(biosData7, biosData9)
-
-        if (this.ui.firmware != null) {
-          this.emulator.reload_firmware(this.ui.firmware)
-        } else {
-          this.emulator.hle_firmware()
-        }
-
-        this.emulator.reload_rom(gameData)
-
-        this.emulator.set_pause(false)
-      }
+    const data = await this.stateManager.loadSaveState()
+    if (data != null) {
+      this.ui.loadSaveState(data)
     }
   }
 

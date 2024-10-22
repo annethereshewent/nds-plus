@@ -246,7 +246,7 @@ export class UI {
     statesList.append(divEl)
 
     // finally add event listeners for loading and deleting states
-    document.getElementById(`load-${entry.stateName}`)?.addEventListener("click", () => this.loadState(entry.state))
+    document.getElementById(`load-${entry.stateName}`)?.addEventListener("click", () => this.loadSaveState(entry.state))
     document.getElementById(`delete-${entry.stateName}`)?.addEventListener("click", () => this.deleteState(entry.stateName))
   }
 
@@ -455,7 +455,7 @@ export class UI {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 
-  async loadState(compressed: Uint8Array) {
+  async loadSaveState(compressed: Uint8Array) {
     if (this.biosData7 != null && this.biosData9 != null && this.gameData != null) {
       this.emulator?.set_pause(true)
       if (this.emulator != null && this.stateManager != null) {
