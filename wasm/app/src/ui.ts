@@ -8,6 +8,7 @@ import wasmData from '../../pkg/ds_emulator_wasm_bg.wasm'
 import { CloudService } from "./cloud_service"
 import { StateManager } from "./state_manager"
 import moment from 'moment'
+import { StateEntry } from "./game_state_entry.js"
 
 interface GameDBEntry {
   save_type: string,
@@ -175,17 +176,72 @@ export class UI {
       const statesList = document.getElementById("states-list")
 
       if (entry != null && statesList != null) {
-        const imgEl = document.createElement("img")
-
-        imgEl.className = "state-image"
-
-        const imgBlob = new Blob([imageBytes])
-
-        imgEl.src = URL.createObjectURL(imgBlob)
-
-        statesList.append(imgEl)
+        this.addStateElement(statesList, entry.states[stateName])
       }
     }
+  }
+
+  displayMenu(stateName: string) {
+    const menu = document.getElementById(`menu-${stateName}`)
+
+    if (menu != null) {
+      if (menu.style.display == "block") {
+        menu.style.display = "none"
+      } else {
+        menu.style.display = "block"
+      }
+    }
+  }
+
+  addStateElement(statesList: HTMLElement, entry: StateEntry) {
+    const divEl = document.createElement("div")
+
+    divEl.className = "state-element"
+    divEl.id = entry.stateName
+
+    divEl.addEventListener("click", () => this.displayMenu(entry.stateName))
+
+    const imgEl = document.createElement("img")
+
+    imgEl.className = "state-image"
+
+    const imgBlob = new Blob([entry.imageBytes])
+
+    const pEl = document.createElement("p")
+
+    if (entry.stateName != "quick_save.state") {
+
+      const timestamp = parseInt(entry.stateName.replace(".state", ""))
+
+      pEl.innerText = `Save on ${moment.unix(timestamp).format("lll")}`
+    } else {
+      pEl.innerText = "Quick save"
+    }
+
+    const menu = document.createElement("aside")
+
+    menu.className = "menu hide"
+    menu.id = `menu-${entry.stateName}`
+    menu.style.display = "none"
+
+    menu.innerHTML = `
+      <ul class="menu-list">
+        <li><a id="load-${entry.stateName}">Load state</a></li>
+        <li><a id="delete-${entry.stateName}">Delete state</a></li>
+      </ul>
+    `
+    imgEl.src = URL.createObjectURL(imgBlob)
+
+
+    divEl.append(imgEl)
+    divEl.append(menu)
+    divEl.append(pEl)
+
+    statesList.append(divEl)
+
+    // finally add event listeners for loading and deleting states
+    document.getElementById(`load-${entry.stateName}`)?.addEventListener("click", () => this.loadState(entry.state))
+    document.getElementById(`delete-${entry.stateName}`)?.addEventListener("click", () => this.deleteState(entry.stateName))
   }
 
   async displaySavesModal() {
@@ -272,50 +328,8 @@ export class UI {
         if (entry != null) {
           for (const key in entry.states) {
             const stateEntry = entry.states[key]
-            const imgEl = document.createElement("img")
 
-            imgEl.className = "state-image"
-
-            const imgBlob = new Blob([stateEntry.imageBytes])
-
-            imgEl.src = URL.createObjectURL(imgBlob)
-
-            statesList.append(imgEl)
-            // const stateEntry = entry.states[key]
-            // const divEl = document.createElement("div")
-
-            // divEl.className = "save-entry"
-            // divEl.id = stateEntry.stateName
-
-            // const spanEl = document.createElement("span")
-
-            // if (stateEntry.stateName != "quick_save.state") {
-            //   const timestamp = parseInt(stateEntry.stateName.replace(".state", ""))
-
-            //   const time = moment.unix(timestamp).format('lll')
-
-            //   spanEl.innerText = `Save on ${time}`
-            // } else {
-            //   spanEl.innerText = "Quick save"
-            // }
-
-            // const loadStateEl = document.createElement("i")
-
-            // loadStateEl.className = "fa-solid fa-file-arrow-down save-icon load-state"
-
-            // loadStateEl.addEventListener("click", () => this.loadState(stateEntry.state))
-
-            // const deleteStateEl = document.createElement("i")
-
-            // deleteStateEl.className = "fa-solid fa-x save-icon delete-save"
-
-            // deleteStateEl.addEventListener("click", () => this.deleteState(stateEntry.stateName))
-
-            // divEl.append(spanEl)
-            // divEl.append(deleteStateEl)
-            // divEl.append(loadStateEl)
-
-            // statesList.append(divEl)
+            this.addStateElement(statesList, stateEntry)
           }
         }
       }
