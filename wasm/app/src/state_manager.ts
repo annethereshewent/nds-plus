@@ -1,7 +1,7 @@
 
 import { InitOutput, WasmEmulator } from '../../pkg/ds_emulator_wasm'
 import { DsDatabase } from './ds_database'
-import { zlib, unzlib } from 'fflate'
+import { zlib, unzlib  } from 'fflate'
 import { GameStateEntry } from './game_state_entry'
 
 export class StateManager {
@@ -30,9 +30,11 @@ export class StateManager {
         zlib(data, { level: 2 }, async (err, compressed) => {
           if (err) {
             console.log(err)
+            resolve(null)
+          } else {
+            const entry = await this.db.createSaveState(this.gameName, compressed, imageBytes, stateName)
+            resolve(entry)
           }
-          const entry = await this.db.createSaveState(this.gameName, compressed, imageBytes, stateName)
-          resolve(entry)
         })
       })
     }
@@ -40,15 +42,21 @@ export class StateManager {
     return null
   }
 
-  async decompress(compressed: Uint8Array): Promise<Uint8Array> {
+  async decompress(compressed: Uint8Array): Promise<Uint8Array|null> {
     return new Promise((resolve, reject) => {
       unzlib(compressed, (err, data) => {
         if (err) {
           console.log(err)
+          resolve(null)
+        } else  {
+          resolve(data)
         }
-        resolve(data)
       })
     })
+  }
+
+  async getSaveStateData(stateName: string = "quick_save.state") {
+    return await this.db.loadSaveState(this.gameName, stateName)
   }
 
   async loadSaveState(stateName = "quick_save.state"): Promise<Uint8Array|null> {

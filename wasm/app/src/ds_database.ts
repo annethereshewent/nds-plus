@@ -4,7 +4,7 @@ import { GameStateEntry, StateEntry } from "./game_state_entry"
 export class DsDatabase {
   db: IDBDatabase|null = null
   constructor() {
-    const request = indexedDB.open("ds_saves", 3)
+    const request = indexedDB.open("ds_saves", 4)
 
     request.onsuccess = (event) => {
       this.db = request.result
@@ -13,8 +13,13 @@ export class DsDatabase {
     request.onupgradeneeded = (event) => {
       this.db = request.result
 
-      // this.db.createObjectStore("saves", { keyPath: "gameName" })
-      this.db.createObjectStore("save_states", { keyPath: "gameName" })
+      // so dumb you have to do this lmao
+      if (!this.db.objectStoreNames.contains("saves")) {
+        this.db.createObjectStore("saves", { keyPath: "gameName" })
+      }
+      if (!this.db.objectStoreNames.contains("save_states")) {
+        this.db.createObjectStore("save_states", { keyPath: "gameName" })
+      }
     }
 
     request.onerror = (event) => {

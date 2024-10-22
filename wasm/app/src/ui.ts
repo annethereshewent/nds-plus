@@ -381,7 +381,7 @@ export class UI {
 
       // see https://stackoverflow.com/questions/50620821/uint8array-to-image-in-javascript
 
-      // magic value
+     // BM magic number.
       view.setUint16(0, 0x424D, false)
       // File size.
       view.setUint32(2, imageBytes.length, true)
@@ -460,19 +460,22 @@ export class UI {
       this.emulator?.set_pause(true)
       if (this.emulator != null && this.stateManager != null) {
         const data = await this.stateManager.decompress(compressed)
-        this.emulator.load_save_state(data)
 
-        const { biosData7, biosData9, gameData } = this
+        if (data != null) {
+          this.emulator.load_save_state(data)
 
-        this.emulator.reload_bios(biosData7, biosData9)
+          const { biosData7, biosData9, gameData } = this
 
-        if (this.firmware != null) {
-          this.emulator.reload_firmware(this.firmware)
-        } else {
-          this.emulator.hle_firmware()
+          this.emulator.reload_bios(biosData7, biosData9)
+
+          if (this.firmware != null) {
+            this.emulator.reload_firmware(this.firmware)
+          } else {
+            this.emulator.hle_firmware()
+          }
+
+          this.emulator.reload_rom(gameData)
         }
-
-        this.emulator.reload_rom(gameData)
 
         this.closeStatesModal()
       }

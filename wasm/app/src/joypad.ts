@@ -130,7 +130,8 @@ export class Joypad {
   }
 
   async loadSaveState() {
-    const data = await this.stateManager.loadSaveState()
+    const data = await this.stateManager.getSaveStateData()
+
     if (data != null) {
       this.ui.loadSaveState(data)
     }
