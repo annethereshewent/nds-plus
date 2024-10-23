@@ -142,6 +142,7 @@ export class DsDatabase {
               }
             } else {
               state.state = data
+              state.imageBytes = imageBytes
             }
             objectStore?.put(existing)
             resolve(existing)

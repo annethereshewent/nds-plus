@@ -1,6 +1,5 @@
-import { InitOutput, WasmEmulator } from "../../pkg/ds_emulator_wasm"
+import { WasmEmulator } from "../../pkg/ds_emulator_wasm"
 import { ButtonEvent } from "../../pkg/ds_emulator_wasm"
-import { DsDatabase } from "./ds_database"
 import { StateManager } from "./state_manager"
 import { UI } from "./ui"
 
