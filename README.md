@@ -4,13 +4,21 @@ This is a DS emulator written in Rust! Binaries for Mac and Windows are now avai
 
 ## Getting Started
 
+### Desktop clients
+
 Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments for Windows: `.\nds-plus.exe <path to rom file> [--start-bios]`
 
 For MacOS, use `./nds-plus <path to rom file> [--start-bios]`
 
+bios and firmware are completely optional, however, if using `--start-bios` see below:
+
 The optional `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
 
 To use your own files, simply copy the bios files to the root path of the app, and make sure they are named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively.
+
+### iOS app
+
+iOS app `.ipa` is now available under releases! To use the iOS app, you will need to find a way to sideload the app onto your device. There are many ways to do so, one of the most popular is to use <a href="https://altstore.io/">AltStore</a> to do the work for you. Like other versions of the app, bios and firmware are completely optional.
 
 ### Web Client
 
@@ -18,7 +26,7 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 
 ## Features
 
-- Support for web, desktop, and iOS (coming soon)
+- Support for desktop, web, and iOS
 - Ability to use control stick in Super Mario 64 DS
 - Save management on the web and iOS clients: upload, download and delete saves
 - Cloud saves are now available! Store saves in Google drive for use anywhere on both desktop, web, and iOS.
@@ -29,7 +37,6 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 
 - Texture/rendering issues
 - CPU bugs
-- iOS app (almost complete!)
 - Debugging tools
 
 ## Controls
