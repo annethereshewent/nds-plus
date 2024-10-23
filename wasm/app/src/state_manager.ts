@@ -2,7 +2,7 @@
 import { InitOutput, WasmEmulator } from '../../pkg/ds_emulator_wasm'
 import { DsDatabase } from './ds_database'
 import { zlib, unzlib  } from 'fflate'
-import { GameStateEntry } from './game_state_entry'
+import { StateEntry } from './game_state_entry'
 
 export class StateManager {
   emulator: WasmEmulator
@@ -22,7 +22,7 @@ export class StateManager {
     this.db = db
   }
 
-  async createSaveState(imageUrl: string, stateName = "quick_save.state"): Promise<GameStateEntry|null> {
+  async createSaveState(imageUrl: string, stateName = "quick_save.state", isUpdate: boolean = false): Promise<StateEntry|null> {
     if (this.wasm != null) {
       const data = new Uint8Array(this.wasm.memory.buffer, this.emulator.create_save_state(), this.emulator.save_state_length())
 
@@ -32,7 +32,7 @@ export class StateManager {
             console.log(err)
             resolve(null)
           } else {
-            const entry = await this.db.createSaveState(this.gameName, compressed, imageUrl, stateName)
+            const entry = await this.db.createSaveState(this.gameName, compressed, imageUrl, stateName, isUpdate)
             resolve(entry)
           }
         })

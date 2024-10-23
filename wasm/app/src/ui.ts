@@ -177,7 +177,7 @@ export class UI {
         const statesList = document.getElementById("states-list")
 
         if (entry != null && statesList != null) {
-          this.addStateElement(statesList, entry.states[stateName])
+          this.addStateElement(statesList, entry)
         }
       }
     }
@@ -187,7 +187,9 @@ export class UI {
     const menus = document.getElementsByClassName("state-menu") as HTMLCollectionOf<HTMLElement>
 
     for (const menu of menus) {
-      menu.style.display = "none"
+      if (menu.id.indexOf(stateName) == -1) {
+        menu.style.display = "none"
+      }
     }
 
     const menu = document.getElementById(`menu-${stateName}`)
@@ -212,8 +214,10 @@ export class UI {
     const imgEl = document.createElement("img")
 
     imgEl.className = "state-image"
+    imgEl.id = `image-${entry.stateName}`
 
     const pEl = document.createElement("p")
+    pEl.id = `title-${entry.stateName}`
 
     if (entry.stateName != "quick_save.state") {
 
@@ -232,6 +236,7 @@ export class UI {
 
     menu.innerHTML = `
       <ul class="state-menu-list">
+        <li><a id="update-${entry.stateName}">Update State</a></li>
         <li><a id="load-${entry.stateName}">Load state</a></li>
         <li><a id="delete-${entry.stateName}">Delete state</a></li>
       </ul>
@@ -246,8 +251,37 @@ export class UI {
     statesList.append(divEl)
 
     // finally add event listeners for loading and deleting states
+    document.getElementById(`update-${entry.stateName}`)?.addEventListener("click", () => this.updateState(entry))
     document.getElementById(`load-${entry.stateName}`)?.addEventListener("click", () => this.loadSaveState(entry.state))
     document.getElementById(`delete-${entry.stateName}`)?.addEventListener("click", () => this.deleteState(entry.stateName))
+  }
+
+  updateStateElement(entry: StateEntry, oldStateName: string) {
+    const image = document.getElementById(`image-${oldStateName}`) as HTMLImageElement
+    const title = document.getElementById(`title-${oldStateName}`)
+
+    if (image != null && title != null) {
+      image.src = entry.imageUrl
+
+      if (entry.stateName != "quick_save.state") {
+        const timestamp = parseInt(entry.stateName.replace(".state", ""))
+
+        title.innerText = `Save on ${moment.unix(timestamp).format("lll")}`
+      }
+    }
+  }
+
+  async updateState(entry: StateEntry) {
+    const imageUrl = this.getImageUrl()
+    if (imageUrl != null && this.stateManager != null) {
+      const oldStateName = entry.stateName
+
+      const updateEntry = await this.stateManager.createSaveState(imageUrl, entry.stateName, true)
+
+      if (updateEntry != null) {
+        this.updateStateElement(updateEntry, oldStateName)
+      }
+    }
   }
 
   async displaySavesModal() {
@@ -358,19 +392,16 @@ export class UI {
 
   getImageUrl() {
     if (this.emulator != null && this.wasm != null) {
-      let imageBytes = new Uint8Array()
+      let upperScreen = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+      let lowerScreen = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT * 4)
       if (this.emulator.is_top_a()) {
-        imageBytes = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+        upperScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
 
-        const lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
-
-        imageBytes = new Uint8Array([...imageBytes, ...lowerScreen])
+        lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
       } else {
-        imageBytes = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
+        upperScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_b_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
 
-        const lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
-
-        imageBytes = new Uint8Array([...imageBytes, ...lowerScreen])
+        lowerScreen = new Uint8Array(this.wasm.memory.buffer, this.emulator.get_engine_a_picture_pointer(), SCREEN_WIDTH * SCREEN_HEIGHT * 4)
       }
 
 
@@ -381,11 +412,26 @@ export class UI {
       if (context != null) {
         const imageData = context.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 2)
 
-        for (let i = 0; i < imageBytes.length; i += 4) {
-          imageData.data[i] = imageBytes[i]
-          imageData.data[i + 1] = imageBytes[i + 1]
-          imageData.data[i + 2] = imageBytes[i + 2]
-          imageData.data[i + 3] = imageBytes[i + 3]
+        let screenIndex = 0
+        for (let i = 0; i < upperScreen.length * 2; i += 4) {
+          if (i < upperScreen.length) {
+            imageData.data[i] = upperScreen[screenIndex]
+            imageData.data[i + 1] = upperScreen[screenIndex + 1]
+            imageData.data[i + 2] = upperScreen[screenIndex + 2]
+            imageData.data[i + 3] = upperScreen[screenIndex + 3]
+
+            screenIndex += 4
+          } else {
+            if (screenIndex >= upperScreen.length) {
+              screenIndex = 0
+            }
+            imageData.data[i] = lowerScreen[screenIndex]
+            imageData.data[i + 1] = lowerScreen[screenIndex + 1]
+            imageData.data[i + 2] = lowerScreen[screenIndex + 2]
+            imageData.data[i + 3] = lowerScreen[screenIndex + 3]
+
+            screenIndex += 4
+          }
         }
 
         context.putImageData(imageData, 0, 0)

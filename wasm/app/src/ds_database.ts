@@ -1,5 +1,6 @@
 import { SaveEntry } from "./save_entry"
 import { GameStateEntry, StateEntry } from "./game_state_entry"
+import moment from "moment"
 
 export class DsDatabase {
   db: IDBDatabase|null = null
@@ -121,7 +122,7 @@ export class DsDatabase {
     return objectStore
   }
 
-  createSaveState(gameName: string, data: Uint8Array, imageUrl: string, stateName: string = "quick_save.state"): Promise<GameStateEntry|null> {
+  createSaveState(gameName: string, data: Uint8Array, imageUrl: string, stateName: string = "quick_save.state", isUpdate: boolean = false): Promise<StateEntry|null> {
     const objectStore = this.getStateObjectStore()
 
     const request = objectStore?.get(gameName)
@@ -133,19 +134,30 @@ export class DsDatabase {
 
           if (existing != null) {
             let state = existing.states[stateName]
-
+            let clonedState = null
             if (state == null) {
-              existing.states[stateName] = {
+              state = {
                 stateName,
                 state: data,
                 imageUrl
               }
+              existing.states[stateName] = state
             } else {
               state.state = data
               state.imageUrl = imageUrl
+
+              if (isUpdate && state.stateName != "quick_save.state") {
+                // "update" the state by removing the old state and naming a new one with a more current name.
+                clonedState = { ...state }
+                clonedState.stateName = `${moment().unix()}.state`
+
+                delete existing.states[state.stateName]
+
+                existing.states[clonedState.stateName] = clonedState
+              }
             }
             objectStore?.put(existing)
-            resolve(existing)
+            resolve(isUpdate && state.stateName != "quick_save.state" ? clonedState : state)
           } else {
             // create a new state
             const gameStateEntry: GameStateEntry = {
@@ -153,15 +165,17 @@ export class DsDatabase {
               states: {}
             }
 
-            gameStateEntry.states[stateName] = {
+            const state = {
               stateName,
               state: data,
               imageUrl
             }
 
+            gameStateEntry.states[stateName] = state
+
             objectStore?.put(gameStateEntry)
 
-            resolve(gameStateEntry)
+            resolve(state)
           }
         }
 
