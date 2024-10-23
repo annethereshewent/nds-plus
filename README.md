@@ -23,7 +23,7 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 - Save management on the web and iOS clients: upload, download and delete saves
 - Cloud saves are now available! Store saves in Google drive for use anywhere on both desktop, web, and iOS.
 - Support for microphone on desktop, web, and iOS
-- Save states on web, desktop, and iOS
+- Save states on desktop, web, and iOS
 
 ## TODO
 
