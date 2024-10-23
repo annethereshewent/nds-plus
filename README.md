@@ -66,6 +66,9 @@ Joypad (tested on PS5 controller, should be similar on Xbox/other similar contro
 - *R BUtton*: R1
 - *Select*: Select
 - *Start*: Start
+
+Controller Hotkeys:
+
 - *R3 Button*: Toggle control stick mode on/off (For Super Mario 64 DS)
 - *L2 Button*: Quick save state
 - *R2 Button*: Quick load state
