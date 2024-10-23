@@ -121,7 +121,7 @@ export class DsDatabase {
     return objectStore
   }
 
-  createSaveState(gameName: string, data: Uint8Array, imageBytes: Uint8Array, stateName: string = "quick_save.state"): Promise<GameStateEntry|null> {
+  createSaveState(gameName: string, data: Uint8Array, imageUrl: string, stateName: string = "quick_save.state"): Promise<GameStateEntry|null> {
     const objectStore = this.getStateObjectStore()
 
     const request = objectStore?.get(gameName)
@@ -138,11 +138,11 @@ export class DsDatabase {
               existing.states[stateName] = {
                 stateName,
                 state: data,
-                imageBytes
+                imageUrl
               }
             } else {
               state.state = data
-              state.imageBytes = imageBytes
+              state.imageUrl = imageUrl
             }
             objectStore?.put(existing)
             resolve(existing)
@@ -156,7 +156,7 @@ export class DsDatabase {
             gameStateEntry.states[stateName] = {
               stateName,
               state: data,
-              imageBytes
+              imageUrl
             }
 
             objectStore?.put(gameStateEntry)

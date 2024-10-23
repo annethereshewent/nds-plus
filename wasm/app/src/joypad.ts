@@ -121,11 +121,13 @@ export class Joypad {
   }
 
   createSaveState() {
-    const imageBytes = this.ui.getImageBytes()
-    this.stateManager.createSaveState(imageBytes)
-    .then(() => {
-      this.ui.showStateCreatedNotification()
-    })
+    const imageUrl = this.ui.getImageUrl()
+    if (imageUrl != null) {
+      this.stateManager.createSaveState(imageUrl)
+      .then(() => {
+        this.ui.showStateCreatedNotification()
+      })
+    }
   }
 
   async loadSaveState() {

@@ -9,25 +9,6 @@
 
     <div id="navbar-main" class="navbar-menu">
       <div class="navbar-start">
-        <div class="navbar-item has-dropdown is-hoverable">
-          <a class="navbar-link">
-            Optional files
-          </a>
-          <div class="navbar-dropdown">
-            <button id="bios7-button" class="navbar-item is-text is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load ARM7 BIOS
-            </button>
-            <button id="bios9-button" class="navbar-item is-text is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load ARM9 BIOS
-            </button>
-            <button id="firmware-button" class="navbar-item is-text is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load firmware
-            </button>
-          </div>
-        </div>
         <div class="navbar-item">
           <div class="buttons">
             <button id="game-button" class="button is-primary is-small">
@@ -46,6 +27,25 @@
               <i class="fa-solid fa-cloud"></i>
               Log out of Google
             </span>
+          </div>
+        </div>
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link">
+            Optional files
+          </a>
+          <div class="navbar-dropdown">
+            <button id="bios7-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load ARM7 BIOS
+            </button>
+            <button id="bios9-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load ARM9 BIOS
+            </button>
+            <button id="firmware-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load firmware
+            </button>
           </div>
         </div>
       </div>
@@ -102,6 +102,9 @@
     </div>
     <div>
       <canvas width="256" height="192" id="bottom-canvas" />
+    </div>
+    <div>
+      <canvas width="256" height="384" id="save-state-canvas" style="display: none" />
     </div>
   </div>
   <div id="help-modal" class="modal hide">

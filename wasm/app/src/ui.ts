@@ -171,12 +171,14 @@ export class UI {
     const stateName = `${now.unix()}.state`
 
     if (this.gameName != "") {
-      const imageBytes = this.getImageBytes()
-      const entry = await this.stateManager?.createSaveState(imageBytes, stateName)
-      const statesList = document.getElementById("states-list")
+      const imageUrl = this.getImageUrl()
+      if (imageUrl != null) {
+        const entry = await this.stateManager?.createSaveState(imageUrl, stateName)
+        const statesList = document.getElementById("states-list")
 
-      if (entry != null && statesList != null) {
-        this.addStateElement(statesList, entry.states[stateName])
+        if (entry != null && statesList != null) {
+          this.addStateElement(statesList, entry.states[stateName])
+        }
       }
     }
   }
@@ -211,8 +213,6 @@ export class UI {
 
     imgEl.className = "state-image"
 
-    const imgBlob = new Blob([entry.imageBytes])
-
     const pEl = document.createElement("p")
 
     if (entry.stateName != "quick_save.state") {
@@ -236,7 +236,7 @@ export class UI {
         <li><a id="delete-${entry.stateName}">Delete state</a></li>
       </ul>
     `
-    imgEl.src = URL.createObjectURL(imgBlob)
+    imgEl.src = entry.imageUrl
 
 
     divEl.append(imgEl)
@@ -356,7 +356,7 @@ export class UI {
     }
   }
 
-  getImageBytes() {
+  getImageUrl() {
     if (this.emulator != null && this.wasm != null) {
       let imageBytes = new Uint8Array()
       if (this.emulator.is_top_a()) {
@@ -374,65 +374,27 @@ export class UI {
       }
 
 
-      const headerSize = 70
-      // finally add header and dimension information
-      let headerArray = new Uint8Array(headerSize)
-      const view = new DataView(headerArray.buffer)
+      const canvas = document.getElementById("save-state-canvas") as HTMLCanvasElement
 
-      // see https://stackoverflow.com/questions/50620821/uint8array-to-image-in-javascript
+      const context = canvas.getContext("2d")
 
-     // BM magic number.
-      view.setUint16(0, 0x424D, false)
-      // File size.
-      view.setUint32(2, imageBytes.length, true)
-      // Offset to image data.
-      view.setUint32(10, headerSize, true)
-      // Size of BITMAPINFOHEADER
-      view.setUint32(14, 40, true);
-      // Width
-      view.setInt32(18, SCREEN_WIDTH, true)
-      // Height (signed because negative values flip
-      // the image vertically).
-      view.setInt32(22, -(SCREEN_HEIGHT * 2), true)
-      // Number of color planes (colors stored as
-      // separate images; must be 1).
-      view.setUint16(26, 1, true)
-      // Bits per pixel.
-      view.setUint16(28, 32, true)
-      // Compression method, 6 = BI_ALPHABITFIELDS
-      view.setUint32(30, 6, true)
-      // Image size in bytes.
-      view.setUint32(34, SCREEN_WIDTH * (SCREEN_HEIGHT * 2) * 4, true)
-      // Horizontal resolution, pixels per metre.
-      // This will be unused in this situation.
-      view.setInt32(38, 10000, true)
-      // Vertical resolution, pixels per metre.
-      view.setInt32(42, 10000, true)
-      // Number of colors. 0 = all
-      view.setUint32(46, 0, true)
-      // Number of important colors. 0 = all
-      view.setUint32(50, 0, true)
+      if (context != null) {
+        const imageData = context.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 2)
 
-      // color table. Because we used BI_ALPHABITFIELDS
-      // this specifies the R, G, B and A bitmasks.
+        for (let i = 0; i < imageBytes.length; i += 4) {
+          imageData.data[i] = imageBytes[i]
+          imageData.data[i + 1] = imageBytes[i + 1]
+          imageData.data[i + 2] = imageBytes[i + 2]
+          imageData.data[i + 3] = imageBytes[i + 3]
+        }
 
-      // Red
-      view.setUint32(54, 0x000000FF, true)
-      // Green
-      view.setUint32(58, 0x0000FF00, true)
-      // Blue
-      view.setUint32(62, 0x00FF0000, true)
-      // Alpha
-      view.setUint32(66, 0xFF000000, true)
+        context.putImageData(imageData, 0, 0)
 
-      headerArray = new Uint8Array(view.buffer)
-
-      imageBytes = new Uint8Array([...headerArray, ...imageBytes])
-
-      return imageBytes
+        return canvas.toDataURL()
+      }
     }
 
-    return new Uint8Array()
+    return null
   }
 
   generateFile(data: Uint8Array, gameName: string) {

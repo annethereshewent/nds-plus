@@ -6,5 +6,5 @@ export interface GameStateEntry {
 export interface StateEntry {
   stateName: string,
   state: Uint8Array,
-  imageBytes: Uint8Array
+  imageUrl: string
 }
