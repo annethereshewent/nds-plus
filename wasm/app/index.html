@@ -11,58 +11,81 @@
       <div class="navbar-start">
         <div class="navbar-item">
           <div class="buttons">
-            <button id="bios7-button" class="button is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load Arm7 Bios
-            </button>
-            <button id="bios9-button" class="button is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load Arm9 Bios
-            </button>
-            <button id="firmware-button" class="button is-warning is-small">
-              <i class="fa-solid fa-upload"></i>
-              Load Firmware
-            </button>
             <button id="game-button" class="button is-primary is-small">
               <i class="fa-solid fa-upload"></i>
-              Load Game
+              Load game
+            </button>
+          </div>
+        </div>
+        <div class="navbar-item">
+          <div class="buttons">
+            <button id="cloud-button" class="button is-info is-small">
+              <i class="fa-solid fa-cloud"></i>
+              Google sign In
+            </button>
+            <button id="cloud-logged-in" class="button is-danger is-small">
+              <i class="fa-solid fa-cloud"></i>
+              Log out of Google
+            </span>
+          </div>
+        </div>
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link">
+            Optional files
+          </a>
+          <div class="navbar-dropdown">
+            <button id="bios7-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load ARM7 BIOS
+            </button>
+            <button id="bios9-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load ARM9 BIOS
+            </button>
+            <button id="firmware-button" class="navbar-item is-text is-warning is-small">
+              <i class="fa-solid fa-upload"></i>
+              Load firmware
             </button>
           </div>
         </div>
       </div>
       <div class="navbar-end">
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link">
+            Saves
+          </a>
+
+          <div class="navbar-dropdown">
+            <a id="save-states" class="navbar-item">
+              Save States
+            </a>
+            <a id="save-management" class="navbar-item">
+              Save management
+            </a>
+          </div>
+        </div>
         <div class="navbar-item">
-          <div class="buttons">
-            <button id="cloud-button" class="button is-info is-small">
-              <i class="fa-solid fa-cloud"></i>
-              Google Cloud Sign In
-            </button>
-            <button id="cloud-logged-in" class="button is-danger is-small">
-              <i class="fa-solid fa-cloud"></i>
-              Log out of Google Cloud
-            </span>
-            <button id="manage-saves-button" class="button is-success is-small">
-              <i class="fa-solid fa-save"></i>
-              Manage Saves
-            </button>
             <button class="button is-info is-small" onclick="displayHelpModal()">
               <i class="fa-solid fa-circle-info"></i>
               Help
             </button>
             <button class="button is-danger is-small" onclick="enterFullscreen()">
               <i class="fa-solid fa-expand"></i>
-              Full Screen
+              Full screen
             </button>
           </div>
         </div>
       </div>
     </div>
   </nav>
+  <div id="state-notification" class="notification is-success">
+    Save state created successfully!
+  </div>
   <div class="card analog-mode">
     <div class="card-content">
       <div class="content" id="analog-mode">
         <div id="analog-mode-status"></div>
-        <span><label>Analog Mode:</label> Off</span>
+        <span><label>Analog mode:</label> Off</span>
       </div>
     </div>
   </div>
@@ -80,6 +103,9 @@
     <div>
       <canvas width="256" height="192" id="bottom-canvas" />
     </div>
+    <div>
+      <canvas width="256" height="384" id="save-state-canvas" style="display: none" />
+    </div>
   </div>
   <div id="help-modal" class="modal hide">
     <div class="modal-background"></div>
@@ -87,7 +113,7 @@
       <div class="card">
         <header class="card-header">
           <p class="card-header-title">
-            NDS+ Help
+            NDS+ help
           </p>
         </header>
         <div class="card-content">
@@ -117,7 +143,11 @@
               <li><label>Select:</label> Tab</li>
               <li><label>Start:</label> Enter</li>
             </ul>
-            <h3>PS5 Controller:</h3>
+            <h3>Keyboard hotkeys</h3>
+            <li><label>T key</label> Toggle control stick mode on/off</li>
+            <li><label>F5</label> Quick save state</li>
+            <li><label>F7</label> Quick load state</li>
+            <h3>PS5 controller:</h3>
             <ul>
               <li><label>Directions:</label> Control pad</li>
               <li><label>A button:</label> Circle button</li>
@@ -129,6 +159,10 @@
               <li><label>Select:</label> Share</li>
               <li><label>Start:</label> Options</li>
             </ul>
+            <h3>PS5 hotkeys</h3>
+            <li><label>Right thumbstick:</label> Toggle control stick mode on/off</li>
+            <li><label>L2:</label> Quick save state</li>
+            <li><label>R2:</label> Quick load state</li>
 
             <p>Emulator written by <a href="https://www.github.com/annethereshewent">annethereshewent</a></p>
           </div>
@@ -137,7 +171,7 @@
     </div>
   </div>
   <div id="saves-modal" class="modal hide">
-    <div class="modal-bacoground"></div>
+    <div class="modal-background"></div>
     <div class="modal-content">
       <div class="card">
         <header class="card-header">
@@ -145,8 +179,27 @@
         </header>
         <div class="card-content">
           <div class="content">
-            <button class="modal-close" aria-label="close" onclick="hideSavesModal()">Close</button>
+            <button id="hide-saves-modal" class="modal-close" aria-label="close">Close</button>
             <div id="saves-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="states-modal" class="modal hide">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+      <div class="card">
+        <header class="card-header">
+          <p class="card-header-title">Save states</p>
+        </header>
+        <div class="card-content">
+          <div class="content">
+            <button id="states-modal-close" class="modal-close" aria-label="close">Close</button>
+            <div id="states-list"></div>
+            <div class="state-buttons">
+              <button id="create-save-state" class="button is-success is-small">Create new save state</button>
+            </div>
           </div>
         </div>
       </div>

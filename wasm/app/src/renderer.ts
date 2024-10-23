@@ -2,8 +2,8 @@ import { InitOutput, WasmEmulator } from "../../pkg/ds_emulator_wasm"
 
 const FPS_INTERVAL = 1000 / 60
 
-const SCREEN_WIDTH = 256
-const SCREEN_HEIGHT = 192
+export const SCREEN_WIDTH = 256
+export const SCREEN_HEIGHT = 192
 
 export class Renderer {
   emulator: WasmEmulator

@@ -4,7 +4,7 @@ extern crate console_error_panic_hook;
 use ds_emulator::{
   apu::Sample,
   cpu::{
-    bus::{cartridge::BackupType, touchscreen::SAMPLE_SIZE},
+    bus::{backup_file::BackupFile, cartridge::BackupType, spi::SPI, touchscreen::SAMPLE_SIZE},
     registers::{external_key_input_register::ExternalKeyInputRegister, key_input_register::KeyInputRegister}
   },
   gpu::registers::power_control_register1::PowerControlRegister1,
@@ -53,7 +53,8 @@ macro_rules! console_log {
 pub struct WasmEmulator {
   nds: Nds,
   key_map: HashMap<ButtonEvent, KeyInputRegister>,
-  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>
+  extkey_map: HashMap<ButtonEvent, ExternalKeyInputRegister>,
+  state_len: usize
 }
 
 #[wasm_bindgen]
@@ -101,10 +102,11 @@ impl WasmEmulator {
         bios7_bytes.to_vec(),
         bios9_bytes.to_vec(),
         audio_buffer,
-        mic_samples
+        mic_samples,
       ),
       key_map,
-      extkey_map
+      extkey_map,
+      state_len: 0
     };
 
     emu.nds.init(&game_data.to_vec(), true);
@@ -248,14 +250,98 @@ impl WasmEmulator {
     }
   }
 
+  pub fn create_save_state(&mut self) -> *const u8 {
+    let buf = self.nds.create_save_state();
+
+    self.state_len = buf.len();
+
+    buf.as_ptr()
+  }
+
+  pub fn reload_bios(&mut self, bios7: &[u8], bios9: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+    bus.arm7.bios7 = bios7.to_vec();
+    bus.arm9.bios9 = bios9.to_vec();
+  }
+
+  pub fn reload_firmware(&mut self, firmware: &[u8]) {
+    let bytes = firmware.to_vec();
+
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    let backup_file = Some(
+      BackupFile::new(
+        None,
+        Some(bytes),
+        firmware.len(),
+        false
+      )
+    );
+
+    bus.spi = SPI::new(backup_file);
+  }
+
+  pub fn hle_firmware(&mut self) {
+    let ref mut bus = self.nds.bus.borrow_mut();
+
+    bus.spi = SPI::new(None);
+  }
+
+  pub fn reload_rom(&mut self, rom: &[u8]) {
+    let ref mut bus = *self.nds.bus.borrow_mut();
+
+    bus.cartridge.rom = rom.to_vec();
+  }
+
+  pub fn save_state_length(&self) -> usize {
+    self.state_len
+  }
+
+  pub fn set_pause(&mut self, val: bool) {
+    if val {
+      self.nds.paused = true;
+    } else {
+      self.nds.paused = false;
+    }
+  }
+
+  pub fn load_save_state(&mut self, data: &[u8]) {
+    self.nds.load_save_state(&data);
+
+    {
+      let ref mut bus = *self.nds.bus.borrow_mut();
+
+      // recreate mic and audio buffers
+      bus.touchscreen.mic_buffer = vec![0; SAMPLE_SIZE].into_boxed_slice();
+
+      let audio_buffer = Arc::new(Mutex::new(VecDeque::new()));
+
+      bus.arm7.apu.audio_buffer = audio_buffer;
+    }
+
+    self.nds.arm7_cpu.bus = self.nds.bus.clone();
+    self.nds.arm9_cpu.bus = self.nds.bus.clone();
+
+    // repopulate arm and thumb luts
+    self.nds.arm7_cpu.populate_arm_lut();
+    self.nds.arm9_cpu.populate_arm_lut();
+
+    self.nds.arm7_cpu.populate_thumb_lut();
+    self.nds.arm9_cpu.populate_thumb_lut();
+  }
+
   pub fn step_frame(&mut self) {
     let mut frame_finished = false;
 
     let start_cycles = self.nds.arm7_cpu.cycles;
 
     while !(frame_finished) {
-      frame_finished = self.nds.step();
-      self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - start_cycles;
+      if !self.nds.paused {
+        frame_finished = self.nds.step();
+        self.nds.bus.borrow_mut().frame_cycles = self.nds.arm7_cpu.cycles - start_cycles;
+      } else {
+        break;
+      }
     }
 
     let ref mut bus = *self.nds.bus.borrow_mut();

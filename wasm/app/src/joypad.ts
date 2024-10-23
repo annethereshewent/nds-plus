@@ -1,5 +1,7 @@
 import { WasmEmulator } from "../../pkg/ds_emulator_wasm"
 import { ButtonEvent } from "../../pkg/ds_emulator_wasm"
+import { StateManager } from "./state_manager"
+import { UI } from "./ui"
 
 const CROSS_BUTTON = 0
 const CIRCLE_BUTTON = 1
@@ -32,10 +34,15 @@ export class Joypad {
   private useControlStick = false
 
   private updatingControlStick = false
+  private updatingSaveState = false
 
+  private stateManager: StateManager
+  private ui: UI
 
-  constructor(emulator: WasmEmulator) {
+  constructor(emulator: WasmEmulator, ui: UI) {
     this.emulator = emulator
+    this.stateManager = ui.stateManager!
+    this.ui = ui
   }
 
   handleJoypadInput() {
@@ -74,6 +81,26 @@ export class Joypad {
         this.updatingControlStick = false
       }, 300)
     }
+
+    if (gamepad?.buttons[L2_BUTTON].pressed && !this.updatingSaveState) {
+      this.updatingSaveState = true
+
+      this.createSaveState()
+
+      setTimeout(() => {
+        this.updatingSaveState = false
+      }, 300)
+    }
+
+    if (gamepad?.buttons[R2_BUTTON].pressed && !this.updatingSaveState) {
+      this.updatingSaveState = true
+
+      this.loadSaveState()
+
+      setTimeout(() => {
+        this.updatingSaveState = false
+      }, 300)
+    }
   }
 
   updateAnalogStatus() {
@@ -90,6 +117,24 @@ export class Joypad {
         }
       }
 
+    }
+  }
+
+  createSaveState() {
+    const imageUrl = this.ui.getImageUrl()
+    if (imageUrl != null) {
+      this.stateManager.createSaveState(imageUrl)
+      .then(() => {
+        this.ui.showStateCreatedNotification()
+      })
+    }
+  }
+
+  async loadSaveState() {
+    const data = await this.stateManager.getSaveStateData()
+
+    if (data != null) {
+      this.ui.loadSaveState(data)
     }
   }
 
@@ -142,6 +187,14 @@ export class Joypad {
         case "Tab":
           e.preventDefault()
           this.keyboardButtons[SELECT] = true
+          break
+        case "F5":
+          e.preventDefault()
+          this.createSaveState()
+          break
+        case "F7":
+          e.preventDefault()
+          this.loadSaveState()
           break
       }
     })

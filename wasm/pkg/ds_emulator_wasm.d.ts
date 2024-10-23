@@ -97,6 +97,38 @@ export class WasmEmulator {
 */
   update_mic_buffer(samples: Float32Array): void;
 /**
+* @returns {number}
+*/
+  create_save_state(): number;
+/**
+* @param {Uint8Array} bios7
+* @param {Uint8Array} bios9
+*/
+  reload_bios(bios7: Uint8Array, bios9: Uint8Array): void;
+/**
+* @param {Uint8Array} firmware
+*/
+  reload_firmware(firmware: Uint8Array): void;
+/**
+*/
+  hle_firmware(): void;
+/**
+* @param {Uint8Array} rom
+*/
+  reload_rom(rom: Uint8Array): void;
+/**
+* @returns {number}
+*/
+  save_state_length(): number;
+/**
+* @param {boolean} val
+*/
+  set_pause(val: boolean): void;
+/**
+* @param {Uint8Array} data
+*/
+  load_save_state(data: Uint8Array): void;
+/**
 */
   step_frame(): void;
 }
@@ -123,6 +155,14 @@ export interface InitOutput {
   readonly wasmemulator_press_screen: (a: number) => void;
   readonly wasmemulator_touch_screen_controller: (a: number, b: number, c: number) => void;
   readonly wasmemulator_update_mic_buffer: (a: number, b: number, c: number) => void;
+  readonly wasmemulator_create_save_state: (a: number) => number;
+  readonly wasmemulator_reload_bios: (a: number, b: number, c: number, d: number, e: number) => void;
+  readonly wasmemulator_reload_firmware: (a: number, b: number, c: number) => void;
+  readonly wasmemulator_hle_firmware: (a: number) => void;
+  readonly wasmemulator_reload_rom: (a: number, b: number, c: number) => void;
+  readonly wasmemulator_save_state_length: (a: number) => number;
+  readonly wasmemulator_set_pause: (a: number, b: number) => void;
+  readonly wasmemulator_load_save_state: (a: number, b: number, c: number) => void;
   readonly wasmemulator_step_frame: (a: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

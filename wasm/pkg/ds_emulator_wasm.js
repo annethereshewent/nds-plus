@@ -294,6 +294,66 @@ export class WasmEmulator {
         wasm.wasmemulator_update_mic_buffer(this.__wbg_ptr, ptr0, len0);
     }
     /**
+    * @returns {number}
+    */
+    create_save_state() {
+        const ret = wasm.wasmemulator_create_save_state(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @param {Uint8Array} bios7
+    * @param {Uint8Array} bios9
+    */
+    reload_bios(bios7, bios9) {
+        const ptr0 = passArray8ToWasm0(bios7, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(bios9, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_reload_bios(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+    }
+    /**
+    * @param {Uint8Array} firmware
+    */
+    reload_firmware(firmware) {
+        const ptr0 = passArray8ToWasm0(firmware, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_reload_firmware(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
+    */
+    hle_firmware() {
+        wasm.wasmemulator_hle_firmware(this.__wbg_ptr);
+    }
+    /**
+    * @param {Uint8Array} rom
+    */
+    reload_rom(rom) {
+        const ptr0 = passArray8ToWasm0(rom, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_reload_rom(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
+    * @returns {number}
+    */
+    save_state_length() {
+        const ret = wasm.wasmemulator_save_state_length(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @param {boolean} val
+    */
+    set_pause(val) {
+        wasm.wasmemulator_set_pause(this.__wbg_ptr, val);
+    }
+    /**
+    * @param {Uint8Array} data
+    */
+    load_save_state(data) {
+        const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasmemulator_load_save_state(this.__wbg_ptr, ptr0, len0);
+    }
+    /**
     */
     step_frame() {
         wasm.wasmemulator_step_frame(this.__wbg_ptr);

@@ -17,6 +17,39 @@
   cursor: pointer;
   margin-right: 10px;
 }
+#states-list {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  width: 100%;
+  .state-element {
+    width: 128px;
+    margin-right: 20px;
+    margin-bottom: 20px;
+    .state-menu {
+      position: fixed;
+      margin-top: -75px;
+      margin-left: 20px;
+      background: var(--bulma-card-background-color) !important;
+      z-index: 999;
+      border: 1px solid black;
+      box-shadow: var(--bulma-card-shadow);
+      .state-menu-list {
+        li {
+          list-style-type: none;
+        }
+      }
+    }
+    .state-image {
+      width: 128px;
+      height: 192px;
+    }
+  }
+}
+.state-buttons {
+  margin-top: 20px;
+}
+
 .fa-solid {
   font-size: 20px;
 }
@@ -39,7 +72,7 @@
   margin: 0 auto;
   text-align: center;
 }
-#bios-notification, #save-notification {
+#bios-notification, #save-notification, #state-notification {
   position: fixed;
   top: 100px;
   left: 25%;
