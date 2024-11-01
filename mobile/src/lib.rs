@@ -116,6 +116,12 @@ mod ffi {
 
     #[swift_bridge(swift_name="loadIcon")]
     fn load_icon(&mut self);
+
+    #[swift_bridge(swift_name="touchScreenController")]
+    fn touch_screen_controller(&mut self, x: f32, y: f32);
+
+    #[swift_bridge(swift_name="pressScreen")]
+    fn press_screen(&mut self);
   }
 }
 
@@ -266,6 +272,23 @@ impl MobileEmulator {
 
     bus.touchscreen.touch_screen(x, y);
     bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+  pub fn press_screen(&mut self) {
+    self.nds.bus.borrow_mut().arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+
+  pub fn touch_screen_controller(&mut self, x: f32, y: f32) {
+    self.nds.bus.borrow_mut().touchscreen.touch_screen_controller(Self::to_i16(x), Self::to_i16(y));
+  }
+
+  fn to_i16(value: f32) -> i16 {
+    if value >= 0.0 {
+      (value * i16::MAX as f32) as i16
+    } else {
+      (-value * i16::MIN as f32) as i16
+    }
   }
 
   pub fn release_screen(&mut self) {
