@@ -1,6 +1,6 @@
 # NDS+
 
-This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. Go to releases and download the appropriate zip file for your operating system and unzip the files. To build in Linux, simply type `cargo build --release` and make sure you put the executable, `game_db.json`, and the `/freebios` directory all in the same directory.
+This is a DS emulator written in Rust! Binaries for Mac and Windows are now available. Go to <a href="https://github.com/annethereshewent/nds-plus/releases">releases</a> and download the appropriate zip file for your operating system and unzip the files. To build in Linux, simply type `cargo build --release` and make sure you put the executable, `game_db.json`, and the `/freebios` directory all in the same directory.
 
 ## Getting Started
 
