@@ -25,8 +25,11 @@ mod ffi {
     Down,
     Left,
     Right,
-    ButtonR3,
-    ButtonHome
+    ButtonHome,
+    ControlStick,
+    QuickSave,
+    QuickLoad,
+    MainMenu
   }
   extern "Rust" {
     type MobileEmulator;
@@ -195,7 +198,6 @@ impl MobileEmulator {
       ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
       ButtonEvent::ButtonL => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
       ButtonEvent::ButtonR => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
-      ButtonEvent::ButtonR3 => (), // TODO implement this
       ButtonEvent::Down => bus.key_input_register.set(KeyInputRegister::Down, !value),
       ButtonEvent::Left => bus.key_input_register.set(KeyInputRegister::Left, !value),
       ButtonEvent::Right => bus.key_input_register.set(KeyInputRegister::Right, !value),
