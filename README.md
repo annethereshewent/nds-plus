@@ -8,13 +8,13 @@ This is a DS emulator written in Rust! Binaries for Mac and Windows are now avai
 
 Extract the zip to a directory of your choice and open the executable from either the command line or GUI. The command line accepts the following arguments for Windows: `.\nds-plus.exe <path to rom file> [--start-bios]`
 
-For MacOS, use `./nds-plus <path to rom file> [--start-bios]`
+For MacOS, simply open the app from Finder.
 
 bios and firmware are completely optional, however, if using `--start-bios` see below:
 
 The optional `--start-bios` argument will boot up the firmware instead of performing a direct boot. In order to use the firmware, you will need to provide your own firmware and bios files.
 
-To use your own files, simply copy the bios files to the root path of the app, and make sure they are named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively.
+To use your own files, simply copy the bios files to the root path of the app, and make sure they're named "bios7.bin", "bios9.bin", and "firmware.bin" for the bioses and firmware respectively. 
 
 ### iOS app
 
