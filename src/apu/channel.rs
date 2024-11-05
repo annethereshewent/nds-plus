@@ -8,7 +8,8 @@ use crate::scheduler::{
 use super::{
   registers::sound_channel_control_register::{
     RepeatMode,
-    SoundChannelControlRegister
+    SoundChannelControlRegister,
+    SoundFormat
   },
   Sample,
   ADPCM_TABLE,
@@ -90,7 +91,7 @@ impl Channel {
   }
 
   pub fn schedule(&self, scheduler: &mut Scheduler, should_reset: bool, cycles_left: usize) {
-    if self.timer_value != 0 && self.sound_length + self.loop_start as u32 > 0 {
+    if self.timer_value != 0 && (self.soundcnt.format == SoundFormat::PSG || self.sound_length + self.loop_start as u32 > 0) {
       let time = (0x10000 - self.timer_value as usize) << 1 - cycles_left;
       if should_reset {
         scheduler.schedule(EventType::ResetAudio(self.id), time);
