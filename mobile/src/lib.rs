@@ -25,8 +25,11 @@ mod ffi {
     Down,
     Left,
     Right,
-    ButtonR3,
-    ButtonHome
+    ButtonHome,
+    ControlStick,
+    QuickSave,
+    QuickLoad,
+    MainMenu
   }
   extern "Rust" {
     type MobileEmulator;
@@ -116,6 +119,12 @@ mod ffi {
 
     #[swift_bridge(swift_name="loadIcon")]
     fn load_icon(&mut self);
+
+    #[swift_bridge(swift_name="touchScreenController")]
+    fn touch_screen_controller(&mut self, x: f32, y: f32);
+
+    #[swift_bridge(swift_name="pressScreen")]
+    fn press_screen(&mut self);
   }
 }
 
@@ -189,7 +198,6 @@ impl MobileEmulator {
       ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
       ButtonEvent::ButtonL => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
       ButtonEvent::ButtonR => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
-      ButtonEvent::ButtonR3 => (), // TODO implement this
       ButtonEvent::Down => bus.key_input_register.set(KeyInputRegister::Down, !value),
       ButtonEvent::Left => bus.key_input_register.set(KeyInputRegister::Left, !value),
       ButtonEvent::Right => bus.key_input_register.set(KeyInputRegister::Right, !value),
@@ -266,6 +274,23 @@ impl MobileEmulator {
 
     bus.touchscreen.touch_screen(x, y);
     bus.arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+  pub fn press_screen(&mut self) {
+    self.nds.bus.borrow_mut().arm7.extkeyin.remove(ExternalKeyInputRegister::PEN_DOWN);
+  }
+
+
+  pub fn touch_screen_controller(&mut self, x: f32, y: f32) {
+    self.nds.bus.borrow_mut().touchscreen.touch_screen_controller(Self::to_i16(x), Self::to_i16(y));
+  }
+
+  fn to_i16(value: f32) -> i16 {
+    if value >= 0.0 {
+      (value * i16::MAX as f32) as i16
+    } else {
+      (-value * i16::MIN as f32) as i16
+    }
   }
 
   pub fn release_screen(&mut self) {
