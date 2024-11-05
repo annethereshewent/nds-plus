@@ -15,6 +15,7 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 use tiny_http::Server;
+use directories::UserDirs;
 
 const CLIENT_ID: &str = "353451169812-gf5j4nmiosovv7sendcanjmmcumoq0dl.apps.googleusercontent.com";
 
@@ -69,17 +70,30 @@ impl CloudService {
   pub fn new() -> Self {
     let mut access_token = "".to_string();
 
-    let access_token_path = Path::new("./.access_token");
+    let user_dirs = UserDirs::new().unwrap();
+    let documents_dir = user_dirs.document_dir().unwrap();
+
+    let delimiter = if std::env::consts::OS == "windows" {
+      "\\"
+    } else {
+      "/"
+    };
+
+    let access_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.access_token", documents_dir.to_str().unwrap());
+
+    let access_token_path = Path::new(&access_token_path_str);
     if access_token_path.is_file() {
-      access_token = fs::read_to_string("./.access_token").unwrap();
+      access_token = fs::read_to_string(access_token_path).unwrap();
     }
 
-    let refresh_token_path = Path::new("./.refresh_token");
+    let refresh_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.refresh_token", documents_dir.to_str().unwrap());
+
+    let refresh_token_path = Path::new(&refresh_token_path_str);
 
     let mut refresh_token = "".to_string();
 
     if refresh_token_path.is_file() {
-      refresh_token = fs::read_to_string("./.refresh_token").unwrap();
+      refresh_token = fs::read_to_string(refresh_token_path).unwrap();
     }
 
     Self {
@@ -182,7 +196,18 @@ impl CloudService {
 
         self.access_token = json.access_token;
 
-        fs::write("./.access_token", self.access_token.clone()).unwrap();
+        let user_dirs = UserDirs::new().unwrap();
+        let documents_dir = user_dirs.document_dir().unwrap();
+
+        let delimiter = if std::env::consts::OS == "windows" {
+          "\\"
+        } else {
+          "/"
+        };
+
+        let access_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.access_token", documents_dir.to_str().unwrap());
+
+        fs::write(access_token_path_str, self.access_token.clone()).unwrap();
       } else {
         let error = json.err().unwrap();
 
@@ -546,15 +571,39 @@ impl CloudService {
 
       self.logged_in = true;
 
+      let user_dirs = UserDirs::new().unwrap();
+      let documents_dir = user_dirs.document_dir().unwrap().to_str().unwrap();
+
+      let delimiter = if std::env::consts::OS == "windows" {
+        "\\"
+      } else {
+        "/"
+      };
+
+      let access_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.access_token", documents_dir);
+      let refresh_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.refresh_token", documents_dir);
+
       // store these in files for use later
-      fs::write("./.access_token", self.access_token.clone()).unwrap();
-      fs::write("./.refresh_token", self.refresh_token.clone()).unwrap();
+      fs::write(access_token_path_str, self.access_token.clone()).unwrap();
+      fs::write(refresh_token_path_str, self.refresh_token.clone()).unwrap();
     }
   }
 
   pub fn logout(&mut self) {
-    fs::remove_file("./.access_token").unwrap();
-    fs::remove_file("./.refresh_token").unwrap();
+    let user_dirs = UserDirs::new().unwrap();
+    let documents_dir = user_dirs.document_dir().unwrap().to_str().unwrap();
+
+    let delimiter = if std::env::consts::OS == "windows" {
+      "\\"
+    } else {
+      "/"
+    };
+
+    let access_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.access_token", documents_dir);
+    let refresh_token_path_str = format!("{}{delimiter}NDS-Plus{delimiter}.refresh_token", documents_dir);
+
+    fs::remove_file(access_token_path_str).unwrap();
+    fs::remove_file(refresh_token_path_str).unwrap();
 
     self.access_token = String::new();
     self.refresh_token = String::new();
