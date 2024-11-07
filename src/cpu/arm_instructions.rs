@@ -1226,28 +1226,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.cpsr = spsr;
   }
 
-  fn get_op_name(&self, op_code: u8) -> &'static str {
-    match op_code {
-      0 => "AND",
-      1 => "EOR",
-      2 => "SUB",
-      3 => "RSB",
-      4 => "ADD",
-      5 => "ADC",
-      6 => "SBC",
-      7 => "RSC",
-      8 => "TST",
-      9 => "TEQ",
-      10 => "CMP",
-      11 => "CMN",
-      12 => "ORR",
-      13 => "MOV",
-      14 => "BIC",
-      15 => "MVN",
-      _ => unreachable!("can't happen")
-    }
-  }
-
   fn execute_alu_op(&mut self, op_code: u32, operand1: u32, operand2: u32, carry: &mut bool, overflow: &mut bool) -> (u32, bool) {
     match op_code {
       0 => (operand1 & operand2, true),
@@ -1270,7 +1248,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     }
   }
 
-  fn get_data_processing_register_operand(&mut self, instr: u32, rn: u32, operand1: &mut u32, carry: &mut bool) -> u32 {
+  pub fn get_data_processing_register_operand(&mut self, instr: u32, rn: u32, operand1: &mut u32, carry: &mut bool) -> u32 {
     let shift_by_register = (instr >> 4) & 0b1 == 1;
 
     let mut immediate = true;
@@ -1284,8 +1262,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.add_cycles(1);
 
       let rs = (instr >> 8) & 0xf;
-
-      // println!("rs = {rs}");
 
       self.r[rs as usize] & 0xff
     } else {

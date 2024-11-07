@@ -18,6 +18,7 @@ pub mod rotations_shifts;
 pub mod registers;
 pub mod dma;
 pub mod timers;
+pub mod disassembly;
 
 pub const PC_REGISTER: usize = 15;
 pub const LR_REGISTER: usize = 14;
@@ -261,11 +262,17 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let condition = (instruction >> 28) as u8;
 
     let instruction_pc = self.pc - 8;
+
+    // if instruction_pc == 0x207bfbc {
+    //   println!("(arm instructions): pc = {:x}, {:032b}", instruction_pc, instruction);
+    // }
     {
       if self.bus.borrow().debug_on {
         if !self.found.contains_key(&instruction_pc) {
-          println!("attempting to execute instruction {:032b} at address {:X}", instruction, instruction_pc);
-          self.found.insert(self.pc.wrapping_sub(8), true);
+          let disassembled = self.disassemble_arm_instr(instruction);
+          // self.found.insert(self.pc.wrapping_sub(8), true);
+
+          println!("0x{:x}{}: {disassembled}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
         }
       }
     }
