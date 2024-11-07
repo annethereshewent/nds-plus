@@ -290,7 +290,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         let disassembled = self.disassemble_arm_instr(instruction);
         self.found.insert(self.pc.wrapping_sub(8));
 
-        println!("A 0x{:08x}{}: {disassembled}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
+        let mut condition_met = "";
+
+        if !self.arm_condition_met(condition) {
+          condition_met = "❌";
+        }
+
+        println!("A 0x{:08x}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
       }
     }
 
