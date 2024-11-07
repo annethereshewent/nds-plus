@@ -277,9 +277,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       if self.bus.borrow().debug_on {
         if !self.found.contains_key(&instruction_pc) {
           let disassembled = self.disassemble_arm_instr(instruction);
-          // self.found.insert(self.pc.wrapping_sub(8), true);
+          self.found.insert(self.pc.wrapping_sub(8), true);
 
-          println!("0x{:x}{}: {disassembled}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
+          println!("0x{:08x}{}: {disassembled}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
         }
       }
     }

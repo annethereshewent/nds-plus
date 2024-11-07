@@ -84,9 +84,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
       if s == 0 && is_updating_flags_only {
         if op_code & 0b1 == 0 {
-          MSR
-        } else {
           MRS
+        } else {
+          MSR
         }
       } else {
         DataProcessing
@@ -415,13 +415,77 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_mrs(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
+    let mut decoded = "MRS".to_string();
+
+    let p = (instr >> 22) & 0b1;
+
+    let rd = (instr >> 12) & 0xf;
+
+    decoded += &format!(" r{rd}");
+
+    if p == 0 {
+      decoded += ", cpsr";
+    } else {
+      decoded += ", spsr";
+    }
 
     decoded
   }
 
   fn decode_msr(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
+    let mut decoded = "MSR".to_string();
+
+    let i = (instr >> 25) & 0b1;
+    let p = (instr >> 22) & 0b1;
+
+    if p == 0 {
+      decoded += " cpsr";
+    } else {
+      decoded += " spsr";
+    }
+
+    let f = (instr >> 19) & 0b1;
+    let s = (instr >> 18) & 0b1;
+    let x = (instr >> 17) & 0b1;
+    let c = (instr >> 16) & 0b1;
+
+    let mut bits = Vec::new();
+
+    if f == 1 {
+      bits.push("f");
+    }
+    if s == 1 {
+      bits.push("s");
+    }
+    if x == 1 {
+      bits.push("x");
+    }
+    if c == 1 {
+      bits.push("c");
+    }
+
+    if bits.len() > 0 {
+      decoded += "_";
+
+      decoded += &bits.join("");
+    }
+
+    decoded += ", ";
+
+    let value = if i == 1 {
+      let immediate = instr & 0xff;
+      let rotate = ((instr >> 8) & 0xf) * 2;
+
+      let value = self.ror_disassembly(immediate, rotate as u8, false, true);
+
+      value
+    } else {
+      let rm = instr & 0xf;
+
+      self.r[rm as usize]
+    };
+
+    decoded += &format!("{:x}", value);
 
     decoded
   }
