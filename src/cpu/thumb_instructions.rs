@@ -952,22 +952,4 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     result
   }
-
-  /*
-  match op_code {
-      0 => self.mov(rd, offset as u32, true),
-      1 => self.cmp(self.r[rd as usize], offset as u32),
-      2 => self.r[rd as usize] = self.add(self.r[rd as usize], offset as u32),
-      3 => self.r[rd as usize] = self.subtract(self.r[rd as usize], offset as u32),
-      _ => unreachable!("impossible")
-    } */
-  fn get_move_compare_op_name(&self, op_code: u16) -> &'static str {
-    match op_code {
-      0 => "MOV",
-      1 => "CMP",
-      2 => "ADD",
-      3 => "SUB",
-      _ => unreachable!("impossible")
-    }
-  }
 }
