@@ -134,7 +134,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   fn decode_multiply_long(&self, instr: u32) -> String {
     let u = (instr >> 22) & 0b1;
     let a = (instr >> 21) & 0b1;
-    let s = (instr >> 20) & 0b1;
 
     let rd_hi = (instr >> 16) & 0xf;
     let rd_low = (instr >> 12) & 0xf;
@@ -323,7 +322,26 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_qalu(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
+    let mut decoded = "Q".to_string();
+
+    let op_code = (instr >> 20) & 0b11;
+    let doubled = (instr >> 22) & 0b1 == 1;
+
+    if doubled {
+      decoded += "D";
+    }
+
+    let rn = (instr >> 16) & 0xf;
+    let rd = (instr >> 12) & 0xf;
+    let rm = instr & 0xf;
+
+    if op_code == 0 {
+      decoded += "ADD";
+    } else {
+      decoded += "SUB";
+    }
+
+    decoded += &format!(" r{rd}, r{rm}, r{rn}");
 
     decoded
   }
@@ -331,13 +349,31 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   fn decode_cop_transfer(&self, instr: u32) -> String {
     let mut decoded = "".to_string();
 
+    let arm_opcode = (instr >> 20) & 0b1;
+
+    let cn = (instr >> 16) & 0xf;
+    let rd = (instr >> 12) & 0xf;
+    let pn = (instr >> 8) & 0xf;
+
+    let cp = (instr >> 5) & 0x7;
+    let cm = instr & 0xf;
+
+    if arm_opcode == 0 {
+      decoded += "MCR";
+    } else {
+      decoded += "MRC";
+    }
+
+    decoded += &format!(" p{pn}, r{rd}, c{cn}, c{cm}, {{,<c{cp}>}}");
+
     decoded
   }
 
   fn decode_clz(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
+    let rm = instr & 0xf;
+    let rd = (instr >> 12) & 0xf;
 
-    decoded
+    format!("CLZ r{rd}, r{rm}")
   }
 
   fn decode_data_processing(&self, instr: u32) -> String {
@@ -356,10 +392,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       let immediate = instr & 0xff;
       let amount = (2 * ((instr >> 8) & 0xf)) as u8;
 
-      // fuck you rust.
       self.ror_disassembly(immediate, amount, false, true)
     } else {
-      // fuck you rust.
       self.get_data_processing_register_operand_diss(instr, rn, &mut operand1)
     };
 
@@ -531,7 +565,20 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_branch(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
+    let mut decoded = "B".to_string();
+
+    let l = (instr >> 24) & 0b1;
+    let offset = (((instr & 0xFFFFFF) << 8) as i32) >> 6;
+
+    if instr >> 28 == 0xf {
+      decoded += "LX";
+    } else if l == 1 {
+      decoded += "L"
+    }
+
+    decoded += &Self::parse_condition(instr);
+
+    decoded += &format!(" {:x}", offset);
 
     decoded
   }
