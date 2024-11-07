@@ -230,16 +230,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_branch_and_exchange(&self, instr: u32) -> String {
-    let mut decoded = "".to_string();
-
     let rn = instr & 0xf;
     let l = (instr >> 5) & 0b1;
 
-    if l == 0 {
-      decoded = format!("BX");
+    let mut decoded = if l == 0 {
+      format!("BX")
     } else {
-      decoded = format!("BLX");
-    }
+      format!("BLX")
+    };
 
     decoded += &Self::parse_condition(instr);
 
@@ -250,8 +248,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_halfword_data_transfer(&self, instr: u32, is_register: bool) -> String {
-    let mut decoded = "".to_string();
-
     let rm = instr & 0xf;
 
     let offset = if is_register {
@@ -272,15 +268,15 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let u = (instr >> 23) & 0b1;
     let p = (instr >> 24) & 0b1;
 
-    if l == 0 {
+    let mut decoded = if l == 0 {
       match sh {
-        1 => decoded = "STRH".to_string(),
-        2 => decoded = "STRD".to_string(),
-        3 => decoded = "LDRD".to_string(),
+        1 => "STRH".to_string(),
+        2 => "STRD".to_string(),
+        3 => "LDRD".to_string(),
         _ => panic!("shouldn't happen")
       }
     } else {
-      decoded = "LDR".to_string();
+      let mut decoded = "LDR".to_string();
 
       match sh {
         1 => decoded += "H",
@@ -288,7 +284,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         3 => decoded += "SH",
         _ => panic!("shouldn't happen")
       }
-    }
+
+      decoded
+    };
 
     decoded += &format!(" r{rd}, [r{rn}");
 
