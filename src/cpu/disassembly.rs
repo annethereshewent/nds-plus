@@ -1,6 +1,6 @@
 use super::{PSRRegister, CPU, PC_REGISTER};
 
-enum ArmInstructionType {
+pub enum ArmInstructionType {
   Multiply,
   MultiplyLong,
   SignedHalfwordMultiply,
@@ -22,9 +22,16 @@ enum ArmInstructionType {
 }
 
 impl<const IS_ARM9: bool> CPU<IS_ARM9> {
+  pub fn populate_arm_disassembly_lut(&mut self) {
+    for i in 0..4096 {
+      let instruction_type = self.decode_arm_mnemonic((i & 0xff0) >> 4, i & 0xf);
+      self.disassembly_arm_lut.push(instruction_type);
+    }
+  }
+
   pub fn disassemble_arm_instr(&self, instr: u32) -> String {
     use ArmInstructionType::*;
-    match self.decode_arm_mnemonic((instr >> 20 & 0xff) as u16, ((instr >> 4) & 0xf) as u16) {
+    match self.disassembly_arm_lut[(((instr >> 16) & 0xff0) | ((instr >> 4) & 0xf)) as usize] {
       Multiply => self.decode_multiply(instr),
       MultiplyLong => self.decode_multiply_long(instr),
       SignedHalfwordMultiply => self.decode_signed_multiply(instr),

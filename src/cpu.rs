@@ -8,6 +8,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bus::{Bus, HaltMode};
+use disassembly::ArmInstructionType;
 use serde::{Deserialize, Serialize};
 
 pub mod arm_instructions;
@@ -67,7 +68,10 @@ pub struct CPU<const IS_ARM9: bool> {
   pub bus: Rc<RefCell<Bus>>,
   #[serde(skip_serializing)]
   #[serde(skip_deserializing)]
-  pub found: HashMap<u32, bool>
+  pub found: HashMap<u32, bool>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub disassembly_arm_lut: Vec<ArmInstructionType>
 }
 
 
@@ -147,6 +151,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       spsr_banks: [PSRRegister::from_bits_retain(0xd3); 6],
       thumb_lut: Vec::new(),
       arm_lut: Vec::new(),
+      disassembly_arm_lut: Vec::new(),
       pipeline: [0; 2],
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
@@ -162,6 +167,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();
+
+    cpu.populate_arm_disassembly_lut();
 
     cpu
   }
