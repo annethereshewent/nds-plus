@@ -476,7 +476,56 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   }
 
   fn decode_block_transfer(&self, instr: u32) -> String {
+    let p = (instr >> 24) & 0b1;
+    let u = (instr >> 23) & 0b1;
+    let s = (instr >> 22) & 0b1;
+    let w = (instr >> 21) & 0b1;
+    let l = (instr >> 20) & 0b1;
+
+    let rn = (instr >> 16) & 0xf;
+
+    let register_list = instr as u16;
+
     let mut decoded = "".to_string();
+
+    if l == 0 {
+      decoded += "STM";
+    } else {
+      decoded += "LDM";
+    }
+
+    match (p, u) {
+      (1, 1) => decoded += "IB",
+      (0, 1) => decoded += "IA",
+      (1, 0) => decoded += "DB",
+      (0, 0) => decoded += "DA",
+      _ => unreachable!()
+    };
+
+    decoded += &format!(" r{rn}");
+
+    if w == 1 {
+      decoded += "!";
+    }
+
+    decoded += ", {";
+
+    let mut registers = Vec::new();
+    for i in 0..16 {
+      if (register_list >> i) == 1 {
+        registers.push(i);
+      }
+    }
+
+    let register_string_vec: Vec<String> = registers.iter().map(|register| format!("r{register}")).collect();
+
+    let register_string = register_string_vec.join(", ");
+
+    decoded += &format!("{register_string}}}");
+
+    if s == 1 {
+      decoded += "^";
+    }
 
     decoded
   }

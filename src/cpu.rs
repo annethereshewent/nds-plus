@@ -8,7 +8,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use bus::{Bus, HaltMode};
-use disassembly::ArmInstructionType;
+use arm_disassembly::ArmInstructionType;
 use serde::{Deserialize, Serialize};
 
 pub mod arm_instructions;
@@ -19,7 +19,7 @@ pub mod rotations_shifts;
 pub mod registers;
 pub mod dma;
 pub mod timers;
-pub mod disassembly;
+pub mod arm_disassembly;
 
 pub const PC_REGISTER: usize = 15;
 pub const LR_REGISTER: usize = 14;
