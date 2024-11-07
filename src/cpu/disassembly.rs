@@ -395,7 +395,84 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
   fn decode_single_transfer(&self, instr: u32) -> String {
     let mut decoded = "".to_string();
 
+    let i = (instr >> 25) & 0b1;
+    let p = (instr >> 24) & 0b1;
+    let u = (instr >> 23) & 0b1;
+    let b = (instr >> 22) & 0b1;
+    let w = (instr >> 21) & 0b1;
+    let l = (instr >> 20) & 0b1;
+
+    let rn = (instr >> 16) & 0xf;
+    let rd = (instr >> 12) & 0xf;
+    let rm = instr & 0xf;
+
+    let offset: u32 = instr & 0xfff;
+
+    if l == 0 {
+      decoded += "STR";
+    } else {
+      decoded += "LDR";
+    }
+
+    if b == 1 {
+      decoded += "B";
+    }
+
+    decoded += &format!(" r{rd}, [r{rn}");
+
+    if offset != 0 {
+      let offset_str = if i == 1 {
+        format!("{:x}", offset)
+      } else {
+        let shift_by_register = (instr >> 4) & 0b1;
+
+        let shift = if shift_by_register == 1 {
+          let rs = (instr >> 8) & 0xf;
+
+          if rs == PC_REGISTER as u32 {
+            self.pc & 0xff
+          } else {
+            self.r[rs as usize] & 0xff
+          }
+        } else {
+          (instr & 0xfff) >> 7
+        };
+
+        format!("r{rm}, {} {shift}", self.get_shift_type(instr))
+      };
+
+      let mut sign = "";
+
+      if u == 0 {
+        sign = "-";
+      }
+
+      if p == 0 {
+        decoded += &format!("], {sign}{offset_str}");
+      } else {
+        decoded += &format!(", {sign}{offset_str}]");
+      }
+    } else {
+      decoded += "]";
+    }
+
+    if w == 1 {
+      decoded += "!";
+    }
+
     decoded
+  }
+
+  fn get_shift_type(&self, instr: u32) -> &str {
+    let shift_type = (instr >> 5) & 0x3;
+
+    match shift_type {
+      0 => "LSL",
+      1 => "LSR",
+      2 => "ASR",
+      3 => "ROR",
+      _ => unreachable!()
+    }
   }
 
   fn decode_block_transfer(&self, instr: u32) -> String {
