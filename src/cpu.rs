@@ -282,11 +282,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let instruction_pc = self.pc - 8;
 
-    // if instruction_pc == 0x207bfbc {
-    //   println!("(arm instructions): pc = {:x}, {:032b}", instruction_pc, instruction);
-    // }
     {
-      self.bus.borrow_mut().debug_on = true;
       if self.bus.borrow().debug_on && !self.found.contains(&instruction_pc) {
         let disassembled = self.disassemble_arm_instr(instruction);
         self.found.insert(self.pc.wrapping_sub(8));

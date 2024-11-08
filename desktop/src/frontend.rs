@@ -568,6 +568,12 @@ impl Frontend {
 
     nds.arm7_cpu.populate_thumb_lut();
     nds.arm9_cpu.populate_thumb_lut();
+
+    nds.arm7_cpu.populate_arm_disassembly_lut();
+    nds.arm9_cpu.populate_arm_disassembly_lut();
+
+    nds.arm7_cpu.populate_thumb_disassembly_lut();
+    nds.arm9_cpu.populate_thumb_disassembly_lut();
   }
 
   pub fn handle_events(&mut self, nds: &mut Nds) {
