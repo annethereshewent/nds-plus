@@ -386,12 +386,14 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let mut operand1 = self.get_register(rn as usize);
 
+    let mut rm = "".to_string();
     let operand2 = if i == 1 {
       let immediate = instr & 0xff;
       let amount = (2 * ((instr >> 8) & 0xf)) as u8;
 
       self.ror_disassembly(immediate, amount, false, true)
     } else {
+      rm = format!("(r{})", instr & 0xf);
       self.get_data_processing_register_operand_diss(instr, rn, &mut operand1)
     };
 
@@ -401,7 +403,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       format!(" r{rd}, r{rn}, {:x}", operand2)
     } else {
       if op_name != "MOV" || op_name != "MVN" {
-        format!(" r{rn}, {:x}", operand2)
+        format!(" r{rn}, {:x} {rm}", operand2)
       } else {
         format!(" r{rd}, {:x}", operand2)
       }
@@ -632,15 +634,19 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let l = (instr >> 24) & 0b1;
     let offset = (((instr & 0xFFFFFF) << 8) as i32) >> 6;
 
-    if instr >> 28 == 0xf {
+    let pc_address = if instr >> 28 == 0xf {
       decoded += "LX";
-    } else if l == 1 {
-      decoded += "L"
-    }
+      ((self.pc as i32).wrapping_add(offset)).wrapping_add((l * 2) as i32) as u32
+    } else {
+      if l == 1 {
+        decoded += "L"
+      }
+      ((self.pc as i32).wrapping_add(offset) as u32) & !(0b1)
+    };
 
     decoded += &Self::parse_condition(instr);
 
-    decoded += &format!(" {:x}", offset);
+    decoded += &format!(" {:x} (pc: {:x})", offset, pc_address);
 
     decoded
   }
