@@ -286,6 +286,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     //   println!("(arm instructions): pc = {:x}, {:032b}", instruction_pc, instruction);
     // }
     {
+      self.bus.borrow_mut().debug_on = true;
       if self.bus.borrow().debug_on && !self.found.contains(&instruction_pc) {
         let disassembled = self.disassemble_arm_instr(instruction);
         self.found.insert(self.pc.wrapping_sub(8));
@@ -296,7 +297,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
           condition_met = "❌";
         }
 
-        println!("A 0x{:08x}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
+        println!("A 0x{:08X}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
       }
     }
 
@@ -374,10 +375,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.pipeline[1] = next_instruction;
 
     {
-      if self.bus.borrow().debug_on && !self.found_thumb.contains(&instruction) {
+      if self.bus.borrow().debug_on && !self.found_thumb.contains(&(self.pc - 4)) {
         let disassembled = self.disassemble_thumb_instr(instruction as u16);
 
-        self.found_thumb.insert(instruction);
+        self.found_thumb.insert(self.pc - 4);
 
         println!("T 0x{:x}: {disassembled}", self.pc - 4);
       }
