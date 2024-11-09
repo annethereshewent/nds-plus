@@ -610,7 +610,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     let mut registers = Vec::new();
     for i in 0..16 {
-      if (register_list >> i) == 1 {
+      if (register_list >> i) & 0b1 == 1 {
         registers.push(i);
       }
     }
