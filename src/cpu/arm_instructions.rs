@@ -370,6 +370,8 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let rn = instr & 0xf;
     let l = (instr >> 5) & 0b1;
 
+    let address = self.r[rn as usize];
+
     if l == 1 {
       if !IS_ARM9 {
         panic!("invalid option for branch and link for arm7 cpu");
@@ -381,8 +383,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     if rn == PC_REGISTER as u32 {
       panic!("using pc register for branch and exchange");
     }
-
-    let address = self.r[rn as usize];
 
     if address & 0b1 == 0 {
       // stay in arm mode
