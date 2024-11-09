@@ -242,7 +242,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     decoded += &Self::parse_condition(instr);
 
 
-    decoded += &format!(" r{rn}");
+    decoded += &format!(" r{rn} (pc = {:x})", self.r[rn as usize] & !0b1);
 
     decoded
   }
@@ -400,12 +400,12 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     decoded += op_name;
 
     let args = if num_args == 3 {
-      format!(" r{rd}, r{rn}, {:x}", operand2)
+      format!(" r{rd}, r{rn}, {:x} {rm}", operand2)
     } else {
-      if op_name != "MOV" || op_name != "MVN" {
+      if op_name != "MOV" && op_name != "MVN" {
         format!(" r{rn}, {:x} {rm}", operand2)
       } else {
-        format!(" r{rd}, {:x}", operand2)
+        format!(" r{rd}, {:x} {rm}", operand2)
       }
     };
 
