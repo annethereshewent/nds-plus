@@ -73,9 +73,6 @@ pub struct CPU<const IS_ARM9: bool> {
   pub found: HashSet<u32>,
   #[serde(skip_serializing)]
   #[serde(skip_deserializing)]
-  pub found_thumb: HashSet<u32>,
-  #[serde(skip_serializing)]
-  #[serde(skip_deserializing)]
   pub disassembly_arm_lut: Vec<ArmInstructionType>,
   #[serde(skip_serializing)]
   #[serde(skip_deserializing)]
@@ -166,8 +163,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
       bus,
-      found: HashSet::new(),
-      found_thumb: HashSet::new()
+      found: HashSet::new()
     };
 
     cpu.pc = if IS_ARM9 {
@@ -293,7 +289,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
           condition_met = "❌";
         }
 
-        println!("A 0x{:08X}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
+        println!("A 0x{:X}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
       }
     }
 
@@ -371,10 +367,10 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.pipeline[1] = next_instruction;
 
     {
-      if self.bus.borrow().debug_on && !self.found_thumb.contains(&(self.pc - 4)) {
+      if self.bus.borrow().debug_on && !self.found.contains(&(self.pc - 4)) && IS_ARM9 {
         let disassembled = self.disassemble_thumb_instr(instruction as u16);
 
-        self.found_thumb.insert(self.pc - 4);
+        self.found.insert(self.pc - 4);
 
         println!("T 0x{:x}: {disassembled}", self.pc - 4);
       }
@@ -506,7 +502,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
-
       let ref mut bus = *self.bus.borrow_mut();
 
       if IS_ARM9 {

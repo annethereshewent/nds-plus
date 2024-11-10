@@ -842,16 +842,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       // ARMv4 only
       if !IS_ARM9 {
         if l == 0 {
-
-          // so i'm not sure why this was here, i'll leave it in case it breaks something down the line
-          // let address = match (u, p) {
-          //   (0, 0) => address.wrapping_sub(0x3c),
-          //   (0, 1) => address.wrapping_sub(0x40),
-          //   (1, 0) => address,
-          //   (1, 1) => address.wrapping_add(4),
-          //   _ => unreachable!("shouldn't happen")
-          // };
-
           self.store_32(address & !(0b11), self.pc + 4, MemoryAccess::NonSequential);
         } else {
           let val = self.ldr_word(address);
