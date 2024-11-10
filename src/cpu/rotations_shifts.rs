@@ -8,7 +8,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         *carry = (operand >> carry_shift) & 0b1 == 1;
       }
 
-      if shift < 32 { operand << shift } else { 0 }
+      operand << shift
     } else if shift == 32 {
       *carry = operand & 0b1 == 1;
       0

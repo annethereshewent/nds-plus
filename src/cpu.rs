@@ -5,10 +5,12 @@
 // R15 are zero and bits [31:2] contain the PC. In THUMB state,
 // bit [0] is zero and bits [31:1] contain the PC.
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use bus::{Bus, HaltMode};
+use arm_disassembly::ArmInstructionType;
 use serde::{Deserialize, Serialize};
+use thumb_disassembly::ThumbInstructionType;
 
 pub mod arm_instructions;
 pub mod thumb_instructions;
@@ -18,6 +20,8 @@ pub mod rotations_shifts;
 pub mod registers;
 pub mod dma;
 pub mod timers;
+pub mod arm_disassembly;
+pub mod thumb_disassembly;
 
 pub const PC_REGISTER: usize = 15;
 pub const LR_REGISTER: usize = 14;
@@ -66,7 +70,14 @@ pub struct CPU<const IS_ARM9: bool> {
   pub bus: Rc<RefCell<Bus>>,
   #[serde(skip_serializing)]
   #[serde(skip_deserializing)]
-  pub found: HashMap<u32, bool>
+  pub found: HashSet<u32>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub disassembly_arm_lut: Vec<ArmInstructionType>,
+  #[serde(skip_serializing)]
+  #[serde(skip_deserializing)]
+  pub disassembly_thumb_lut: Vec<ThumbInstructionType>
+
 }
 
 
@@ -146,11 +157,13 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       spsr_banks: [PSRRegister::from_bits_retain(0xd3); 6],
       thumb_lut: Vec::new(),
       arm_lut: Vec::new(),
+      disassembly_arm_lut: Vec::new(),
+      disassembly_thumb_lut: Vec::new(),
       pipeline: [0; 2],
       next_fetch: MemoryAccess::NonSequential,
       cycles: 0,
       bus,
-      found: HashMap::new()
+      found: HashSet::new()
     };
 
     cpu.pc = if IS_ARM9 {
@@ -161,6 +174,9 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
 
     cpu.populate_thumb_lut();
     cpu.populate_arm_lut();
+
+    cpu.populate_arm_disassembly_lut();
+    cpu.populate_thumb_disassembly_lut();
 
     cpu
   }
@@ -261,12 +277,19 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     let condition = (instruction >> 28) as u8;
 
     let instruction_pc = self.pc - 8;
+
     {
-      if self.bus.borrow().debug_on {
-        if !self.found.contains_key(&instruction_pc) {
-          println!("attempting to execute instruction {:032b} at address {:X}", instruction, instruction_pc);
-          self.found.insert(self.pc.wrapping_sub(8), true);
+      if self.bus.borrow().debug_on && !self.found.contains(&instruction_pc) {
+        let disassembled = self.disassemble_arm_instr(instruction);
+        self.found.insert(self.pc.wrapping_sub(8));
+
+        let mut condition_met = "";
+
+        if !self.arm_condition_met(condition) {
+          condition_met = "❌";
         }
+
+        println!("A 0x{:X}{}: {disassembled} {condition_met}", instruction_pc, if condition < 14 { format!(" ({})", Self::parse_condition(instruction)) } else { "".to_string() });
       }
     }
 
@@ -343,7 +366,15 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.pipeline[0] = self.pipeline[1];
     self.pipeline[1] = next_instruction;
 
-    // println!("executing instruction {:016b} at address {:X}", instruction, pc.wrapping_sub(4));
+    {
+      if self.bus.borrow().debug_on && !self.found.contains(&(self.pc - 4)) {
+        let disassembled = self.disassemble_thumb_instr(instruction as u16);
+
+        self.found.insert(self.pc - 4);
+
+        println!("T 0x{:x}: {disassembled}", self.pc - 4);
+      }
+    }
 
     if let Some(fetch) = self.execute_thumb(instruction as u16) {
       self.next_fetch = fetch;
@@ -471,7 +502,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
       self.interrupt(OperatingMode::IRQ, IRQ_VECTOR, lr);
 
       self.cpsr.insert(PSRRegister::IRQ_DISABLE);
-
       let ref mut bus = *self.bus.borrow_mut();
 
       if IS_ARM9 {

@@ -443,7 +443,7 @@ impl Cartridge {
     let mut address = u32::from_be_bytes(self.command[1..5].try_into().unwrap());
 
     if address < 0x8000 {
-      address = 0x8000 + (address & 0x1fff);
+      address = 0x8000 + (address & 0x1ff);
     }
 
     // There is no alignment restriction for the address. However, the datastream
