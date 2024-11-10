@@ -367,7 +367,7 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
     self.pipeline[1] = next_instruction;
 
     {
-      if self.bus.borrow().debug_on && !self.found.contains(&(self.pc - 4)) && IS_ARM9 {
+      if self.bus.borrow().debug_on && !self.found.contains(&(self.pc - 4)) {
         let disassembled = self.disassemble_thumb_instr(instruction as u16);
 
         self.found.insert(self.pc - 4);
