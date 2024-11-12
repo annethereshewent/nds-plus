@@ -458,12 +458,6 @@ impl<const IS_ARM9: bool> CPU<IS_ARM9> {
         self.r[rd as usize]
       };
 
-      // if sh == 1 {
-      //   self.store_16(address & !(0b1), value as u16, MemoryAccess::NonSequential);
-      // } else {
-      //   panic!("invalid option for storing half words");
-      // }
-
       match sh {
         1 => {
           self.store_16(address & !(0b1), value as u16, MemoryAccess::NonSequential);
