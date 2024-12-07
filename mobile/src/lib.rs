@@ -366,11 +366,7 @@ impl MobileEmulator {
   }
 
   pub fn set_pause(&mut self, val: bool) {
-    if val {
-      self.nds.paused = true;
-    } else {
-      self.nds.paused = false;
-    }
+    self.nds.paused = val;
   }
 
   pub fn create_save_state(&mut self) -> *const u8 {
