@@ -37,7 +37,6 @@ To test the latest version of the emulator on web, go to https://nds-emulator.on
 
 - Texture/rendering issues
 - CPU bugs
-- Debugging tools
 
 ## Controls
 
