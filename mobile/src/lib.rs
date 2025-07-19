@@ -6,31 +6,24 @@ use ds_emulator::{
     key_input_register::KeyInputRegister
   }}, gpu::registers::power_control_register1::PowerControlRegister1, nds::Nds
 };
-use ffi::ButtonEvent;
 
 extern crate ds_emulator;
 
+const BUTTON_CROSS: usize = 0;
+const BUTTON_CIRCLE: usize = 1;
+const BUTTON_SQUARE: usize = 2;
+const BUTTON_TRIANGLE: usize = 3;
+const SELECT: usize = 4;
+const START: usize = 6;
+const BUTTON_L: usize = 9;
+const BUTTON_R: usize = 10;
+const UP: usize = 12;
+const DOWN: usize = 13;
+const LEFT: usize = 14;
+const RIGHT: usize = 15;
+
 #[swift_bridge::bridge]
 mod ffi {
-  enum ButtonEvent {
-    ButtonA,
-    ButtonB,
-    ButtonY,
-    ButtonX,
-    ButtonL,
-    ButtonR,
-    Select,
-    Start,
-    Up,
-    Down,
-    Left,
-    Right,
-    ButtonHome,
-    ControlStick,
-    QuickSave,
-    QuickLoad,
-    MainMenu
-  }
   extern "Rust" {
     type MobileEmulator;
 
@@ -61,7 +54,7 @@ mod ffi {
     fn release_screen(&mut self);
 
     #[swift_bridge(swift_name = "updateInput")]
-    fn update_input(&mut self, button_event: ButtonEvent, value: bool);
+    fn update_input(&mut self, index: usize, value: bool);
 
     #[swift_bridge(swift_name = "getGameIconPointer")]
     fn get_game_icon_pointer(&self) -> *const u8;
@@ -188,22 +181,22 @@ impl MobileEmulator {
     bus.gpu.frame_finished = false;
   }
 
-  pub fn update_input(&mut self, button_event: ButtonEvent, value: bool) {
+  pub fn update_input(&mut self, index: usize, value: bool) {
     let ref mut bus = *self.nds.bus.borrow_mut();
-    match button_event {
+    match index {
       // TODO: make KeyInputRegister and ExternalKeyInputRegister naming scheme match
-      ButtonEvent::ButtonA => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
-      ButtonEvent::ButtonB => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
-      ButtonEvent::ButtonY => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
-      ButtonEvent::ButtonX => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
-      ButtonEvent::ButtonL => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
-      ButtonEvent::ButtonR => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
-      ButtonEvent::Down => bus.key_input_register.set(KeyInputRegister::Down, !value),
-      ButtonEvent::Left => bus.key_input_register.set(KeyInputRegister::Left, !value),
-      ButtonEvent::Right => bus.key_input_register.set(KeyInputRegister::Right, !value),
-      ButtonEvent::Up => bus.key_input_register.set(KeyInputRegister::Up, !value),
-      ButtonEvent::Start => bus.key_input_register.set(KeyInputRegister::Start, !value),
-      ButtonEvent::Select => bus.key_input_register.set(KeyInputRegister::Select, !value),
+      BUTTON_CIRCLE => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
+      BUTTON_CROSS => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
+      BUTTON_SQUARE => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
+      BUTTON_TRIANGLE => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
+      BUTTON_L => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
+      BUTTON_R => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
+      DOWN => bus.key_input_register.set(KeyInputRegister::Down, !value),
+      LEFT => bus.key_input_register.set(KeyInputRegister::Left, !value),
+      RIGHT => bus.key_input_register.set(KeyInputRegister::Right, !value),
+      UP => bus.key_input_register.set(KeyInputRegister::Up, !value),
+      START => bus.key_input_register.set(KeyInputRegister::Start, !value),
+      SELECT => bus.key_input_register.set(KeyInputRegister::Select, !value),
       _ => ()
     }
   }
