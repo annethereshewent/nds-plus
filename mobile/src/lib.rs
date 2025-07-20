@@ -9,10 +9,10 @@ use ds_emulator::{
 
 extern crate ds_emulator;
 
-const BUTTON_CROSS: usize = 0;
-const BUTTON_CIRCLE: usize = 1;
-const BUTTON_SQUARE: usize = 2;
-const BUTTON_TRIANGLE: usize = 3;
+const BUTTON_B: usize = 0;
+const BUTTON_A: usize = 1;
+const BUTTON_Y: usize = 2;
+const BUTTON_X: usize = 3;
 const SELECT: usize = 4;
 const START: usize = 6;
 const BUTTON_L: usize = 9;
@@ -185,10 +185,10 @@ impl MobileEmulator {
     let ref mut bus = *self.nds.bus.borrow_mut();
     match index {
       // TODO: make KeyInputRegister and ExternalKeyInputRegister naming scheme match
-      BUTTON_CIRCLE => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
-      BUTTON_CROSS => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
-      BUTTON_SQUARE => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
-      BUTTON_TRIANGLE => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
+      BUTTON_A => bus.key_input_register.set(KeyInputRegister::ButtonA, !value),
+      BUTTON_B => bus.key_input_register.set(KeyInputRegister::ButtonB, !value),
+      BUTTON_Y => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_Y, !value),
+      BUTTON_X => bus.arm7.extkeyin.set(ExternalKeyInputRegister::BUTTON_X, !value),
       BUTTON_L => bus.key_input_register.set(KeyInputRegister::ButtonL, !value),
       BUTTON_R => bus.key_input_register.set(KeyInputRegister::ButtonR, !value),
       DOWN => bus.key_input_register.set(KeyInputRegister::Down, !value),
