@@ -118,6 +118,9 @@ mod ffi {
 
     #[swift_bridge(swift_name="pressScreen")]
     fn press_screen(&mut self);
+
+    #[swift_bridge(swift_name="setPausedAudio")]
+    fn set_paused_audio(&mut self, value: bool);
   }
 }
 
@@ -313,6 +316,12 @@ impl MobileEmulator {
     }
 
     vec.as_ptr()
+  }
+
+  pub fn set_paused_audio(&mut self, value: bool) {
+    let ref mut bus = self.nds.bus.borrow_mut();
+
+    bus.arm7.apu.is_paused = value;
   }
 
   pub fn set_backup(&mut self, save_type: String, ram_capacity: usize, bytes: &[u8]) {

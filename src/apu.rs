@@ -117,6 +117,7 @@ pub struct APU {
   pub audio_buffer: Arc<Mutex<VecDeque<f32>>>,
   pub phase: f32,
   pub debug_on: bool,
+  pub is_paused: bool
 }
 
 impl APU {
@@ -128,7 +129,8 @@ impl APU {
       sndcapcnt: [SoundCaptureControlRegister::new(), SoundCaptureControlRegister::new()],
       audio_buffer,
       phase: 0.0,
-      debug_on: false
+      debug_on: false,
+      is_paused: false
     };
 
     scheduler.schedule(
@@ -166,6 +168,10 @@ impl APU {
 
   pub fn generate_samples(&mut self, scheduler: &mut Scheduler, cycles_left: usize) {
     scheduler.schedule(EventType::GenerateSample, CYCLES_PER_SAMPLE - cycles_left);
+
+    if self.is_paused {
+      return;
+    }
 
     let mut mixer = Sample { left: 0.0, right: 0.0 };
     let mut ch1 = Sample { left: 0.0, right: 0.0 };
