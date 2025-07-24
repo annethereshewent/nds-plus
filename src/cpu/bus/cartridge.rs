@@ -136,7 +136,7 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(bios7: &[u8]) -> Self {
+  pub fn new() -> Self {
     Self {
       control: CartridgeControlRegister::new(),
       spicnt: SPICNT::new(),
@@ -145,7 +145,7 @@ impl Cartridge {
       command: [0; 8],
       rom_bytes_left: 0,
       out_fifo: VecDeque::new(),
-      key1_encryption: Key1Encryption::new(bios7),
+      key1_encryption: Key1Encryption::new(),
       spidata: 0,
       current_word: 0,
       backup: BackupType::None,

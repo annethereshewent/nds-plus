@@ -122,12 +122,22 @@ mod ffi {
     #[swift_bridge(swift_name="setPausedAudio")]
     fn set_paused_audio(&mut self, value: bool);
   }
+  extern "Rust" {
+    #[swift_bridge(swift_name= "newLoadState")]
+    fn new_load_state() -> MobileEmulator;
+  }
 }
-
 
 pub struct MobileEmulator {
   nds: Nds,
   compressed_len: usize
+}
+
+pub fn new_load_state() -> MobileEmulator {
+  MobileEmulator {
+    nds: Nds::new_load_state(),
+    compressed_len: 0
+  }
 }
 
 impl MobileEmulator {

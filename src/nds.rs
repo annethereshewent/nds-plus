@@ -66,6 +66,22 @@ impl Nds {
     nds
   }
 
+  pub fn new_load_state() -> Self {
+    let bus = Rc::new(
+      RefCell::new(
+        Bus::new_load_state()
+      )
+    );
+    Self {
+      arm9_cpu: CPU::new(bus.clone()),
+      arm7_cpu: CPU::new(bus.clone()),
+      bus,
+      mic_samples: Arc::new(Mutex::new(vec![0;0].into_boxed_slice())),
+      stepping: false,
+      paused: false
+    }
+  }
+
   pub fn init(&mut self, rom: &Vec<u8>, skip_bios: bool) {
     {
       let ref mut bus = *self.bus.borrow_mut();

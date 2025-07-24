@@ -13,19 +13,15 @@ pub struct Key1Encryption {
 }
 
 impl Key1Encryption {
-  pub fn new(bios7_bytes: &[u8]) -> Self {
-    let mut key1 = Self {
+  pub fn new() -> Self {
+    Self {
       internal_key_buf: vec![0; KEY_TABLE_SIZE].into_boxed_slice(),
       key_buf: vec![0; KEY_TABLE_SIZE].into_boxed_slice(),
       ready: false
-    };
-
-    key1.load_key_table(bios7_bytes);
-
-    key1
+    }
   }
 
-  fn load_key_table(&mut self, bios: &[u8]) {
+  pub fn load_key_table(&mut self, bios: &[u8]) {
     let mut buf_index = 0;
     for i in (0x30..=0x1077).step_by(4) {
       self.internal_key_buf[buf_index] = u32::from_le_bytes(bios[i..i+4].try_into().unwrap());

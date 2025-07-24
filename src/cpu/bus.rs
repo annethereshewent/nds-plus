@@ -181,6 +181,10 @@ impl Bus {
 
     let backup_file = Self::load_firmware(firmware_path, firmware_bytes);
 
+    let mut cartridge = Cartridge::new();
+
+    cartridge.key1_encryption.load_key_table(&bios7_bytes);
+
     Self {
       arm9: Arm9Bus {
         timers: Timers::new(true),
@@ -208,7 +212,7 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(backup_file),
-      cartridge: Cartridge::new(&bios7_bytes),
+      cartridge,
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
@@ -238,8 +242,72 @@ impl Bus {
     }
   }
 
+  pub fn new_load_state() -> Self {
+    let mut scheduler = Scheduler::new();
+
+    Self {
+      arm9: Arm9Bus {
+        timers: Timers::new(true),
+        bios9: Vec::new(),
+        dma: DmaChannels::new(true),
+        cp15: CP15::new(),
+        postflg: true,
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        sqrtcnt: SquareRootControlRegister::new(),
+        sqrt_param: 0,
+        sqrt_result: 0,
+        divcnt: DivisionControlRegister::new(),
+        div_denomenator: 0,
+        div_numerator: 0,
+        div_result: 0,
+        div_remainder: 0,
+        dma_fill: [0; 4],
+      },
+      shared_wram: vec![0; SHARED_WRAM_SIZE].into_boxed_slice(),
+      main_memory: vec![0; MAIN_MEMORY_SIZE].into_boxed_slice(),
+      itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
+      dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
+      spi: SPI::new(None),
+      cartridge: Cartridge::new(),
+      wramcnt: WRAMControlRegister::new(),
+      gpu: GPU::new(&mut scheduler),
+      key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
+      exmem: ExternalMemory::new(),
+      touchscreen: Touchscreen::new(),
+      arm7: Arm7Bus {
+        timers: Timers::new(false),
+        bios7: Vec::new(),
+        dma: DmaChannels::new(false),
+        wram: vec![0; WRAM_SIZE].into_boxed_slice(),
+        postflg: true,
+        interrupt_master_enable: false,
+        ipcsync: IPCSyncRegister::new(),
+        ipcfifocnt: IPCFifoControlRegister::new(),
+        interrupt_request: InterruptRequestRegister::from_bits_retain(0),
+        interrupt_enable: InterruptEnableRegister::from_bits_retain(0),
+        spicnt: SPIControlRegister::new(),
+        extkeyin: ExternalKeyInputRegister::new(),
+        haltcnt: HaltMode::None,
+        apu: APU::new(&mut scheduler, Arc::new(Mutex::new(VecDeque::new()))),
+        rtc: RealTimeClockRegister::new()
+      },
+      scheduler,
+      debug_on: false,
+      game_icon: vec![0; 32 * 32 * 4].into_boxed_slice(),
+      frame_cycles: 0
+    }
+  }
+
   pub fn reset(&mut self) -> Self {
     let firmware_bytes = self.spi.firmware.backup_file.reset();
+
+    let mut cartridge = Cartridge::new();
+
+    cartridge.key1_encryption.load_key_table(&self.arm7.bios7);
 
     let mut scheduler = Scheduler::new();
     Self {
@@ -269,7 +337,7 @@ impl Bus {
       itcm: vec![0; ITCM_SIZE].into_boxed_slice(),
       dtcm: vec![0; DTCM_SIZE].into_boxed_slice(),
       spi: SPI::new(Some(firmware_bytes)),
-      cartridge: Cartridge::new(&self.arm7.bios7),
+      cartridge: Cartridge::new(),
       wramcnt: WRAMControlRegister::new(),
       gpu: GPU::new(&mut scheduler),
       key_input_register: KeyInputRegister::from_bits_truncate(0x3ff),
